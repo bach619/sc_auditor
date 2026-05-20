@@ -19,17 +19,30 @@ class SourceProvider(Protocol):
     name: str
 
     async def fetch(self, chain: str, address: str) -> SourceResult | None:
-        """Fetch verified source code for a contract.
-
-        Args:
-            chain: Blockchain name (e.g. "ethereum").
-            address: Contract address.
-
-        Returns:
-            SourceResult if the contract is verified on this provider,
-            None if the contract is not found.
-        """
         ...
 
 
-__all__ = ["SourceProvider"]
+# Re-export all providers for easy import
+from .blockscout import BlockscoutProvider
+from .etherscan import EtherscanProvider
+from .etherscan_chain import EtherscanChainProvider
+from .eth_call import EthCallProvider
+from .fork_aware import ForkAwareGitHubProvider
+from .github import GitHubProvider
+from .routescan import RoutescanProvider
+from .sourcify import SourcifyProvider
+from .zksync import ZkSyncProvider
+
+
+__all__ = [
+    "SourceProvider",
+    "BlockscoutProvider",
+    "EtherscanProvider",
+    "EtherscanChainProvider",
+    "EthCallProvider",
+    "ForkAwareGitHubProvider",
+    "GitHubProvider",
+    "RoutescanProvider",
+    "SourcifyProvider",
+    "ZkSyncProvider",
+]
