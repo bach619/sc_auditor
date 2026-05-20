@@ -20,6 +20,7 @@ from src.models import SourceResult
 from src.providers import SourceProvider
 from src.providers.blockscout import BlockscoutProvider
 from src.providers.etherscan import EtherscanProvider
+from src.providers.fork_aware import ForkAwareGitHubProvider
 from src.providers.github import GitHubProvider
 from src.providers.sourcify import SourcifyProvider
 
@@ -30,16 +31,18 @@ log = structlog.get_logger()
 DATA_DIR = Path(os.getenv("DATA_DIR", "/data/source"))
 CONTRACTS_DIR = DATA_DIR / "contracts"
 
-# Default provider priority order
+# Default provider priority order (fork_aware first!)
 DEFAULT_PROVIDERS: list[str] = [
+    "fork_aware_github",  # Cek fork dulu sebelum search global
     "etherscan",
     "sourcify",
     "blockscout",
-    "github",
+    "github",             # Fallback GitHub search biasa
 ]
 
 # Provider instances indexed by name
 _PROVIDER_REGISTRY: dict[str, SourceProvider] = {
+    "fork_aware_github": ForkAwareGitHubProvider(),
     "etherscan": EtherscanProvider(),
     "sourcify": SourcifyProvider(),
     "blockscout": BlockscoutProvider(),

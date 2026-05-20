@@ -101,3 +101,21 @@ FASE 4: Mostly Parallel
 
 Setelah SETIAP fase → dispatch @code-reviewer untuk 6-dimension scoring.
 Score < 80 di dimensi mana pun → fix sebelum lanjut fase berikutnya.
+
+---
+
+## Immunefi Enhancement Plan (daily_agenda 01)
+
+Untuk implementasi detail enhancement Service 02 (Immunefi Bug Bounty Intelligence),
+lihat dokumen terpisah:
+
+📄 **`daily_agenda/01_IMPLEMENTATION_PLAN.md`**
+
+Meliputi:
+- **Phase 1** — Enhanced JSON Storage (5 tasks, ~30 min)
+- **Phase 2** — Multi-Source Providers (4 tasks, ~25 min)
+- **Phase 3** — Automated Sync Engine (4 tasks, ~20 min)
+- **Phase 4** — Intelligence Layer (5 tasks, ~35 min)
+- **Phase 5** — Cross-Service Integration (3 tasks, ~15 min)
+- **Phase 6** — Repository Forking (4 tasks, ~25 min)
+- **Total**: 25 tasks, ~146 menit kerja efektif

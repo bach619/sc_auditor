@@ -1,0 +1,21 @@
+﻿import pathlib
+p = pathlib.Path("E:/website/.opencode/skills/security-crypto/SKILL.md")
+s = []
+# --- YAML FRONTMATTER ---
+s.append("---")
+s.append("name: security-crypto")
+s.append("description: Comprehensive modern cryptography engineering skill covering symmetric/asymmetric encryption, AEAD, digital signatures, password hashing, post-quantum (NIST PQC), TLS 1.3, PKI, Zero-Knowledge Proofs, MPC, homomorphic encryption, key management (HSM/KMS), side-channel resistance, applied patterns, anti-patterns, and implementation checklist")
+s.append("license: MIT")
+s.append("compatibility: opencode")
+s.append("metadata:")
+s.append("  audience: security-engineers")
+s.append("  domain: security")
+s.append("  paradigm: cryptographic")
+s.append("  integrates_with: [security-audit, backend-python, backend-go, backend-elixir, systems-embedded, infra-terraform]")
+s.append("---")
+s.append("")
+s.append("# Security Cryptography \u2014 God-Tier Engineering Skill")
+s.append("")
+s.append("Comprehensive reference for modern cryptographic engineering: algorithm selection, production-quality code, security reasoning, and anti-pattern avoidance.")
+s.append("")
+s.append("---")

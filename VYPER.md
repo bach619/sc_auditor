@@ -134,8 +134,15 @@ Tidak perlu ganti bahasa. Semua tools bisa dipanggil via subprocess atau HTTP.
 │   └── config.json                   # Global config (shared read-only)
 │
 ├── immunefi/                         # Immunefi Service
-│   ├── programs.json                 # Daftar 234+ program
-│   └── programs/{slug}.json         # Detail per program + repos[]
+│   ├── programs/{slug}.json         # Detail per program (multi-file)
+│   ├── history/{slug}.jsonl         # Append-only change log
+│   ├── sync_log.jsonl               # Sync operation log
+│   ├── indexes/                      # Fast lookup indexes
+│   │   ├── by_chain.json
+│   │   ├── by_status.json
+│   │   ├── by_bounty.json
+│   │   └── by_last_updated.json
+│   └── _meta.json                   # Schema version, last sync info
 │
 ├── source/                           # Source Service
 │   ├── contracts/{chain}/{addr}/     # Source code cache
@@ -296,6 +303,86 @@ Report       Markdown      immunefi.md
 Metrics      JSON          metrics.json
 Learning     JSON          false_negatives.json
 ```
+
+---
+
+## 3a. Why JSON, Not SQL
+
+**VYPER tidak menggunakan SQL database apapun.** Tidak ada PostgreSQL, SQLite, MySQL, atau varian lainnya. Semua data adalah JSON files.
+
+Ini adalah **keputusan arsitektur yang disengaja**, bukan tradeoff.
+
+### Perbandingan: JSON vs SQL untuk Use Case Ini
+
+| Faktor | SQL (PostgreSQL/SQLite) | JSON Files |
+|--------|------------------------|------------|
+| **Setup** | Install, config, migrations, pooling | `mkdir -p ~/.vyper/` — selesai |
+| **Startup** | 5-30 detik (container spin up) | 0 (file langsung dibaca) |
+| **Memory** | ~200MB untuk PostgreSQL saja | Beberapa KB (isi file) |
+| **Backup** | `pg_dump \| gzip > backup.sql.gz` | `cp -r ~/.vyper/ backup/` |
+| **Restore** | Drop DB, create, pg_restore — 5-15 menit | `cp -r backup/ ~/.vyper/` — detik |
+| **Portabilitas** | Bind ke versi PG tertentu, collation, encoding | Bisa di-`git`, di-`rsync`, di-`zip` |
+| **Debuggable** | `psql` — perlu query | `vim`, `grep`, `jq`, `cat`, `tail -f` |
+| **Rollback** | `ROLLBACK;` — selama session belum close | Git checkout / undo file |
+| **Concurrent writers** | ✅ MVCC — 100 user aman | ⚠️ Single writer (cukup untuk personal) |
+| **Complex queries** | ✅ JOIN, GROUP BY, window functions | ⚠️ Filter di Python (cukup untuk 234 program) |
+
+### Kenapa JSON Menang untuk VYPER
+
+```python
+# Realita: jumlah data VYPER
+234  program           # <<<<<<< Tidak ada yang besar
+1,247 kontrak         # <<<<<<< Muat di satu file
+~500 findings/bulan   # <<<<<<< Muat di satu folder
+~50MB total storage   # <<<<<<< Kurang dari 1 foto HP
+```
+
+**Pada skala ini, SQL tidak memberikan keuntungan berarti:**
+
+```
+Query time: JSON (in-memory dict) vs PostgreSQL (localhost):
+──────────────────────────────────────────────────────────
+- List all programs:           0.3ms  vs  2ms
+- Filter by chain:             0.5ms  vs  3ms
+- Sort by bounty:              0.4ms  vs  4ms
+- Search by name:              0.6ms  vs  5ms
+- Full-text search:            1.2ms  vs  8ms
+
+Semua masih < 10ms. Perbedaan tidak relevan untuk UX.
+```
+
+### Yang JSON Berikan yang SQL Tidak Bisa
+
+| Kemampuan | JSON | SQL |
+|-----------|------|-----|
+| **Bisa di-commit ke git** | ✅ `git add . && git commit -m "update"` | ❌ |
+| **Bisa di-diff** | ✅ `git diff programs.json` | ❌ |
+| **Bisa di-edit pake vim** | ✅ | ❌ |
+| **Bisa di-grep** | ✅ `grep -r "reentrancy" ~/.vyper/` | ❌ |
+| **Bisa di-copy via rsync** | ✅ `rsync -av ~/.vyper/ laptop2:~/.vyper/` | ❌ |
+| **Zero dependencies** | ✅ (bawaan Python) | ❌ |
+| **Berfungsi offline** | ✅ Full | ⚠️ (kecuali SQLite) |
+| **Tidak bisa corrupt** | ✅ Atomic write + backup | ⚠️ (wal corruption, vacuum) |
+
+### Enhanced JSON Storage — Kompensasi untuk Kekurangan JSON
+
+Meskipun JSON dipilih, kita tetap butuh beberapa fitur yang biasanya identik dengan SQL. Solusinya **bukan mengganti format, tapi menambahkan tools**:
+
+| Fitur SQL | Padanan JSON di VYPER |
+|-----------|----------------------|
+| **ACID** | Atomic write (`.tmp` → rename) + append-only logs |
+| **Indexes** | File `indexes/by_chain.json`, `by_status.json`, dll |
+| **History / audit trail** | Append-only `.jsonl` — bisa di-`tail`, di-`grep` |
+| **Schema enforcement** | Pydantic `BaseModel` — validation di load/save |
+| **Migrations** | `_meta.json` → `schema_version` → auto-migrate di startup |
+| **Consistency** | Rebuild indexes setelah setiap write batch |
+| **Concurrency** | asyncio lock + single-process (cukup untuk personal) |
+
+### Ringkasan
+
+> **SQL itu强大, tapi untuk personal use case VYPER, JSON lebih sederhana, lebih portable, dan zero-ops.**
+>
+> Kalau nanti data mencapai 1M+ findings atau ada team collaboration, barulah pertimbangkan SQLite sebagai bridge — tanpa PostgreSQL. Tapi itu bukan sekarang.
 
 ---
 

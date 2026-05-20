@@ -98,6 +98,7 @@ class HealthData(BaseModel):
     """Health check response data."""
     status: str = "ok"
     service: str = "immunefi"
-    version: str = "0.1.0"
+    version: str = "0.2.0"
     programs_cached: int = 0
     last_synced: str | None = None
+    schema_version: str | None = None

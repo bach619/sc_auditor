@@ -1247,3 +1247,231 @@ Start by asking "What problem are we solving?" before every task.
 - Teams you've worked with adopt understanding practices independently
 - You're called in not for technical expertise but for problem-clarification expertise
 - You can predict project failure modes during the first stakeholder conversation
+
+---
+
+## After-Action Review (AAR)
+
+Proses refleksi SETELAH task selesai — jembatan antara "understanding" dan "wisdom extraction".
+Tanpa AAR, understanding bersifat sementara. AAR mengkristalkannya menjadi wisdom yang bisa di-reuse.
+
+### AAR Protocol (15 menit)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│              AFTER-ACTION REVIEW                          │
+│                                                         │
+│  1. What was EXPECTED to happen?                        │
+│     → Initial understanding vs reality                  │
+│                                                         │
+│  2. What ACTUALLY happened?                             │
+│     → Deviations, surprises, errors                     │
+│                                                         │
+│  3. Why did it happen?                                  │
+│     → Root cause analysis (5 Whys)                     │
+│                                                         │
+│  4. What did we LEARN?                                  │
+│     → One-sentence takeaway                             │
+│                                                         │
+│  5. What will we do DIFFERENTLY next time?              │
+│     → Actionable change                                 │
+│                                                         │
+│  Output: 1 entry in lessons-learned.md                  │
+└─────────────────────────────────────────────────────────┘
+```
+
+### AAR Integration dengan Understanding Pipeline
+
+```
+Stage 1 (Intent Extraction)
+    ↓
+Stage 2 (Context Mapping)
+    ↓
+Stage 3 (Constraint Identification)
+    ↓
+Stage 4 (Assumption Surfacing)
+    ↓
+Stage 5 (Domain Synthesis)
+    ↓
+Stage 6 (Validated Understanding)
+    ↓
+IMPLEMENTASI
+    ↓
+AAR ←─── feedback loop ───┐
+    ↓                      │
+lessons-learned.md ────────┘ improve future understanding accuracy
+```
+
+**Prinsip kunci**: "The gap between what I understood and what actually happened is the most valuable learning signal."
+
+Semakin besar gap-nya, semakin besar potensi wisdom yang bisa diekstrak. Jangan sembunyikan gap — dokumentasikan.
+
+### AAR Entry Format
+
+Setiap AAR menghasilkan 1 baris di lessons-learned.md:
+
+```markdown
+| YYYY-MM-DD | [Domain] | Gap: [expected vs actual] | Root cause: [5 Whys result] | Takeaway: [1 kalimat] | Action: [perubahan konkret] |
+```
+
+Contoh:
+```markdown
+| 2026-05-20 | understanding | Saya pikir user butuh fitur X, ternyata butuh workflow Y | Tidak cukup stakeholder interview | "Always validate understanding with a concrete example before implementing" | Tambahkan langkah "contoh konkret" di Stage 6 |
+```
+
+### AAR Maturity
+
+| Level | Praktik AAR |
+|-------|-------------|
+| 1 - Aware | Kadang melakukan AAR kalungat ingat |
+| 2 - Consistent | AAR setelah setiap task > 1 jam |
+| 3 - Systematic | AAR + pola diekstrak ke lessons-learned.md secara otomatis |
+| 4 - Mastery | AAR feedback mengubah pipeline understanding itu sendiri |
+
+---
+
+## Pattern Recognition
+
+Kemampuan untuk MENGENALI bahwa problem saat ini mirip dengan problem masa lalu.
+Ini adalah inti dari wisdom — bukan sekadar tahu banyak, tapi tahu KAPAN dan BAGAIMANA menerapkannya.
+
+### Pattern Recognition Engine
+
+```
+Problem Baru
+    |
+    +--> Domain apa? (Frontend/Backend/Database/Infra/etc.)
+    |
+    +--> Gejala apa? (Slow/Error/Complexity/Conflict/etc.)
+    |
+    +--> Cari di lessons-learned.md → matching patterns
+    |       |
+    |       +--> Match domain + gejala → pola relevan
+    |
+    +--> Apply wisdom dari pola yang cocok
+    |
+    +--> Dokumentasi hasil (pola baru atau variasi?)
+```
+
+### Pattern Matching Heuristics
+
+| Sinyal | Kemungkinan Pola | Sumber |
+|--------|-----------------|--------|
+| "Dependency conflict" | Modular sidecar pattern | A1 |
+| "Multiple independent tasks" | Parallel dispatch | A5 |
+| "User wants complexity" | Simplicity first | U1 |
+| "Error tidak jelas" | Debug methodology | AG1 |
+| "Banyak service" | Microservice splitting | A4 |
+| "Build gagal" | Docker timeout / encoding | Error patterns |
+| "UI jelek" | "Tiru X" approach | U11 |
+| "Mock data" | No mock data — real implementation | U7 |
+| "Over-engineering" | Simplicity first + No dependency bloat | U1 + U2 |
+
+### Before-After Pattern Recognition
+
+**BEFORE wisdom**: Menghadapi setiap problem sebagai hal baru yang tidak pernah dilihat sebelumnya.
+Setiap error, setiap bottleneck, setiap konflik dependency terasa seperti first encounter.
+
+**AFTER wisdom**: "Ah, ini pola yang sama dengan kasus X — bedanya di detail Y."
+Wisdom memampukan kita untuk mengenali pola di balik permukaan yang berbeda.
+
+### Pola vs Variasi
+
+Tidak semua pola cocok persis. Bedakan:
+
+| Situasi | Tindakan |
+|---------|----------|
+| Pola IDENTIK (domain + gejala + konteks cocok) | Apply langsung, dokumentasi sebagai konfirmasi |
+| Pola SERUPA (domain beda, gejala sama) | Adaptasi dengan penyesuaian konteks |
+| Pola BERBEDA (domain sama, gejala beda) | Cari pola lain atau buat pola baru |
+| Tidak ada pola yang cocok | Buat pola baru → dokumentasi di lessons-learned.md |
+
+---
+
+## Wisdom-Enhanced Decision Making
+
+Cara mengintegrasikan `lessons-learned.md` ke dalam proses decision making.
+Keputusan terbaik bukan lahir dari teori sempurna, tapi dari pengalaman yang didokumentasikan dengan baik.
+
+### Wisdom-First Decision Flow
+
+```
+Problem
+    ↓
+Scan Decision Frameworks (lessons-learned.md → Decision Patterns)
+    ↓
+Check Anti-Patterns (lessons-learned.md → Anti-Patterns)
+    ↓
+Apply Relevant Wisdom
+    ↓
+Buat Keputusan
+    ↓
+Log Outcome di decisions.md
+    ↓
+Update lessons-learned.md jika ada pembelajaran baru
+```
+
+### Decision Framework Integration
+
+Setiap kali menghadapi pilihan arsitektur, jangan mulai dari teori — mulai dari pengalaman:
+
+1. **Cek Decision Frameworks** di lessons-learned.md → Decision Patterns
+   - Lihat pola keputusan yang pernah diambil dalam situasi serupa
+   - Perhatikan konteks dan hasil dari keputusan tersebut
+
+2. **Cek Anti-Patterns** — apakah opsi yang dipilih termasuk anti-pattern?
+   - lessons-learned.md → Anti-Patterns
+   - Jika opsi masuk dalam daftar, cari alternatif
+   - Jika terpaksa memilih anti-pattern, dokumentasikan alasannya
+
+3. **Cek Cross-Domain Wisdom** — apakah pola dari domain lain bisa diterapkan?
+   - Contoh: pola container isolation (infra) → dependency conflict di Python (backend)
+   - Contoh: pola parallel dispatch (arsitektur) → task management (workflow)
+
+4. **Buat keputusan** + catat di decisions.md
+   - Format: keputusan, alasan, alternatif yang dipertimbangkan
+   - Referensi ke lessons-learned.md yang relevan
+
+5. **Update lessons-learned.md** jika ada pembelajaran baru
+   - Jika keputusan menghasilkan wisdom baru → tambahkan
+   - Jika keputusan mengonfirmasi wisdom existing → catat sebagai konfirmasi
+
+### The Wisdom Cheat Sheet
+
+3 pertanyaan sebelum membuat keputusan apa pun:
+
+```
+1. "Pernahkah kita menghadapi masalah seperti ini sebelumnya?"
+   → Cek lessons-learned.md → Decision Patterns + Error Patterns
+
+2. "Apa yang bisa saya pelajari dari pengalaman itu?"
+   → Baca detail pola, perhatikan konteks, cari perbedaan
+
+3. "Apa yang akan saya lakukan berbeda berdasarkan pelajaran itu?"
+   → Terapkan wisdom, dokumentasi hasilnya
+```
+
+### Integrasi dengan Maturity Model
+
+Level 4 (Mastery) sekarang termasuk wisdom application:
+
+| Aspek | Sebelum | Sesudah |
+|-------|---------|---------|
+| Problem solving | Menggunakan framework understanding | Framework understanding + wisdom patterns |
+| Decision making | Berdasarkan first principles | First principles + empirical wisdom |
+| Error handling | Debug dari awal | Cek error patterns dulu, baru debug |
+| Architecture | Mulai dari teori | Mulai dari pengalaman terdocumented |
+| Knowledge transfer | Mentoring manual | Mentoring + lessons-learned.md sebagai reference |
+
+### Contoh Penerapan
+
+**Skenario**: User ingin nambah library baru ke project.
+
+**Without wisdom**: Analisis library, baca docs, cek compatibility, install.
+
+**With wisdom**:
+1. Cek anti-patterns → "No dependency bloat" (U2) — warning
+2. Cek decision patterns → "Simplicity first" (U1) — prefer native solution
+3. Cek error patterns → pernah ada dependency conflict sebelumnya? (A1)
+4. **Keputusan**: Cari native solution dulu, baru tambah library jika terpaksa
+5. **Log**: "Memilih native X daripada library Y — menghemat 1 dependency + menghindari potensi conflict"

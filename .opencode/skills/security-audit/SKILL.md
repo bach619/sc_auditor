@@ -1,99 +1,83 @@
 ---
 name: security-audit
-description: Security audit methodology: OWASP Top 10, threat modeling (STRIDE, PASTA), vulnerability assessment (CVSS scoring), penetration testing, SAST/DAST, and remediation planning
+description: Security audit methodology — OWASP, threat modeling, SAST/DAST, pentesting, supply chain, and remediation planning.
 license: MIT
-compatibility: opencode
-metadata:
-  audience: security-engineers
-  domain: security
-  paradigm: defensive
-  integrates_with: [security-crypto, backend-python, backend-go, backend-elixir, database-postgres, frontend-react, frontend-svelte, infra-kubernetes, devops-platform-engineering]
+maturity: god-tier
+audience: security-engineers, devs
 ---
 
-## Security Audit & Pentesting Skill
+# Security-Audit — Panduan Lengkap (Bahasa Indonesia)
 
-### Audit Methodology
+Dokumen ini adalah panduan praktis untuk melakukan security audit aplikasi web dan microservices. Menggabungkan metodologi threat modeling, SAST/DAST, manual pentest, dan audit rantai pasokan.
+
+## 1. Phases of an Audit
+
+1. Scope & Rules of Engagement (ROE): boundaries, timebox, sensitive data handling
+2. Reconnaissance: asset inventory, open ports, dependency tree
+3. Threat Modeling: STRIDE per component
+4. Automated Scans: SAST (static), DAST (dynamic), dependency scanning
+5. Manual Testing: auth bypass, business logic, chained exploits
+6. Reporting & Remediation: triage by severity (CVSS) + reproduction steps
+
+## 2. Threat Modeling (STRIDE)
+
+- Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege
+- For each component: identify assets, entry points, trust boundaries, and mitigations.
+
+## 3. SAST & Dependency Scanning
+
+- Tools: Semgrep, Bandit (Python), npm audit / snyk, OWASP Dependency-Check
+- CI integration: fail build on high-severity vulnerabilities, create ticket with remediation steps
+
+CI example (GitHub Actions) snippet:
+
+```yaml
+name: security-scan
+on: [push, pull_request]
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+      - name: Run dependency-check
+        uses: owasp/dependency-check-action@v2
 ```
-Reconnaissance → Threat Modeling → Vulnerability Assessment → Exploitation → Remediation → Re-verification
-```
 
-### OWASP Top 10 (Current)
-1. **Broken Access Control**: IDOR, path traversal, CORS misconfig, forced browsing — verify every endpoint
-2. **Cryptographic Failures**: Hardcoded keys, weak algorithms (MD5/SHA1), missing TLS, exposed secrets
-3. **Injection**: SQL, NoSQL, OS command, LDAP, XPath — parameterize ALL queries
-4. **Insecure Design**: Missing rate limiting, no input validation, over-trust of client-side data
-5. **Security Misconfig**: Default credentials, verbose errors, unnecessary features enabled
-6. **Vulnerable Components**: Outdated dependencies, unpatched CVEs, unsupported software
-7. **Auth Failures**: Weak password policy, credential stuffing vulnerable, session fixation
-8. **Software & Data Integrity**: Unsigned updates, insecure deserialization, CI/CD pipeline poisoning
-9. **Logging & Monitoring**: No audit trail, insufficient alerting, logs without integrity protection
-10. **SSRF**: Server-Side Request Forgery — validate and sanitize ALL user-supplied URLs
+## 4. DAST & Runtime Analysis
 
-### Threat Modeling
-- **STRIDE**: Spoofing, Tampering, Repudiation, Info disclosure, DoS, Elevation of privilege
-- **PASTA**: Process for Attack Simulation and Threat Analysis — 7-stage risk-centric
-- **Attack Trees**: Root = goal, nodes = attack steps, leaves = attack vectors
-- **Outputs**: Data flow diagram (trust boundaries), threat list (prioritized), mitigation plan
+- Use OWASP ZAP or Burp Suite for dynamic scans. Instrument runtime logs and traces to correlate findings.
+- Fuzz critical endpoints with corpora derived from real traffic.
 
-### Vulnerability Scoring (CVSS v4)
-- **Base**: Exploitability (AV, AC, PR, UI) + Impact (C, I, A) = 0-10
-- **Temporal**: Exploit maturity, remediation level, report confidence
-- **Environmental**: Modified base metrics + security requirements
-- **Severity**: None (0), Low (0.1-3.9), Medium (4.0-6.9), High (7.0-8.9), Critical (9.0-10.0)
+## 5. Manual Pentest Priority Areas
 
-### SAST / DAST
-- **SAST (Static)**: Semgrep, CodeQL, SonarQube — analyze source code without execution
-- **DAST (Dynamic)**: OWASP ZAP, Burp Suite — test running application
-- **SCA (Composition)**: Dependabot, Snyk, OWASP Dependency-Check — check dependencies
-- **Secret Scanning**: TruffleHog, Gitleaks, GitGuardian — find exposed credentials
+- Authentication & session management (login brute force, session fixation)
+- Authorization (object-level access control, IDOR)
+- Business logic abuse (refund flows, race conditions)
+- Input validation (SQLi, XSS, command injection)
+- File upload & deserialization vulnerabilities
 
-### Remediation Priorities
-1. **Critical (24h)**: RCE, authentication bypass, data exfiltration possible
-2. **High (1 week)**: SQLi, XSS (stored), privilege escalation, SSRF
-3. **Medium (1 sprint)**: XSS (reflected), CSRF, information disclosure
-4. **Low (backlog)**: Security headers missing, verbose errors in non-prod
+## 6. Supply Chain Security
 
-### Common Anti-Patterns
+- Use Sigstore/Cosign for artifact signing
+- Enforce SLSA levels for CI/CD pipelines
+- Lock dependency versions, use reproducible builds
 
-| Anti-Pattern | Why It Fails | Fix |
-|---|---|---|
-| Checkbox compliance | Running SAST scanner without reviewing results gives false confidence | Triage every finding; maintain a vulnerability register with owners |
-| Relying solely on automated scanners | Scanners miss business logic flaws, auth bypass, race conditions | Combine SAST + DAST + manual penetration testing |
-| No threat modeling | Security bolted on after design; fundamental flaws missed | Run STRIDE/PASTA during architecture phase; update on scope changes |
-| Shift-right testing | Testing only after deployment to production | Integrate security gates in CI: pre-commit → PR → staging → pre-prod |
-| Ignoring dependency vulnerabilities | Known CVEs in transitive dependencies accumulate unpatched | Dependabot/Renovate with auto-merge for patch; weekly review for major |
-| False sense of security from pentest | One pentest per year doesn't catch daily code changes | Continuous security testing; automated DAST on every deployment |
-| Over-reliance on WAF | WAF bypass techniques bypass signature-based rules | Defense in depth: WAF + input validation + parameterized queries + CSP |
-| No responsible disclosure program | Security researchers can't report vulnerabilities safely | Publish `security.txt`; set up bug bounty or vulnerability disclosure program |
-| Secret sprawl | API keys, tokens, passwords in code, configs, logs, chat history | Secret scanning in CI (truffleHog/gitleaks); pre-commit hooks; vault for secrets |
+## 7. Reporting & Remediation
 
-### Troubleshooting
+- Triage by CVSS + exploitability + business impact
+- Provide PoC (if safe) + remediation steps + test case
+- Post-fix: re-run targeted tests and confirm fix
 
-| Symptom | Likely Cause | Diagnosis | Fix |
-|---|---|---|---|
-| SAST false positives overwhelming | Scanner rules too broad; no tuning | Review false positive rate per rule (>30% is high) | Disable noisy rules; use suppression comments with justification |
-| DAST scan too slow | Crawling entire app; too many pages | Check scan duration; review crawl scope | Limit to critical paths; use authenticated scan for protected pages |
-| SCA dependency conflicts | Transitive dependency version mismatch; breaking changes | Run `npm ls`, `pipdeptree`, `go mod graph` | Pin with lockfile; test upgrades on staging |
-| Secret in git history | Secret committed before scanning was configured | `git log -p` shows secret in old commits | Rotate secret immediately; use `git filter-repo` to purge history |
-| OWASP ZAP false positives on CSRF | ZAP sends requests without proper tokens | Review ZAP alerts for CSRF tokens in session | Configure ZAP context with auth; use script-based auth |
-| Container image scan rejecting builds | High-severity CVEs in base image | Check scan output for CVE IDs and fix versions | Update base image; use distroless; pin to digest |
-| SSL/TLS scan shows weak ciphers | Old TLS config on server | ssllabs.com or testssl.sh scan | Restrict to TLS 1.2+ with strong cipher suites |
+---
 
-### Implementation Checklist
+## Appendix: Quick Checklist (Bahasa Indonesia)
 
-- [ ] Threat model created (STRIDE/PASTA) for the system
-- [ ] SAST tool configured in CI (Semgrep/CodeQL/SonarQube)
-- [ ] DAST scanning scheduled (OWASP ZAP/Burp Suite) on staging
-- [ ] SCA/dependency scanning active (Dependabot/Snyk/OWASP Dependency-Check)
-- [ ] Secret scanning in CI and pre-commit hooks (truffleHog/gitleaks)
-- [ ] Container image scanning in CI pipeline (Trivy/Grype)
-- [ ] OWASP Top 10 covered by automated tests for the specific tech stack
-- [ ] Rate limiting on all auth and API endpoints
-- [ ] CSP headers configured and tested
-- [ ] CORS configured with explicit origins (no `*` in production)
-- [ ] Responsible disclosure / bug bounty program published
-- [ ] `security.txt` deployed at `/.well-known/security.txt`
-- [ ] Penetration test conducted before major releases
-- [ ] Vulnerability remediation SLAs defined (Critical: 24h, High: 1w, Medium: 1 sprint)
-- [ ] Incident response plan documented and tested (tabletop exercise)
-- [ ] Security regression tests added for previously fixed vulnerabilities
+- [ ] Scope & ROE defined
+- [ ] Asset inventory complete
+- [ ] Semgrep/SAST in CI
+- [ ] Dependency scanning configured
+- [ ] DAST scan executed
+- [ ] Manual pentest critical flows covered
+- [ ] Remediation tickets created + verified

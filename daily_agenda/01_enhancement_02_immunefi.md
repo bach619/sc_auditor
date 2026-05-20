@@ -159,78 +159,230 @@ async def sync_incremental(self) -> SyncStatus:
     self.save_programs()
 ```
 
-### 3.3 Database Upgrade: SQLite → PostgreSQL
+### 3.3 Storage Upgrade: Enhanced JSON (No SQL)
 
-Ganti JSON file dengan PostgreSQL untuk:
+> **Keputusan arsitektur**: Tidak menggunakan SQL database apapun (PostgreSQL, SQLite, dsb).  
+> Service 02 — seperti semua service di VYPER — tetap **100% JSON file-based**.
+>
+> Alasan: lihat VYPER.md § "Why JSON, Not SQL".
 
-```sql
--- Programs table
-CREATE TABLE programs (
-    slug            TEXT PRIMARY KEY,
-    name            TEXT NOT NULL,
-    description     TEXT,
-    status          TEXT DEFAULT 'unknown',
-    max_bounty      NUMERIC(20,2),
-    min_bounty      NUMERIC(20,2),
-    currency        TEXT DEFAULT 'USD',
-    project_url     TEXT,
-    logo            TEXT,
-    tags            TEXT[],       -- PostgreSQL array
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW(),
-    last_synced     TIMESTAMPTZ,
-    commit_hash     TEXT,
-    metadata        JSONB         -- Flexible extra data
-);
+Ganti flat `programs.json` dengan struktur **multi-file + index** untuk performa dan reliability yang lebih baik tanpa kehilangan benefits JSON:
 
--- Chains (many-to-many)
-CREATE TABLE program_chains (
-    program_slug    TEXT REFERENCES programs(slug),
-    chain           TEXT,
-    PRIMARY KEY (program_slug, chain)
-);
-
--- Contracts
-CREATE TABLE program_contracts (
-    id              SERIAL PRIMARY KEY,
-    program_slug    TEXT REFERENCES programs(slug),
-    address         TEXT NOT NULL,
-    chain           TEXT NOT NULL,
-    name            TEXT,
-    UNIQUE(program_slug, address, chain)
-);
-
--- Repos
-CREATE TABLE program_repos (
-    id              SERIAL PRIMARY KEY,
-    program_slug    TEXT REFERENCES programs(slug),
-    url             TEXT NOT NULL,
-    owner           TEXT,
-    repo            TEXT,
-    source          TEXT DEFAULT 'unknown',
-    UNIQUE(program_slug, url)
-);
-
--- Historical snapshots (track changes over time)
-CREATE TABLE program_history (
-    id              SERIAL PRIMARY KEY,
-    program_slug    TEXT REFERENCES programs(slug),
-    snapshot        JSONB,        -- Full program state at that time
-    captured_at     TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Sync log
-CREATE TABLE sync_log (
-    id              SERIAL PRIMARY KEY,
-    sync_id         TEXT,
-    status          TEXT,
-    programs_total  INT DEFAULT 0,
-    programs_synced INT DEFAULT 0,
-    started_at      TIMESTAMPTZ,
-    completed_at    TIMESTAMPTZ,
-    error           TEXT
-);
 ```
+/data/immunefi/
+├── programs.json                 # Master file — data semua program (atomic write)
+├── programs/{slug}.json          # Per-program detail (isolated, concurrent-safe)
+├── history/{slug}.jsonl          # Append-only log perubahan (JSON Lines)
+├── sync_log.jsonl                # Append-only sync history (JSON Lines)
+├── indexes/
+│   ├── by_chain.json             # chain → [slug, ...]
+│   ├── by_status.json            # status → [slug, ...]
+│   ├── by_bounty.json            # bounty_range → [slug, ...]
+│   └── by_last_updated.json      # ordered list (untuk "recent changes")
+└── _meta.json                    # Schema version, last synced, commit hash
+```
+
+#### Fitur JSON Enhancement
+
+```python
+class EnhancedJSONStorage:
+    """JSON storage with indexing, history, and atomic operations."""
+
+    SCHEMA_VERSION = "2.0"
+
+    def __init__(self, data_dir: Path):
+        self.data_dir = data_dir
+        self._ensure_dirs()
+
+    def _ensure_dirs(self):
+        """Create required directory structure."""
+        for sub in ["programs", "history", "indexes"]:
+            (self.data_dir / sub).mkdir(parents=True, exist_ok=True)
+
+    # ── Atomic Writes ─────────────────────────────────────────
+
+    def write_atomic(self, path: Path, data: Any) -> bool:
+        """Atomic write: write to .tmp → fsync → rename (POSIX atomic)."""
+        tmp = path.with_suffix(".tmp")
+        try:
+            tmp.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+            tmp.replace(path)
+            return True
+        except OSError:
+            if tmp.exists(): tmp.unlink()
+            return False
+
+    # ── Per-Program Files ─────────────────────────────────────
+
+    def save_program(self, program: Program):
+        """Save a single program to its own file."""
+        path = self.data_dir / "programs" / f"{program.slug}.json"
+        self.write_atomic(path, program.model_dump(mode="json"))
+
+    def load_program(self, slug: str) -> Program | None:
+        """Load a single program from its file."""
+        path = self.data_dir / "programs" / f"{slug}.json"
+        if not path.exists():
+            return None
+        return Program(**json.loads(path.read_text(encoding="utf-8")))
+
+    # ── Append-Only History (JSON Lines) ──────────────────────
+
+    def append_history(self, slug: str, snapshot: dict):
+        """Append a historical snapshot to {slug}.jsonl.
+        
+        Format: JSON Lines — each line is a self-contained JSON object.
+        Ini bisa di-grep, di-tail, di-parse dengan tools standar.
+        """
+        path = self.data_dir / "history" / f"{slug}.jsonl"
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "snapshot": snapshot,
+        }
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, default=str) + "\n")
+
+    def get_history(self, slug: str, limit: int = 50) -> list[dict]:
+        """Read last N historical entries (reverse chronological)."""
+        path = self.data_dir / "history" / f"{slug}.jsonl"
+        if not path.exists():
+            return []
+        lines = path.read_text(encoding="utf-8").strip().split("\n")
+        return [json.loads(l) for l in lines[-limit:][::-1]]
+
+    # ── Indexes (for fast filtering without full scan) ─────────
+
+    def rebuild_indexes(self, programs: dict[str, Program]):
+        """Rebuild all indexes from the full program set."""
+        by_chain: dict[str, list[str]] = {}
+        by_status: dict[str, list[str]] = {}
+        by_bounty: dict[str, list[str]] = {"0-1k": [], "1k-10k": [], "10k-100k": [],
+                                            "100k-1M": [], "1M+": [], "unknown": []}
+        by_updated: list[dict] = []
+
+        for slug, p in programs.items():
+            # Chain index
+            for c in p.chains:
+                by_chain.setdefault(c, []).append(slug)
+
+            # Status index
+            s = p.status or "unknown"
+            by_status.setdefault(s, []).append(slug)
+
+            # Bounty index
+            bounty = p.max_bounty
+            if bounty is None:
+                by_bounty["unknown"].append(slug)
+            elif bounty < 1000:
+                by_bounty["0-1k"].append(slug)
+            elif bounty < 10_000:
+                by_bounty["1k-10k"].append(slug)
+            elif bounty < 100_000:
+                by_bounty["10k-100k"].append(slug)
+            elif bounty < 1_000_000:
+                by_bounty["100k-1M"].append(slug)
+            else:
+                by_bounty["1M+"].append(slug)
+
+            # Updated-at index (for sorting)
+            by_updated.append({"slug": slug, "updated_at": p.updated_at})
+
+        # Sort by_updated descending
+        by_updated.sort(key=lambda x: x["updated_at"], reverse=True)
+
+        index_dir = self.data_dir / "indexes"
+        self.write_atomic(index_dir / "by_chain.json", by_chain)
+        self.write_atomic(index_dir / "by_status.json", by_status)
+        self.write_atomic(index_dir / "by_bounty.json", by_bounty)
+        self.write_atomic(index_dir / "by_last_updated.json",
+                          [i["slug"] for i in by_updated])
+
+    # ── Schema Version / Migration ────────────────────────────
+
+    @property
+    def meta_path(self) -> Path:
+        return self.data_dir / "_meta.json"
+
+    def read_meta(self) -> dict:
+        """Read metadata file. Returns defaults if missing."""
+        if not self.meta_path.exists():
+            return {"schema_version": self.SCHEMA_VERSION,
+                    "last_synced": None, "commit_hash": None}
+        return json.loads(self.meta_path.read_text(encoding="utf-8"))
+
+    def write_meta(self, **kwargs):
+        """Update metadata file."""
+        meta = self.read_meta()
+        meta.update(kwargs)
+        meta["schema_version"] = self.SCHEMA_VERSION
+        self.write_atomic(self.meta_path, meta)
+
+    # ── Compatibility Layer ───────────────────────────────────
+
+    def load_all_programs(self) -> dict[str, Program]:
+        """Load all programs (migrate from old flat format if needed).
+        
+        Legacy support: jika programs.json masih ada dan _meta.json belum ada,
+        otomatis migrasi ke format baru.
+        """
+        legacy = self.data_dir / "programs.json"
+        if legacy.exists() and not self.meta_path.exists():
+            return self._migrate_from_legacy(legacy)
+
+        programs: dict[str, Program] = {}
+        prog_dir = self.data_dir / "programs"
+        if not prog_dir.exists():
+            return programs
+
+        for f in sorted(prog_dir.iterdir()):
+            if f.suffix == ".json" and f.stem != "_meta":
+                try:
+                    p = Program(**json.loads(f.read_text(encoding="utf-8")))
+                    programs[p.slug] = p
+                except Exception:
+                    continue
+        return programs
+
+    def _migrate_from_legacy(self, legacy_path: Path) -> dict[str, Program]:
+        """Migrate from old single-file format to new multi-file."""
+        data = json.loads(legacy_path.read_text(encoding="utf-8"))
+        programs_data = data.get("programs", data)  # handle both formats
+        programs = {}
+        for slug, pdata in (programs_data.items()
+                           if isinstance(programs_data, dict)
+                           else enumerate(programs_data)):
+            p = Program(**pdata) if isinstance(pdata, dict) else pdata
+            programs[p.slug] = p
+            self.save_program(p)
+
+        # Preserve metadata
+        self.write_meta(
+            last_synced=data.get("last_synced"),
+            commit_hash=data.get("commit_hash", ""),
+        )
+        self.rebuild_indexes(programs)
+
+        # Rename legacy file as backup
+        legacy_path.rename(legacy_path.with_suffix(".json.bak"))
+        return programs
+```
+
+#### Keuntungan Dibanding PostgreSQL
+
+| Aspek | PostgreSQL (dari proposal) | Enhanced JSON (sekarang) |
+|-------|---------------------------|--------------------------|
+| **Dependency** | +1 container, 200MB+ | **Zero** |
+| **Setup** | Migrations, pooling, config | **Buat folder → selesai** |
+| **Backup** | `pg_dump` → restore | `cp -r /data/immunefi backup/` |
+| **Portability** | Bind to specific PG version | **Bisa di-git, di-rsync, di-zip** |
+| **Debugging** | `psql` + query | **vim, grep, jq, tail -f** |
+| **Performance** | Overkill untuk 234 program | **< 10ms untuk semua operasi** |
+| **History** | Table + JSONB | **JSON Lines — append, grep, rotate** |
+| **Atomicity** | ✅ ACID | ✅ Atomic replace + jsonl append |
+| **Concurrent access** | ✅ MVCC | ⚠️ Single-process (cukup) |
+
+> **Catatan**: Untuk personal use, JSON lebih unggul di semua metrik yang relevan.  
+> PostgreSQL baru worth it kalau ada 10+ concurrent writers atau data > 1GB.
 
 ### 3.4 New Endpoints Level 1
 

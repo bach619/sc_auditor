@@ -752,4 +752,468 @@ For each skill, verify self-improving infrastructure:
 │  /skill-sync   /skill-report  /skill-evolve  /skill-history│
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
+
+---
+
+## 14. Session Wisdom Extraction
+
+Proses sistematis untuk mengekstrak wisdom dari `activity-log.md` SETELAH setiap session. Ini adalah jembatan antara data mentah (activity log) dan pengetahuan abadi (lessons-learned.md).
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              SESSION WISDOM EXTRACTION                       │
+│                                                             │
+│  Step 1: SCAN activity-log.md untuk entries session ini     │
+│          Filter by date range atau session ID               │
+│                                                             │
+│  Step 2: IDENTIFY pola berulang (≥2 occurrences)            │
+│          "Apakah error yang sama muncul 2+ kali?"           │
+│          "Apakah pattern yang berhasil diulang?"            │
+│                                                             │
+│  Step 3: CATAT error + solusi ke lessons-learned.md         │
+│          Error Patterns table: root cause → solusi          │
+│                                                             │
+│  Step 4: EVALUATE — pola baru atau sudah ada?               │
+│          Jika sudah ada: update frequency counter            │
+│          Jika baru: buat entry baru                          │
+│                                                             │
+│  Step 5: DISTILL — kompres 5 pola jadi 1 prinsip           │
+│          Cari kesamaan esensi di balik detail permukaan     │
+│                                                             │
+│  Step 6: UPDATE lessons-learned.md + knowledge.md           │
+│          Jangan biarkan wisdom di kepala — tulis!           │
+│                                                             │
+│  Time budget: 5 menit per session                           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 14.1 Post-Session Reflection Template
+
+Setelah setiap session, jawab 5 pertanyaan ini:
+
+```markdown
+## Post-Session Reflection — YYYY-MM-DD
+
+### 1. Pola Berulang
+Apa yang saya lihat terjadi lebih dari sekali?
+- [Pola A] — muncul N kali
+- [Pola B] — muncul N kali
+
+### 2. Keputusan & Rationale
+Keputusan apa yang saya buat? Mengapa?
+- Keputusan: [X] → Alasan: [Y]
+- Keputusan: [A] → Alasan: [B]
+
+### 3. What Would I Do Differently?
+Jika bisa mengulang, apa yang akan diubah?
+- [Hal yang berbeda]
+- Karena [alasan]
+
+### 4. Surprises
+Apa yang tidak saya duga?
+- [Surprise 1]
+- [Surprise 2]
+
+### 5. Next Session Reminder
+Apa yang harus saya ingat di session depan?
+- [Reminder 1]
+- [Reminder 2]
+```
+
+### 14.2 Pattern-to-Wisdom Pipeline
+
+```
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│ RAW DATA │───▶│ PATTERN  │───▶│ WISDOM   │───▶│ PRINSIP  │
+│ Activity │    │ Detected │    │ Extracted│    │ Universal│
+│ Log      │    │ ≥2×      │    │ 1 kalimat│    │ Abadi    │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘
+     │              │              │              │
+     ▼              ▼              ▼              ▼
+  "Error X    "X terjadi    "Selalu pakai   "Isolasi
+   muncul"     3 kali"       container       dependency
+                             untuk X"        di container"
+```
+
+### 14.3 Integration with lessons-learned.md
+
+`lessons-learned.md` adalah wisdom storage. Setiap entry di Session Wisdom Extraction harus menghasilkan **salah satu** dari:
+
+| Target Section | Ketika menemukan | Contoh |
+|---------------|------------------|--------|
+| **Preferensi User** | User mengatakan preferensi baru | "User mau markdown, bukan JSON" |
+| **Pelajaran Teknis** | Technical insight yang reusable | "Typer > Click karena Rich built-in" |
+| **Anti-Patterns** | Pola yang gagal, hindari nanti | "Over-engineering → user tolak" |
+| **Decision Patterns** | Keputusan yang berhasil | "Parallel dispatch untuk independent tasks" |
+| **Error Patterns** | Error + solusi yang ditemukan | "Docker build timeout perlu 30 menit" |
+
+---
+
+## 15. Cross-Session Learning
+
+Cara menghubungkan pola dari session lama ke session baru. Tanpa ini, setiap session dimulai dari nol — wisdom dari masa lalu tidak pernah dipakai.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              CROSS-SESSION LEARNING FLOW                     │
+│                                                             │
+│  ┌────────────────┐                                         │
+│  │  NEW TASK      │  → Extract domain keywords              │
+│  │  ARRIVES       │     (e.g., "React", "bug", "migration") │
+│  └────────┬───────┘                                         │
+│           ▼                                                  │
+│  ┌────────────────┐                                         │
+│  │  RELEVANCE     │  → Scan lessons-learned.md headers      │
+│  │  SCAN          │     Match domain keywords               │
+│  └────────┬───────┘                                         │
+│           ▼                                                  │
+│  ┌────────────────┐                                         │
+│  │  ANALOGY       │  → "Ini mirip dengan masalah X          │
+│  │  MAPPING       │     karena sama-sama Y"                 │
+│  └────────┬───────┘                                         │
+│           ▼                                                  │
+│  ┌────────────────┐                                         │
+│  │  ANTI-PATTERN  │  → Cek error patterns dulu              │
+│  │  CHECK         │     Jangan ulangi kesalahan masa lalu   │
+│  └────────┬───────┘                                         │
+│           ▼                                                  │
+│  ┌────────────────┐                                         │
+│  │  APPLY WISDOM  │  → Gunakan prinsip dari masa lalu       │
+│  │  + EXECUTE     │     Tapi verifikasi masih relevan       │
+│  └────────────────┘                                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 15.1 Relevance Scoring
+
+Ketika mulai task baru, scan `lessons-learned.md` → hitung relevance tiap lesson:
+
+| Teknik | Kapan Pakai | How |
+|--------|------------|-----|
+| **Keywords Match** | Start of session | Extract domain keywords dari task → cari di lessons-learned.md headers |
+| **Context Similarity** | Novel problem | "Apakah problem ini punya karakteristik yang sama dengan problem di session X?" |
+| **Anticipatory Scan** | Before execution | "Apa yang paling mungkin gagal?" → cek Error Patterns dulu |
+| **Freshness Check** | All sessions | Lesson > 90 days? Mungkin outdated — perlu verifikasi |
+
+```
+Relevance Score = (Keyword Matches × 0.6) + (Context Similarity × 0.3) + (Recency × 0.1)
+
+Rule of thumb:
+- Score > 7: READ the full lesson
+- Score 4-7: SCAN highlights
+- Score < 4: IGNORE (jangan buang waktu)
+```
+
+### 15.2 Analogy Engine
+
+Teknik untuk menghubungkan pola dari domain berbeda:
+
+```
+Format: "Problem A with [domain X] is similar to Problem B with [domain Y]
+        because both share [underlying Z]"
+
+Example:
+- "Dependency conflict mythril vs web3 (Python) is similar to
+   React 18 → React 19 migration conflict (JavaScript)
+   because both share: incompatible transitive dependencies"
+
+- "Parallel dispatch 3 subagents for React SPA migration is similar to
+   parallel CI/CD pipeline stages
+   because both share: independent work units benefit from concurrency"
+```
+
+### 15.3 Session Retrieval
+
+Cara cepat temukan pola relevan dari `session-log.md`:
+
+```
+1. Filter by DOMAIN tag:
+   /frontend/ | /backend/ | /infra/ | /security/ | /system/
+
+2. Filter by PROBLEM TYPE:
+   migration | debugging | architecture | deployment | config
+
+3. Filter by OUTCOME:
+   sukses | gagal | partial
+
+4. Combine:
+   /backend/ + migration + sukses → semua session backend migration yang sukses
+```
+
+### 15.4 Wisdom Freshness
+
+Pola > 90 hari mungkin outdated — perlu verifikasi:
+
+| Age | Status | Action |
+|-----|--------|--------|
+| 0-30 hari | Fresh | Gunakan langsung |
+| 31-90 hari | Recent | Gunakan, tapi cek teknologi masih sama |
+| 91-180 hari | Questionable | Verifikasi dulu sebelum pakai |
+| 180+ hari | Stale | Anggap tidak valid sampai terbukti masih berlaku |
+
+---
+
+## 16. Anti-Pattern Signature Recognition
+
+Cara mendeteksi anti-pattern SEBELUM gagal — bukan setelahnya. Setiap anti-pattern memiliki "signature" unik yang bisa dikenali dari awal.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              ANTI-PATTERN SIGNATURE RECOGNITION              │
+│                                                             │
+│  Setiap anti-pattern punya 3 komponen:                      │
+│                                                             │
+│  [TRIGGER]      +  [EARLY WARNING]     +  [CONSEQUENCES]    │
+│  Kondisi awal      Tanda-tanda awal       Apa yang terjadi  │
+│  yang memicu       sebelum gagal          jika tidak dicegah│
+│                                                             │
+│  Goal: Kenali [EARLY WARNING] sebelum [CONSEQUENCES] terjadi│
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 16.1 Signature Format
+
+Setiap signature terdiri dari:
+
+```markdown
+### [Nama Anti-Pattern]
+- **Trigger**: Kapan pola ini biasanya mulai?
+- **Early Warning**: Tanda apa yang muncul sebelum gagal?
+- **Consequences**: Apa yang terjadi jika tidak dicegah?
+- **Prevention**: Bagaimana menghindarinya?
+- **Catch Phrase**: Slogan 1 kalimat untuk diingat
+```
+
+### 16.2 Top 5 Anti-Pattern Signatures
+
+#### [AP-01] Over-Engineering Cascade
+
+```
+- **Trigger**: Problem sederhana, tapi langsung mikir infrastruktur kompleks
+  "Butuh database? Langsung pikirkan PostgreSQL + Redis + queue + CDC"
+- **Early Warning**:
+  • Solusi yang diusulkan > 3 komponen untuk problem yang < 10 fitur
+  • Ada kalimat "what if we need X in the future?" untuk X yang belum pasti
+  • Stack yang diusulkan belum pernah dipakai tim sebelumnya
+- **Consequences**:
+  • Development time 3× lebih lama → momentum hilang
+  • Complexity overhead > benefit yang didapat
+  • Maintenance burden jangka panjang
+- **Prevention**:
+  • Tanya: "Apa solusi paling sederhana yang bisa jalan hari ini?"
+  • Apply YAGNI: "You Ain't Gonna Need It"
+  • Batasi: max 2 komponen untuk problem < 10 fitur
+- **Catch Phrase**: "Jangan bangun menara gading untuk menyimpan paku"
+```
+
+#### [AP-02] Premature Abstraction
+
+```
+- **Trigger**: Melihat 1 use case → langsung bikin generic abstract factory
+- **Early Warning**:
+  • Kode punya interface/abstract class sebelum ada implementasi kedua
+  • Ada `factory`, `provider`, `manager` di nama class untuk hal yang baru 1× dipakai
+  • File terpisah untuk "abstraksi" yang hanya punya 1 implementasi konkret
+- **Consequences**:
+  • Indirection tanpa benefit → code harder to follow
+  • Abstraction yang salah arah → harus refactor saat use case kedua datang
+  • Waste: 3× lebih banyak kode dari yang diperlukan
+- **Prevention**:
+  • Rule of Three: jangan abstraksi sebelum punya 3 use case
+  • Tanya: "Apa konkretnya dulu?" — implementasi dulu, generalisasi belakangan
+  • Prefer duplication over wrong abstraction (Sanderson's Rule)
+- **Catch Phrase**: "Abstraksi tanpa duplikasi adalah spekulasi"
+```
+
+#### [AP-03] Dependency Bloat
+
+```
+- **Trigger**: Masalah 5 baris → solusi: tambah library 50MB
+- **Early Warning**:
+  • npm install / pip install tanpa riset apakah ada built-in solution
+  • Library yang ditambahkan hanya dipakai untuk 1 fungsi kecil
+  • Tidak ngecek dependency tree — library besar punya sub-dependency raksasa
+- **Consequences**:
+  • Build time naik, install time naik, bundle size naik
+  • Attack surface bertambah (tiap dependency = potensi vulnerability)
+  • Ketergantungan ke maintainer eksternal — library bisa deprecated kapan saja
+- **Prevention**:
+  • "Can I do this with 20 lines of native code?"
+  • Cek Node.js/Python standard library dulu
+  • Hitung cost: "Apakah 5 baris kode > dependency 50MB + risiko security?"
+- **Catch Phrase**: "20 baris kustom > 50MB dependency"
+```
+
+#### [AP-04] Solution-Jumping
+
+```
+- **Trigger**: Melihat gejala → langsung simpulkan solusi tanpa diagnose
+  "Query lambat? Tambah index!" — tanpa lihat query plan dulu
+- **Early Warning**:
+  • Solusi diusulkan sebelum root cause terverifikasi
+  • Tidak ada "diagnosis step" — langsung ke treatment
+  • Asumsi dibuat tanpa data ("pasti karena X")
+- **Consequences**:
+  • Solusi salah sasaran → problem tetap ada
+  • Waktu terbuang untuk fix yang tidak perlu
+  • Bisa memperkenalkan masalah baru
+- **Prevention**:
+  • Wajib: verifikasi root cause dulu (5 Whys, log, metrics, tracing)
+  • Tanya: "Bagaimana saya tahu ini penyebabnya?"
+  • Before fix: dokumentasikan expected outcome → ukur setelah fix
+- **Catch Phrase**: "Diagnosa dulu, baru resep. Jangan operasi tanpa X-ray."
+```
+
+#### [AP-05] Context Collapse
+
+```
+- **Trigger**: Terlalu fokus ke satu dimensi (biasanya teknis) sampai lupa yang lain
+- **Early Warning**:
+  • Diskusi hanya berputar di teknis: framework, database, arsitektur
+  • Tidak ada pertanyaan: "Siapa yang pakai?", "Berapa budget?", "Kapan deadline?"
+  • Solusi technically perfect tapi impractical untuk konteks bisnis
+- **Consequences**:
+  • Solusi bagus di atas kertas, gagal di realitas
+  • Stakeholder rejection — karena tidak sesuai kebutuhan bisnis
+  • Technical debt dari arah yang salah
+- **Prevention**:
+  • Checklist multi-dimensi: User/Business/Tech/Time/Cost/Security
+  • Sebelum coding, tanya: "Apa yang bisa membuat proyek ini gagal?"
+  • Perspektif switching: "How would a PM see this? A user? A founder?"
+- **Catch Phrase**: "Kode yang sempurna untuk masalah yang salah = 0 value"
+```
+
+### 16.3 Anti-Pattern Quick Check
+
+Sebelum mengambil keputusan besar, jalankan quick check:
+
+```
+□ AP-01 Over-Engineering: Apakah solusi ini > 2 komponen untuk problem sederhana?
+□ AP-02 Premature Abstraction: Apakah saya bikin generic padahal baru 1 use case?
+□ AP-03 Dependency Bloat: Apakah saya tambah library untuk fungsi yang bisa 20 baris?
+□ AP-04 Solution-Jumping: Apakah saya 100% yakin ini root cause-nya?
+□ AP-05 Context Collapse: Apakah saya sudah pertimbangkan non-teknis?
+
+Jika salah satu ☑ → STOP. Re-evaluate dulu.
+```
+
+---
+
+## 17. Wisdom Distillation
+
+Cara mengkompres banyak pengalaman menjadi prinsip universal. Ini adalah puncak dari self-improving system: dari data mentah → pola → wisdom → prinsip abadi.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              WISDOM DISTILLATION PROCESS                     │
+│                                                             │
+│  1. COLLECT   → Kumpulkan 10+ pola terkait                  │
+│     Dari activity-log.md, lessons-learned.md, error log     │
+│                                                             │
+│  2. CLUSTER   → Kelompokkan yang punya tema sama            │
+│     "Semua error tentang dependency, semua tentang parallel" │
+│                                                             │
+│  3. ABSTRACT  → Cari kesamaan esensi, bedakan detail        │
+│     "Apa inti dari semua pola ini?"                         │
+│                                                             │
+│  4. FORMULATE → Tulis sebagai prinsip (1-2 kalimat)         │
+│     Jika terlalu panjang → bukan prinsip, tapi aturan       │
+│                                                             │
+│  5. VALIDATE  → Apakah prinsip masih berlaku di konteks     │
+│     berbeda? Uji dengan 3 konteks berbeda                   │
+│                                                             │
+│  6. STORE     → Simpan di lessons-learned.md                │
+│     → Decision Frameworks section                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 17.1 Distillation Examples
+
+Contoh nyata dari opencode system:
+
+```
+Kasus 1: Dependency Conflict
+  Activity log entry 1: mythril vs web3 Python dependency conflict
+  Activity log entry 2: pip install timeout untuk package besar
+  Activity log entry 3: npm dependency tree bloat di frontend
+  Activity log entry 4: Docker build butuh 30 menit untuk pip install
+  Activity log entry 5: Shared library vyper_lib/ antar microservices
+  ──────────────────────────────────────────────────────────
+  Prinsip: "Isolasi dependency berbatas container, jangan di level
+           package manager — lebih mahal resolve daripada isolate"
+
+Kasus 2: Parallel Execution
+  Activity log entry 1: 3 subagents parallel untuk React SPA migration → 0 conflict
+  Activity log entry 2: Batch skill creation 12 skills parallel → selesai cepat
+  Activity log entry 3: Agent build (devops-lead + project-coordinator) parallel
+  Activity log entry 4: Scanner split → 5 service parallel
+  ──────────────────────────────────────────────────────────
+  Prinsip: "Independent tasks benefit from parallelism;
+           dependent tasks need sequential clarity.
+           Know which is which BEFORE you start."
+
+Kasus 3: User Preference Pattern
+  Activity log entry 1: User tolak Supabase/pgvector → pilih markdown files
+  Activity log entry 2: User tolak mock data → minta real implementation
+  Activity log entry 3: User tolak dependency bloat → prefer native solutions
+  Activity log entry 4: User minta celebration protocol
+  ──────────────────────────────────────────────────────────
+  Prinsip: "Simplicity is not a constraint — it is the optimization target.
+           The best solution is the one that removes complexity, not adds it."
+```
+
+### 17.2 Distillation Validation
+
+Sebelum menyimpan prinsip, validasi dengan 3 konteks berbeda:
+
+```
+Prinsip: "Isolasi dependency berbatas container"
+
+Test 1: Python microservice → ✅ Container terpisah solve dependency conflict
+Test 2: Node.js monorepo → ✅ Workspace isolation, tiap package punya node_modules sendiri
+Test 3: Smart contract audit → ✅ Sidecar pattern untuk mythril isolation
+
+Kesimpulan: Prinsip VALID — berlaku di 3 konteks berbeda
+```
+
+### 17.3 Decision Frameworks
+
+Prinsip yang sudah divalidasi disimpan sebagai Decision Framework di `lessons-learned.md`:
+
+```markdown
+## Decision Frameworks
+
+### DF-01: Isolation Over Resolution
+- **Prinsip**: Isolasi dependency berbatas container, jangan di level package manager
+- **Konteks**: Dependency conflict, version mismatch, build environment
+- **Contoh Sukses**: mythril sidecar, vyper_lib shared library
+- **Kapan Tidak Pakai**: Ketika dependency sederhana dan terisolasi secara alami
+
+### DF-02: Parallelize Independent, Sequence Dependent
+- **Prinsip**: Independent tasks benefit from parallelism; dependent need sequential clarity
+- **Konteks**: Task decomposition, team workflow, CI/CD pipeline
+- **Contoh Sukses**: React SPA migration (3 subagents parallel), batch skill creation
+- **Kapan Tidak Pakai**: Ketika output A adalah input B (WAJIB sequential)
+
+### DF-03: Simplicity is the Optimization Target
+- **Prinsip**: The best solution removes complexity, not adds it
+- **Konteks**: Architecture decisions, tool selection, dependency management
+- **Contoh Sukses**: Markdown context system, no mock data policy, celebration protocol
+- **Kapan Tidak Pakai**: Ketika kompleksitas diperlukan (security, compliance)
+```
+
+### 17.4 Wisdom Maturity Model
+
+| Level | Name | Description | Frequency |
+|-------|------|-------------|-----------|
+| L1 | **Data** | Raw activity log entries | Per event |
+| L2 | **Pattern** | ≥2 occurrences identified | Per session |
+| L3 | **Wisdom** | 1-sentence extracted insight | Per session |
+| L4 | **Prinsip** | Universal, cross-domain validity | Per 5-10 related patterns |
+| L5 | **Framework** | Decision framework with context | Per 3+ related principles |
+
+Progression: `L1 → L2 → L3 → L4 → L5` — setiap level adalah distilasi dari level sebelumnya. Target system adalah L5, tapi L3 sudah cukup untuk daily operation.
 ```

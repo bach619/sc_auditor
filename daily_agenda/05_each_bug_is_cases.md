@@ -69,33 +69,56 @@ Scanner Tools yang menjadi trigger:
 CASE-001:
   status: OPEN
   project: "Project A"
-  scanner: "Slither"
-  detector: "reentrancy"
-  severity: "High"                # Critical/High/Medium/Low/Info
+  scanners:                        # Daftar scanner yang menemukan
+    - name: "Slither"
+      detector: "reentrancy"
+      confidence: 0.8
+    - name: "Mythril"
+      detector: "reentrancy"
+      confidence: 0.9
+  confidence: 0.85                 # Rata-rata confidence dari semua scanner
+  scanner_count: 2                 # Berapa scanner yang menemukan bug ini
+  severity: "High"                 # Critical/High/Medium/Low/Info
   title: "Reentrancy di Vault.withdraw()"
   contract: "Vault.sol"
   function: "withdraw"
   line: 45
   description: "External call before state update"
   recommendation: "Gunakan Checks-Effects-Interactions pattern"
-  proof_of_concept: ""            # Diisi Agent
+  proof_of_concept: ""             # Diisi Agent
   platform: "Immunefi"
-  platform_status: "submitted"    # Opsional, referensi user
-  bounty_amount: null             # Diisi user saat close
+  bounty_amount: null              # Diisi user saat close
   notes: ""
   created_at: "2026-05-20T10:00:00Z"
   closed_at: null
-  closed_reason: null             # confirmed/rejected/duplicate/false_positive
+  closed_reason: null              # confirmed/rejected/duplicate/false_positive
 ```
 
 ### 2.4 Aturan Agent
 
-1. **Auto-create**: Setiap temuan scanner → 1 Case (OPEN)
-2. **No dedup**: Semua temuan jadi case — user tentukan relevansi
+1. **Auto-create**: Temuan scanner pertama → 1 Case (OPEN)
+2. **Dedup + Confidence**: Scanner lain temukan bug SAMA → **bukan case baru**, tapi update case yang sudah ada → **confidence naik**
 3. **No auto-close**: Hanya user yang CLOSE
 4. **No auto-submit**: Agent **TIDAK** boleh submit ke platform manapun
 5. **Context retention**: Agent simpan konteks per-case untuk bantu user jika diperlukan
 6. **No ghost cases**: Case CLOSED tidak bisa di-reopen
+
+### 2.5 Logika Dedup & Confidence
+
+Dua temuan dari scanner berbeda dianggap **bug yang sama** jika memenuhi semua:
+1. Contract yang sama (`Vault.sol`)
+2. Function yang sama (`withdraw()`)
+3. Vulnerability class yang sama (`reentrancy`)
+
+**Pengaruh terhadap Confidence:**
+
+| Kondisi | Confidence | Arti |
+|---------|-----------|------|
+| 1 scanner menemukan | 0.6 - 0.8 | Perlu verifikasi manual |
+| 2 scanner menemukan | 0.8 - 0.9 | Kemungkinan besar valid |
+| 3+ scanner menemukan | 0.9 - 1.0 | Sangat yakin ini bug |
+
+> **Catatan**: Jika scanner berbeda menemukan di contract/function/vuln class yang berbeda → tetap jadi **Case terpisah**.
 
 ---
 
@@ -104,37 +127,42 @@ CASE-001:
 ### 3.1 Audit Berhasil — Bounty Didapat
 
 ```
-Step 1: User jalankan scanner tools di Project A
-        └─ slither . --detect reentrancy,access-control
+Step 1: User jalankan scanner tools
+        ├─ slither . --detect reentrancy,access-control
+        └─ mythril . --detect reentrancy
 
 Step 2: Scanner output:
         ┌────────────────────────────────────────────┐
-        │ Slither menemukan 2 potensi bug:           │
-        │ [Reentrancy] Vault.withdraw() — High       │
-        │ [Access Control] Token.mint() — Medium     │
+        │ Slither: [Reentrancy] Vault.withdraw()     │
+        │ Slither: [Access Control] Token.mint()     │
+        │ Mythril: [Reentrancy] Vault.withdraw()     │
         └────────────────────────────────────────────┘
 
-Step 3: Agent buat 2 CASE (OPEN)
+Step 3: Agent buat CASE:
         ├─ CASE-001: Reentrancy di Vault.withdraw()
+        │   Slither + Mythril → confidence: HIGH ✅
+        │   (BUKAN 2 case terpisah — digabung)
+        │
         └─ CASE-002: Access Control di Token.mint()
+            Slither saja → confidence: MEDIUM
 
 Step 4: Agent analisis masing-masing:
-        ├─ CASE-001: PoC, severity, data teknis
-        └─ CASE-002: PoC, severity, data teknis
+        ├─ CASE-001 (confidence HIGH — prioritas)
+        └─ CASE-002
 
-Step 5: User lihat di UI → buka /cases → klik CASE-001
-        └─ Download report (MD/PDF) dari tombol download
+Step 5: User lihat di UI → buka /cases
+        ├─ CASE-001 ⭐ High Confidence — prioritaskan submit
+        └─ CASE-002 Medium Confidence
 
-Step 6: User submit laporan MANUAL ke Immunefi
-        └─ Agent TIDAK submit ke platform
+Step 6: Download report CASE-001 → submit MANUAL ke Immunefi
 
 Step 7: Immunefi konfirmasi valid → bayar bounty
 
-Step 8: User tutup CASE via UI:
+Step 8: User tutup CASE:
         ├─ CASE-001 → CLOSED (confirmed, bounty: $5,000)
         └─ CASE-002 → CLOSED (confirmed, bounty: $2,000)
 
-Step 9: Case otomatis masuk halaman /archive
+Step 9: Case masuk halaman /archive
 ```
 
 ### 3.2 False Positive
