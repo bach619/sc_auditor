@@ -375,7 +375,7 @@ async def get_contract_abi(chain: str, address: str) -> ApiResponse:
 
     from src.abi_extractor import AbiExtractor
     extractor = AbiExtractor()
-    abi_result = await extractor.extract(source)
+    abi_result = extractor.extract(source)
 
     # Cache the result
     if abi_result and abi_result.raw_abi:
@@ -606,7 +606,7 @@ async def predict_contract_risks(chain: str, address: str) -> ApiResponse:
 
     from src.predictive import PredictiveVulnerabilityMapper
     mapper = PredictiveVulnerabilityMapper()
-    risks = await mapper.predict_vulnerable_functions(chain, address, source)
+    risks = mapper.predict_vulnerable_functions(chain, address, source)
 
     return ok({
         "chain": chain,

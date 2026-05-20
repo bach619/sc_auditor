@@ -90,9 +90,21 @@ class SourceDetector:
         cached = detector.get_cached("ethereum", "0x...")
     """
 
-    def __init__(self) -> None:
-        """Initialize detector with Enhanced JSON Storage."""
-        self.storage = EnhancedJSONStorage()
+    def __init__(
+        self,
+        storage: EnhancedJSONStorage | None = None,
+        storage_override: str | None = None,
+    ) -> None:
+        """Initialize detector with Enhanced JSON Storage.
+
+        Args:
+            storage: Pre-configured storage instance.
+            storage_override: Optional data directory path for new storage.
+        """
+        if storage:
+            self.storage = storage
+        else:
+            self.storage = EnhancedJSONStorage(data_dir=storage_override) if storage_override else EnhancedJSONStorage()
         log.info(
             "detector.initialized",
             providers=len(_PROVIDER_REGISTRY),
