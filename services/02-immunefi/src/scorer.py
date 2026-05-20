@@ -34,11 +34,12 @@ class ProgramScorer:
 
     WEIGHT_BOUNTY = 0.30
     WEIGHT_CHAINS = 0.10
-    WEIGHT_ACTIVITY = 0.15
-    WEIGHT_REPOS = 0.20
+    WEIGHT_ACTIVITY = 0.10
+    WEIGHT_REPOS = 0.15
     WEIGHT_CONTRACTS = 0.10
     WEIGHT_TAGS = 0.10
     WEIGHT_STATUS = 0.05
+    WEIGHT_COMPLEXITY = 0.10
 
     # Tags that indicate higher-quality programs
     BOOST_TAGS: set[str] = {
@@ -65,6 +66,7 @@ class ProgramScorer:
             "contracts": self._contracts_score(program) * self.WEIGHT_CONTRACTS,
             "tags": self._tags_score(program) * self.WEIGHT_TAGS,
             "status": self._status_score(program) * self.WEIGHT_STATUS,
+            "complexity": self._complexity_score(program) * self.WEIGHT_COMPLEXITY,
         }
 
     def rank_all(self, programs: dict[str, Program]) -> list[dict[str, Any]]:
@@ -198,6 +200,38 @@ class ProgramScorer:
         if count <= 5:
             return 70.0
         return 100.0
+
+    def _complexity_score(self, program: Program) -> float:
+        """Contract complexity score.
+
+        Lebih kompleks = lebih menarik (lebih banyak potensi bugs).
+        Berdasarkan jumlah kontrak, jumlah chain, dan jumlah repo.
+
+        0 contracts → 0
+        1 contract  → 20
+        2-5         → 50
+        6+          → 80
+        Plus bonus untuk multi-chain: +10, multi-repo: +10
+        """
+        contract_count = len(program.contracts)
+        if contract_count == 0:
+            base = 0.0
+        elif contract_count == 1:
+            base = 20.0
+        elif contract_count <= 5:
+            base = 50.0
+        else:
+            base = 80.0
+
+        # Bonus untuk multi-chain
+        if len(program.chains) > 1:
+            base += 10.0
+
+        # Bonus untuk multi-repo
+        if len(program.repos) > 1:
+            base += 10.0
+
+        return min(base, 100.0)
 
     def _tags_score(self, program: Program) -> float:
         """Tag/category score.

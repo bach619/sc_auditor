@@ -284,6 +284,32 @@ async def get_program_contracts(slug: str) -> ApiResponse:
     })
 
 
+# ── Alias endpoints (backward compat dengan daily_agenda) ──
+
+@app.get("/programs/chains")
+async def list_chains_alias() -> ApiResponse:
+    """[Alias] Same as /chains — list unique chains across all programs."""
+    return await list_chains()
+
+
+@app.get("/programs/trends")
+async def get_trends_alias() -> ApiResponse:
+    """[Alias] Same as /intel/trends — full trend report."""
+    return await get_trends()
+
+
+@app.get("/programs/alerts")
+async def get_alerts_alias() -> ApiResponse:
+    """[Alias] Same as /intel/anomalies — anomaly alerts."""
+    return await get_anomalies()
+
+
+@app.get("/programs/{slug}/intelligence")
+async def get_program_intelligence_alias(slug: str) -> ApiResponse:
+    """[Alias] Same as /intel/scores/{slug} — intelligence score."""
+    return await get_program_score(slug)
+
+
 @app.get("/programs/{slug:path}")
 async def get_program(slug: str) -> ApiResponse:
     """Get a single program by slug."""

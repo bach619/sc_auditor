@@ -248,3 +248,9 @@ class RepoIntel:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+
+
+# ── Compatibility alias ────────────────────────────────────
+# RepoDeepAnalyzer adalah alias untuk RepoIntel, sesuai dengan
+# nama class yang digunakan di daily_agenda document.
+RepoDeepAnalyzer = RepoIntel
