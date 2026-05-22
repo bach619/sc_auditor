@@ -1,19 +1,25 @@
-"""Vyper CLI — Smart Contract Bug Hunter Command Line Interface.
+"""Vyper backend library — Python modules for Vyper microservices.
 
-Usage:
+The Vyper CLI has been migrated to Go (cmd/vyper/).
+This Python library remains for backend service imports.
+
+Go CLI usage:
     vyper audit <address>          Full audit pipeline
     vyper scan <file>              Quick scan (slither + mythril + echidna)
     vyper exploit <finding-id>     Generate PoC exploit
     vyper status <audit-id>        Check audit status
     vyper list                     List all audits
+    vyper stats                    Pipeline statistics
+    vyper queue                    View priority queue
+    vyper health                   Check all service health
     vyper up                       Start all Docker services
     vyper down                     Stop all Docker services
     vyper logs [service]           View service logs
     vyper ps                       Show running services
-    vyper dashboard                [removed] use 'vyper monitor' instead
-    vyper health                   Check all service health
-    vyper config                   Show configuration
+    vyper restart [service]        Restart services
+    vyper config                   Show/edit configuration
+    vyper version                  Show version
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Vyper Team"

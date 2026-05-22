@@ -42,3 +42,14 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Go
+/go/bin/
+/go/pkg/
+*.exe
+*.test
+*.out
+vyper.exe
+
+# Built binary
+/vyper
