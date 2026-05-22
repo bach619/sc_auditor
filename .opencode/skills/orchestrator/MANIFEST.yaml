@@ -1,0 +1,520 @@
+# MANIFEST: Orchestrator Configuration
+
+## Metadata
+```yaml
+version: "1.0.0"
+codename: "nexus"
+autonomy: full
+compatibility: opencode>=1.0.0
+```
+
+## 1. Threshold Configuration
+
+### 1.1 Bug Thresholds
+```yaml
+bugs:
+  critical_threshold:
+    per_file: 1        # Pause owner immediately
+    total: 3           # Full audit
+  high_threshold:
+    per_file: 3        # Flag file yellow
+    total: 7           # Escalate to ap
+  medium_threshold:
+    per_file: 5        # Flag file yellow
+    total: 10          # Notify aw
+  low_threshold:
+    per_file: 10       # Note only
+    total: 20          # Note only
+  density_spike:
+    window: "5min"
+    threshold: 3       # bugs in one file within window → red flag
+```
+
+### 1.2 Performance Thresholds
+```yaml
+performance:
+  regression:
+    lcp_increase: 20%     # Largest Contentful Paint
+    cls_increase: 20%     # Cumulative Layout Shift
+    fcp_increase: 20%     # First Contentful Paint
+    tti_increase: 20%     # Time to Interactive
+  minimum_scores:
+    code_quality: 80
+    accessibility: 85
+    performance: 80
+    seo: 75
+    best_practices: 80
+  production_gate:
+    code_quality: 90
+    accessibility: 90
+    performance: 90
+    seo: 85
+    best_practices: 90
+```
+
+### 1.3 Adaptation Thresholds
+```yaml
+adaptation:
+  fix_loop:
+    max_attempts_per_file: 3
+    time_window: "10min"
+  strategy_switch:
+    max_consecutive_failures: 3
+    cooldown_between_switches: "2min"
+  stall_detection:
+    no_change_timeout: "5min"
+    agent_heartbeat: "60s"
+  escalation:
+    max_strategy_cycles: 3       # A→B→C→D then repeat C→D once, then escalate
+    final_escalation: "user"     # After all strategies exhausted
+```
+
+### 1.4 Lock Timeouts
+```yaml
+locks:
+  default_timeout: "10min"
+  critical_fix_timeout: "3min"   # bc critical fix gets priority
+  force_release_after: "10min"   # Hard timeout
+  queue_deadline: "2min"         # Agent must respond to offer within this
+```
+
+## 2. Agent Registry
+
+### 2.1 Core Agents
+```yaml
+agents:
+  aw:
+    id: "aw"
+    name: "Awareness"
+    type: "daemon"
+    priority: 10       # Highest — always-on coordinator
+    activation: "auto_on_startup"
+    capabilities:
+      - track_file_changes
+      - detect_conflicts
+      - monitor_agent_health
+      - enforce_locks
+      - manage_event_bus
+      - compute_progress
+    permissions:
+      - read_all_files
+      - write_shared_state
+      - force_release_locks
+      - escalate_to_user
+  
+  bc:
+    id: "bc"
+    name: "BugChecker"
+    type: "watcher"
+    priority: 8
+    activation: "on_file_save | on_demand"
+    capabilities:
+      - lint_code
+      - audit_accessibility
+      - audit_performance
+      - audit_seo
+      - audit_security
+      - auto_fix_critical
+      - auto_fix_high
+    permissions:
+      - read_all_files
+      - write_to_files_on_fix
+      - request_locks
+    tools:
+      - internal_linter
+      - lighthouse_heuristics
+      - axe_core_rules
+      - seo_validator
+  
+  ud:
+    id: "ud"
+    name: "Understanding"
+    type: "analyzer"
+    priority: 7
+    activation: "on_phase_init | on_failure | on_structure_change"
+    capabilities:
+      - semantic_analysis
+      - requirement_mapping
+      - dependency_graphing
+      - gap_detection
+      - context_enrichment
+      - orphan_code_detection
+    permissions:
+      - read_all_files
+      - write_context_map
+      - suggest_architecture_changes
+  
+  ap:
+    id: "ap"
+    name: "Adaptation"
+    type: "controller"
+    priority: 9       # Very high — controls strategy
+    activation: "on_threshold_breach | on_stall | on_failure"
+    capabilities:
+      - strategy_selection
+      - fallback_routing
+      - pattern_learning
+      - resource_reallocation
+      - emergency_recovery
+    permissions:
+      - read_all_files
+      - write_shared_state
+      - override_agent_assignments
+      - trigger_recovery
+      - escalate_to_user
+  
+  apw:
+    id: "apw"
+    name: "AppleParallaxWeb"
+    type: "builder"
+    priority: 5
+    activation: "on_task_assignment"
+    capabilities:
+      - design_analysis
+      - frontend_html_build
+      - css_tokens_generation
+      - gsap_animations
+      - lenis_smooth_scroll
+      - scroll_trigger_setup
+      - splitting_text_animation
+      - fluid_typography
+      - accessibility_markup
+    permissions:
+      - read_requirements
+      - write_frontend_files
+      - request_locks
+      - read_context_map
+```
+
+### 2.2 Priority Hierarchy (for conflict resolution)
+```yaml
+priority:
+  1: aw    # Coordinator always wins
+  2: ap    # Strategy override
+  3: bc    # Quality gate
+  4: ud    # Architecture analysis
+  5: apw   # Feature implementation
+```
+
+## 3. Quality Gate Definitions
+
+### 3.1 Gate: Design Phase Complete
+```yaml
+gate_design:
+  order: 1
+  requirements:
+    - condition: "file_exists('styles/tokens.css')"
+      required: true
+    - condition: "file_exists('styles/base.css')"
+      required: true
+    - condition: "bc.scan_count('yellow', severity='>=high')"
+      operator: "<"
+      value: 3
+    - condition: "bc.scan_count('red', severity='critical')"
+      operator: "=="
+      value: 0
+    - condition: "aw.check_conflicts(phase='design')"
+      operator: "=="
+      value: 0
+  on_fail: "ap → inject corrections → re-evaluate"
+  max_retries: 3
+```
+
+### 3.2 Gate: Implementation Phase Complete
+```yaml
+gate_implementation:
+  order: 2
+  requirements:
+    - condition: "ud.check_requirements_coverage()"
+      operator: ">="
+      value: 100     # All requirements have implementation
+    - condition: "bc.score('code_quality')"
+      operator: ">="
+      value: 80
+    - condition: "bc.score('accessibility')"
+      operator: ">="
+      value: 85
+    - condition: "bc.score('performance')"
+      operator: ">="
+      value: 80
+    - condition: "bc.score('seo')"
+      operator: ">="
+      value: 75
+    - condition: "bc.bug_count('severity=high')"
+      operator: "<"
+      value: 5
+    - condition: "aw.progress_pct(phase='implementation')"
+      operator: "=="
+      value: 100
+  on_fail: "ap → identify failing area → redelegate"
+  max_retries: 3
+```
+
+### 3.3 Gate: Production Ready
+```yaml
+gate_production:
+  order: 3
+  requirements:
+    - condition: "bc.full_audit_passed(min_score=90)"
+      required: true
+    - condition: "bc.bug_count('severity>=high')"
+      operator: "=="
+      value: 0
+    - condition: "bc.bug_count('severity=medium')"
+      operator: "<"
+      value: 3
+    - condition: "aw.unresolved_events()"
+      operator: "=="
+      value: 0
+    - condition: "aw.locked_files()"
+      operator: "=="
+      value: 0
+    - condition: "ap.strategy_stable()"
+      required: true
+    - condition: "ud.gaps()"
+      operator: "=="
+      value: 0
+  on_fail: "ap → targeted corrections → re-audit"
+  max_retries: 2
+```
+
+## 4. Event Types
+
+```yaml
+event_types:
+  lock_request:
+    schema: {from, to, file, reason, estimated_duration}
+    handler: aw
+  lock_release:
+    schema: {from, to, file}
+    handler: aw
+  lock_grant:
+    schema: {from: aw, to, file, timeout}
+  offer_assistance:
+    schema: {from, to, file, concern, suggestion, severity, accept_deadline}
+    handler: aw → target agent
+  escalate_to_ap:
+    schema: {from, to: ap, trigger, context}
+    handler: ap
+  broadcast_context:
+    schema: {from: ud, to: all, context_diff}
+    handler: all agents
+  phase_transition:
+    schema: {from: aw, to: all, from_phase, to_phase}
+    handler: aw → ap → ud
+  bug_report:
+    schema: {from: bc, to: aw, file, issue}
+    handler: aw → evaluate severity → escalate if needed
+  agent_stall:
+    schema: {from: aw, to: ap, agent_id, file, duration}
+    handler: ap
+  strategy_change:
+    schema: {from: ap, to: all, old_strategy, new_strategy, reason}
+    handler: all agents → adjust
+  recovery_init:
+    schema: {from: ap, to: aw, reason}
+    handler: aw → orchestrate recovery
+  milestone:
+    schema: {from: aw, to: user, phase, summary}
+    handler: output to user
+```
+
+## 5. File Quality State Machine
+
+```yaml
+state_machine:
+  states: [planned, in_progress, review, completed, locked]
+  
+  transitions:
+    planned → in_progress:
+      trigger: agent_claim
+      action: aw sets owner, starts tracking
+    
+    in_progress → review:
+      trigger: agent_save
+      action: bc scans, aw updates quality
+    
+    review → completed:
+      trigger: bc_all_green AND agent_mark_done
+      action: aw updates progress, releases lock
+    
+    review → in_progress:
+      trigger: bc_found_issues
+      action: agent fixes issues
+    
+    any → locked:
+      trigger: lock_request_granted
+      action: aw restricts access
+    
+    locked → review:
+      trigger: lock_release
+      action: bc scans, aw resets state
+```
+
+## 6. Context Map Schema
+
+```yaml
+context_map_schema:
+  version: "1.0"
+  
+  project:
+    type: string           # landing_page | web_app | dashboard | portfolio
+    name: string
+    description: string
+  
+  tech_stack:
+    languages: [string]
+    frameworks: [string]
+    libraries: [string]
+    cdn_dependencies:
+      - name: string
+        version: string
+        usage: [string]    # which files use this
+  
+  architecture:
+    files:
+      - path: string
+        type: html | css | js | json | md | config
+        purpose: string
+        agent_owner: string
+        quality: green | yellow | red
+        last_scan: timestamp
+    
+    sections:
+      - name: string
+        type: hero | features | stats | pricing | testimonials | footer | navigation
+        file: string
+        status: planned | in_progress | completed
+    
+    components:
+      - name: string
+        file: string
+        dependencies: [string]
+        complexity: low | medium | high
+  
+  requirements:
+    functional:
+      - id: string
+        description: string
+        priority: critical | high | medium | low
+        implemented: boolean
+        implementing_file: string
+    
+    non_functional:
+      - id: string
+        description: string
+        metric: string
+        target: string
+        met: boolean
+  
+  risk_assessment:
+    - area: string
+      risk_level: critical | high | medium | low
+      description: string
+      mitigation: string
+      status: monitored | mitigated | accepted
+  
+  gaps:
+    - type: missing_implementation | orphan_code | broken_dependency
+      description: string
+      severity: critical | high | medium | low
+      proposed_fix: string
+```
+
+## 7. Strategy History Schema
+
+```yaml
+strategy_history:
+  entries:
+    - id: string
+      timestamp: datetime
+      context:
+        agent: string
+        task: string
+        error_type: string
+        attempt_number: integer
+      strategy:
+        id: A | B | C | D | E
+        name: string
+      outcome:
+        success: boolean
+        resolution_time: string
+        files_affected: [string]
+      learned:
+        pattern: string
+        reuse_score: 0.0-1.0
+```
+
+## 8. Autopilot Configuration
+
+```yaml
+autopilot:
+  enabled: true
+  silent_mode: true
+  max_autonomous_actions: unlimited
+  checkpoint_interval: "10min"
+  max_phase_duration: "60min"     # Alert if phase exceeds this
+  auto_commit: false              # Never commit without user request
+  auto_deploy: false              # Never deploy without user request
+  allowed_destructive_actions:
+    - file_write
+    - file_delete
+    - git_revert
+    - package_install
+    - code_refactor
+    - dependency_update
+  forbidden_actions:
+    - git_push               # Never push
+    - git_force_push          # Never force push
+    - git_commit              # Never commit without ask
+    - env_modify              # Never touch .env
+    - credential_access       # Never read secrets
+    - external_api_call       # Never call external APIs
+    - npm_publish             # Never publish packages
+```
+
+## 9. Shared State Bootstrap
+
+```yaml
+# Initial state when orchestrator activates
+initial_state:
+  project:
+    name: "auto_detect"
+    phase: 0
+    milestone: "bootstrap"
+    autopilot: true
+  
+  agents:
+    aw:
+      status: "bootstrapping"
+      workload: 0
+      up_since: null
+    
+    bc:
+      status: "bootstrapping"
+      issues_found: 0
+      last_scan: null
+    
+    ud:
+      status: "bootstrapping"
+      confidence: 0
+      gaps_found: 0
+    
+    ap:
+      status: "bootstrapping"
+      strategy_active: null
+      adjustments_made: 0
+    
+    apw:
+      status: "idle"
+      task: null
+      progress_pct: 0
+  
+  files: []
+  events: []
+  locks: []
+```
+
+---
+
+*This manifest defines all operational parameters for the Nexus Orchestrator. Modify thresholds here to tune autonomy behavior. More conservative = lower thresholds. More aggressive = higher thresholds.*

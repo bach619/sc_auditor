@@ -147,7 +147,7 @@ class FeedbackLearner:
 
             # Store successful pattern in vector memory
             try:
-                await self.memory.vector.store(
+                await self.memory.vector.store_text(
                     f"success_pattern_{session.session_id[:8]}",
                     insight,
                     metadata={
@@ -162,7 +162,7 @@ class FeedbackLearner:
         # 6. Store analysis results in episodic memory
         if patterns or insights:
             try:
-                await self.memory.episodic_store.store(
+                await self.memory.episodic_store.store_text(
                     f"learning_analysis_{session.session_id[:8]}",
                     {
                         "patterns": patterns,

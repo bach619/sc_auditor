@@ -17,7 +17,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Vyper Team",
     python_requires=">=3.10",
-    packages=find_packages(include=["cli", "cli.*"]),
+    packages=find_packages(include=["cli", "cli.*", "services", "services.shared", "services.shared.*"]),
     install_requires=[
         "typer>=0.12.0",
         "rich>=13.0.0",

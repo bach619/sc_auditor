@@ -224,11 +224,27 @@ class Pipeline:
                 await self._compensate(record, idx)
                 return record
 
-        # All steps succeeded
+        # All steps completed — check for degraded/skipped results
         duration = time.monotonic() - start_time
-        record.complete(duration)
+        has_warnings = False
+        for step in record.steps:
+            status = (step.result or {}).get("status", "success")
+            record.partial_results[step.name] = status
+            if status in ("degraded", "skipped"):
+                has_warnings = True
+
+        if has_warnings:
+            record.state = PipelineState.COMPLETED_WITH_WARN
+            record.duration_seconds = duration
+            record.updated_at = datetime.now(timezone.utc)
+            logger.info(
+                "Audit %s completed with warnings in %.1fs",
+                record.audit_id, duration,
+            )
+        else:
+            record.complete(duration)
+
         self._save_audit_log()
-        logger.info("Audit %s completed in %.1fs", record.audit_id, duration)
         return record
 
     async def _execute_step(self, handler_name: str, record: AuditRecord) -> Any:
@@ -978,7 +994,10 @@ class Pipeline:
         """Compute aggregate pipeline statistics."""
         records = list(self._audit_log.values())
         total = len(records)
-        completed = sum(1 for r in records if r.state == PipelineState.COMPLETED)
+        completed = sum(
+            1 for r in records
+            if r.state in (PipelineState.COMPLETED, PipelineState.COMPLETED_WITH_WARN)
+        )
         failed = sum(1 for r in records if r.state.is_failure)
         in_progress = sum(1 for r in records if not r.state.is_terminal)
         timeouts = sum(1 for r in records if r.state == PipelineState.TIMEOUT)
@@ -1038,3 +1057,88 @@ class Pipeline:
 
 
 __all__ = ["Pipeline"]
+
+# ── Resilient Pipeline Step ─────────────────────────────────────
+
+import asyncio
+import logging
+
+logger = logging.getLogger("vyper.orchestrator.pipeline.resilient")
+
+
+class ResilientPipelineStep:
+    """A pipeline step with retry, fallback, and criticality.
+
+    Usage:
+        step = ResilientPipelineStep("scan", max_retries=3, critical=True)
+        result = await step.execute(context, actual_handler)
+    """
+
+    def __init__(
+        self,
+        name: str,
+        max_retries: int = 3,
+        fallback_fn=None,
+        critical: bool = True,
+    ) -> None:
+        self.name = name
+        self.max_retries = max_retries
+        self.fallback_fn = fallback_fn
+        self.critical = critical
+
+    async def execute(self, context: dict, handler) -> dict:
+        """Execute step with retry + fallback logic.
+
+        Args:
+            context: Pipeline context dict
+            handler: Async callable that does the actual work
+
+        Returns:
+            dict with keys: status ("success"|"degraded"|"skipped"), data, error
+        """
+        last_error: Exception | None = None
+
+        for attempt in range(1, self.max_retries + 2):
+            try:
+                result = await handler(context)
+                return {"status": "success", "data": result}
+            except Exception as e:
+                last_error = e
+                if attempt <= self.max_retries:
+                    wait = 2 ** attempt  # Exponential backoff
+                    logger.warning(
+                        "Step %s retry %d/%d in %ds: %s",
+                        self.name, attempt, self.max_retries, wait, e,
+                    )
+                    await asyncio.sleep(wait)
+
+        # All retries exhausted
+        if self.fallback_fn is not None:
+            logger.info("Step %s using fallback", self.name)
+            try:
+                fallback = await self.fallback_fn(context)
+                return {
+                    "status": "degraded",
+                    "data": fallback,
+                    "error": str(last_error),
+                }
+            except Exception as fb_err:
+                last_error = fb_err
+
+        if self.critical:
+            raise RuntimeError(
+                f"Critical step '{self.name}' failed after "
+                f"{self.max_retries + 1} attempts: {last_error}"
+            )
+
+        logger.warning("Step %s skipped (non-critical): %s", self.name, last_error)
+        return {"status": "skipped", "error": str(last_error)}
+
+
+# ── Result status constants ─────────────────────────────────────
+
+class StepStatus:
+    SUCCESS = "success"
+    DEGRADED = "degraded"
+    SKIPPED = "skipped"
+    FAILED = "failed"

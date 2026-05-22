@@ -8,11 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-import structlog
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -34,34 +32,8 @@ from src.models import (
 from src.pipeline import Pipeline
 from src.priority import PriorityScorer
 from src.resource_governor import ResourceGovernor, ToolType
+from shared.observability import setup_observability
 from src.similarity import ContractSimilarity
-
-import sys
-import uuid
-from prometheus_client import Counter, Gauge, Histogram, generate_latest, REGISTRY
-from prometheus_client.exposition import CONTENT_TYPE_LATEST
-
-# ── Logging ─────────────────────────────────────────────────────
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer()
-        if sys.stdout.isatty()
-        else structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True,
-)
-logger = structlog.get_logger(service="orchestrator")
 
 # ── Application ─────────────────────────────────────────────────
 app = FastAPI(
@@ -78,46 +50,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Metrics ────────────────────────────────────────────────────
-_request_count = Counter("vyper_request_count", "Total requests", ["service", "method", "endpoint", "status"])
-_request_duration = Histogram("vyper_request_duration_seconds", "Request latency", ["service", "method", "endpoint"], buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0))
-_error_count = Counter("vyper_error_count", "Total errors", ["service", "method", "endpoint", "error_type"])
-_service_info = Gauge("vyper_service_info", "Service metadata", ["service", "version"])
-_service_info.labels("11-orchestrator", "1.0.0").set(1)
-
-
-@app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
-    if request.url.path == "/metrics":
-        return await call_next(request)
-    method = request.method
-    path = request.url.path
-    start = time.monotonic()
-    try:
-        response = await call_next(request)
-        _request_count.labels("11-orchestrator", method, path, str(response.status_code)).inc()
-        _request_duration.labels("11-orchestrator", method, path).observe(time.monotonic() - start)
-        if response.status_code >= 500:
-            _error_count.labels("11-orchestrator", method, path, "server_error").inc()
-        return response
-    except Exception as e:
-        _request_count.labels("11-orchestrator", method, path, "500").inc()
-        _error_count.labels("11-orchestrator", method, path, type(e).__name__).inc()
-        raise
-
-
-@app.get("/metrics", include_in_schema=False)
-async def metrics_endpoint() -> Response:
-    return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
-
-
-@app.middleware("http")
-async def trace_middleware(request: Request, call_next):
-    trace_id = request.headers.get("X-Trace-ID", uuid.uuid4().hex[:12])
-    response = await call_next(request)
-    response.headers["X-Trace-ID"] = trace_id
-    return response
-
+logger = setup_observability(app, "11-orchestrator", "1.0.0")
 
 # ── Dependencies (injected at startup) ──────────────────────────
 governor: ResourceGovernor

@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.backup import BackupManager, create_backup_manager
 from src.metrics import MetricsAggregator, create_metrics_aggregator
+from src.resource_governor import ResourceGovernor, SystemLoad
 from src.models import (
     AggregatedMetrics,
     ApiResponse,
@@ -34,32 +35,8 @@ from src.models import (
     UpdateCheckResult,
     UpdateResult,
 )
+from shared.observability import setup_observability
 from src.update import UpdateManager, create_update_manager
-
-from prometheus_client import Counter, Gauge, Histogram, generate_latest, REGISTRY
-from prometheus_client.exposition import CONTENT_TYPE_LATEST
-
-# ── Logging ────────────────────────────────────────────────
-
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer()
-        if sys.stdout.isatty()
-        else structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-)
-
-log = structlog.get_logger()
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -130,6 +107,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Warm metrics cache on startup (non-blocking)
     asyncio.create_task(_warm_metrics(state))
 
+    # Start resource governor
+    global _governor
+    _governor = create_resource_governor()
+    asyncio.create_task(_governor.start_monitoring(interval=5.0))
+    log.info("resource_governor.started")
+
     yield
 
     log.info("upkeep.shutdown", service=SERVICE_NAME)
@@ -164,6 +147,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+log = setup_observability(app, "13-upkeep", "0.1.0")
 
 
 # ── Helper ─────────────────────────────────────────────────
@@ -354,6 +339,49 @@ async def get_metrics_summary(request: Request) -> ApiResponse:
     except Exception as exc:
         log.exception("upkeep.metrics_summary_failed", error=str(exc))
         raise err(f"Metrics summary failed: {exc}", status_code=500)
+
+
+# ── Resource Governor ─────────────────────────────────────
+
+from src.resource_governor import create_resource_governor
+
+# Initialize governor on module level
+_governor: ResourceGovernor | None = None
+
+
+@app.get("/upkeep/governor/status")
+async def governor_status(request: Request) -> ApiResponse:
+    """Get current resource governor status."""
+    global _governor
+    if _governor is None:
+        _governor = create_resource_governor()
+    return ok({
+        "load": _governor.current_load.value,
+        "state": {
+            "cpu_percent": _governor.state.cpu_percent,
+            "memory_percent": _governor.state.memory_percent,
+            "battery_percent": _governor.state.battery_percent,
+            "is_on_battery": _governor.state.is_on_battery,
+        },
+    })
+
+
+@app.get("/upkeep/governor/stats")
+async def governor_stats(request: Request) -> ApiResponse:
+    """Get resource usage statistics."""
+    global _governor
+    if _governor is None:
+        _governor = create_resource_governor()
+    state = _governor.state
+    return ok({
+        "cpu_percent": state.cpu_percent,
+        "memory_percent": state.memory_percent,
+        "load": state.load.value,
+        "battery": {
+            "percent": state.battery_percent,
+            "on_battery": state.is_on_battery,
+        },
+    })
 
 
 # ── Entry Point ────────────────────────────────────────────

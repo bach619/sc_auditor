@@ -1,0 +1,335 @@
+# MANIFEST: SEO Optimizer Configuration
+
+## Metadata
+```yaml
+version: "1.0.0"
+codename: "rankcraft"
+autonomy: semi
+compatibility: opencode>=1.0.0
+```
+
+## 1. SEO Scoring Thresholds
+
+### 1.1 Category Weights
+```yaml
+scoring:
+  weights:
+    title_meta: 15
+    heading_structure: 10
+    content_quality: 15
+    images: 10
+    structured_data: 10
+    technical: 15
+    performance: 15
+    links: 5
+    mobile: 5
+  total_possible: 100
+```
+
+### 1.2 Quality Gates
+```yaml
+quality_gates:
+  minimal_viable: 60
+  good: 80
+  excellent: 90
+  world_class: 95
+
+critical_blockers:
+  - missing_title
+  - missing_h1
+  - missing_meta_description
+  - noindex_on_live_page
+  - duplicate_canonical
+  - broken_canonical
+  - missing_viewport
+
+high_priority:
+  - missing_alt_text
+  - broken_links
+  - missing_structured_data
+  - h1_count_mismatch
+  - heading_skip
+  - duplicate_title
+  - duplicate_description
+  - missing_og_tags
+  - missing_twitter_card
+  - http_used_instead_of_https
+
+medium_priority:
+  - title_too_short
+  - title_too_long
+  - description_too_short
+  - description_too_long
+  - missing_keyword_in_h1
+  - missing_hreflang
+  - missing_canonical
+  - images_missing_dimensions
+  - images_not_lazy_loaded
+  - low_text_to_html_ratio
+  - outgoing_links_nofollow_missing
+
+low_priority:
+  - keyword_density_suboptimal
+  - missing_breadcrumbs
+  - sitemap_missing_lastmod
+  - anchor_text_generic
+  - image_format_not_modern
+  - missing_font_preconnect
+```
+
+## 2. Content Analysis Parameters
+
+```yaml
+content:
+  min_word_count: 300
+  max_title_length: 60
+  min_title_length: 30
+  max_description_length: 155
+  min_description_length: 70
+  text_to_html_ratio_min: 0.10
+  keyword_density_optimal_range:
+    min: 0.005   # 0.5%
+    max: 0.025   # 2.5%
+  lsi_keywords_min_section: 3
+  reading_level: "grade 8-10"  # Accessible to broad audience
+```
+
+## 3. Image Optimization Rules
+
+```yaml
+images:
+  alt_text:
+    max_length: 125
+    must_not_start_with: ["image", "picture", "photo", "img"]
+    must_be_descriptive: true
+  dimensions:
+    require_explicit: true   # width + height or aspect-ratio
+  loading:
+    hero_image: eager
+    above_fold: eager
+    below_fold: lazy
+  formats:
+    preferred: ["avif", "webp", "jpg", "png"]
+    require_picture_fallback: true
+  sizing:
+    max_dimension_desktop: 2400
+    max_dimension_mobile: 1200
+    compression_quality: 80
+```
+
+## 4. Structured Data Validation
+
+```yaml
+structured_data:
+  required_types_by_content:
+    home:
+      - WebSite
+      - Organization
+    contact:
+      - Organization
+      - LocalBusiness
+    article:
+      - Article
+      - BreadcrumbList
+    service:
+      - Service
+      - Organization
+    about:
+      - Organization
+      - AboutPage
+    blog:
+      - BlogPosting
+      - BreadcrumbList
+    product:
+      - Product
+      - Offer
+    event:
+      - Event
+    faq:
+      - FAQPage
+  validation:
+    require_context: "https://schema.org"
+    require_type: true
+    require_id_for_organization: true
+    check_image_urls: true
+```
+
+## 5. Performance Vitals Targets
+
+```yaml
+core_web_vitals:
+  lcp:
+    good: "< 2500ms"
+    needs_improvement: "2500-4000ms"
+    poor: "> 4000ms"
+  inp:
+    good: "< 200ms"
+    needs_improvement: "200-500ms"
+    poor: "> 500ms"
+  cls:
+    good: "< 0.1"
+    needs_improvement: "0.1-0.25"
+    poor: "> 0.25"
+  ttfb:
+    good: "< 800ms"
+    poor: "> 1800ms"
+  fcp:
+    good: "< 1800ms"
+    poor: "> 3000ms"
+```
+
+## 6. Crawl & Index Rules
+
+```yaml
+crawl:
+  robots_txt:
+    location: "/robots.txt"
+    must_include_sitemap: true
+  sitemap:
+    location: "/sitemap.xml"
+    max_urls_per_sitemap: 50000
+    max_size_bytes: 52428800  # 50MB
+  canonical:
+    require_self_referencing: true
+    scheme: "https"
+    no_trailing_slash_conflict: true
+  hreflang:
+    bidirectional_required: true
+    x_default_recommended: true
+```
+
+## 7. Link Audit Rules
+
+```yaml
+links:
+  internal:
+    max_depth: 3  # From homepage
+    require_descriptive_anchor: true
+    stale_days: 90
+  external:
+    require_rel_for_sponsored: true
+    require_rel_for_ugc: true
+    check_nofollow_on: ["paid", "comments", "user-generated"]
+  broken:
+    timeout_seconds: 5
+    retry_count: 1
+```
+
+## 8. Mobile SEO Rules
+
+```yaml
+mobile:
+  viewport:
+    required: true
+    format: "width=device-width, initial-scale=1.0"
+  touch_targets:
+    min_size: "48x48px"
+    min_spacing: "8px"
+  font_size:
+    body_min: 16px
+  content_width:
+    no_horizontal_scroll: true
+    max_overflow: hidden
+  tap_highlight:
+    recommended: "transparent"
+```
+
+## 9. Priority Fix Order
+
+```yaml
+fix_order:
+  1: critical_blockers   # Must fix immediately
+  2: high_priority
+  3: medium_priority
+  4: low_priority
+  5: enhancement         # Nice-to-have, future iteration
+```
+
+## 10. Audit Report Schema
+
+```yaml
+audit_report:
+  header:
+    page_url: string
+    audit_date: datetime
+    overall_score: 0-100
+    previous_score: 0-100 (optional)
+    category: scoring_breakdown
+
+  critical_findings:
+    - issue: string
+      impact: string
+      fix: string
+      location: "file:line"
+
+  sections:
+    title_meta:
+      score: 0-100
+      issues: []
+    heading_structure:
+      score: 0-100
+      issues: []
+    content_quality:
+      score: 0-100
+      issues: []
+    images:
+      score: 0-100
+      issues: []
+    structured_data:
+      score: 0-100
+      issues: []
+    technical:
+      score: 0-100
+      issues: []
+    performance:
+      score: 0-100
+      issues: []
+    links:
+      score: 0-100
+      issues: []
+    mobile:
+      score: 0-100
+      issues: []
+
+  action_plan:
+    - priority: critical|high|medium|low
+      action: string
+      effort: low|medium|high
+      expected_impact: low|medium|high
+```
+
+## 11. Integration with Orchestrator
+
+```yaml
+orchestrator_integration:
+  agent_id: "seo"
+  agent_name: "SEO"
+  agent_type: "analyzer"
+  priority: 7
+  activation:
+    - on_audit_request
+    - on_phase_qa
+    - on_production_gate
+  capabilities:
+    - seo_audit
+    - content_optimization
+    - structured_data_generation
+    - meta_tag_optimization
+    - image_seo
+    - technical_seo_fix
+    - core_web_vitals_optimization
+    - sitemap_generation
+    - robots_txt_generation
+  quality_gates:
+    seo_score_min: 75
+    production_seo_score_min: 85
+  non_interference:
+    can_fix_critical: true
+    can_fix_high: true
+    can_fix_medium: false   # Report only, let developer decide
+    can_fix_low: false
+```
+
+---
+
+*This manifest defines all operational parameters for the SEO Optimizer. Modify thresholds to tune SEO strictness. Higher thresholds = more competitive rankings but more effort.*

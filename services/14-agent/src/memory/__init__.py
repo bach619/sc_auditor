@@ -44,7 +44,10 @@ class AgentMemory(InMemoryAgentMemory):
     def __init__(self) -> None:
         super().__init__()
         self.vector = VectorMemory()
-        self.episodic = EpisodicMemory()
+        # NOTE: self.episodic (list) is inherited from InMemoryAgentMemory
+        # for backward compat with sync add_episode()/last_episodes() calls.
+        # Persistent episodic storage uses episodic_store instead.
+        self.episodic_store = EpisodicMemory()
         self.graph = GraphMemory()
 
     async def learn_from_case(self, case_data: dict[str, Any]) -> None:
@@ -64,8 +67,8 @@ class AgentMemory(InMemoryAgentMemory):
             timestamp=case_data.get("closed_at"),
         ))
 
-        # Store in episodic memory
-        await self.episodic.store_episode(case_data)
+        # Store in episodic memory (persistent)
+        await self.episodic_store.store_episode(case_data)
 
         # Store in graph memory
         self.graph.add_node(
@@ -79,11 +82,22 @@ class AgentMemory(InMemoryAgentMemory):
         """Find similar cases by semantic similarity."""
         return await self.vector.retrieve(description, limit=limit)
 
+    def get_all_stats(self) -> dict:
+        """Return statistics for all memory types including persistent stores."""
+        return {
+            "working": len(self.working),
+            "episodic_inmem": len(self.episodic) if isinstance(self.episodic, list) else 0,
+            "semantic": len(self.semantic),
+            "vector_persistent": len(self.vector.entries),
+            "graph_nodes": len(self.graph.nodes),
+            "graph_edges": len(self.graph.edges),
+        }
+
     def memory_stats(self) -> dict[str, Any]:
         """Return statistics for all memory types."""
         return {
             "working": len(self.working),
-            "episodic_inmem": len(self.episodic),
+            "episodic_inmem": len(self.episodic) if isinstance(self.episodic, list) else 0,
             "semantic": len(self.semantic),
             "vector_persistent": 0,  # would need count() which is async
             "graph_nodes": len(self.graph.nodes),

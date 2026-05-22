@@ -1,0 +1,18 @@
+{
+  "service_startup": {
+    "cold": 30.0,
+    "warm": 5.0
+  },
+  "scan_time": {
+    "small": 30.0,
+    "medium": 120.0,
+    "large": 300.0
+  },
+  "pipeline_throughput": 2.0,
+  "max_memory_per_scan_mb": 1024,
+  "max_image_size_mb": {
+    "base": 200,
+    "scanner": 800,
+    "ai": 500
+  }
+}

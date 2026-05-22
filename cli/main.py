@@ -34,6 +34,7 @@ from cli.commands.docker import down, logs, ps, restart, up
 from cli.commands.monitor_cmd import app as monitor_cmd
 from cli.commands.chat_cmd import app as chat_cmd
 from cli.commands.exploit import exploit
+from cli.commands.backup import backup_app
 from cli.commands.scan import scan
 from cli.commands.status import daemon, health, list_audits, queue, stats, status
 
@@ -77,11 +78,14 @@ app.command("daemon")(daemon)
 app.command("dashboard")(dashboard)
 app.command("config")(config_cmd)
 
-# ── Monitor command ──────────────────────────────────────────────
+# ── Monitor & Chat ───────────────────────────────────────────────
 
 app.add_typer(monitor_cmd, name="monitor", help="Open Vyper Monitor — live terminal dashboard")
 app.add_typer(chat_cmd, name="chat", help="Open Vyper AI Chat — pipeline-aware assistant")
 
+# ── Backup subcommands ───────────────────────────────────────────
+
+app.add_typer(backup_app)
 
 # ── Version command ──────────────────────────────────────────────
 

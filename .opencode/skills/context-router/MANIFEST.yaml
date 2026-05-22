@@ -1,0 +1,554 @@
+# MANIFEST: Context Router Configuration
+
+## Metadata
+```yaml
+version: "1.0.0"
+codename: "router"
+autonomy: full
+compatibility: opencode>=1.0.0
+```
+
+## 1. Intent Detection Thresholds
+
+### 1.1 Confidence Levels
+```yaml
+confidence:
+  immediate_route: 80       # Route immediately, no questions
+  strong_match: 60          # Route with full context enrichment
+  ambiguous_gap: 15         # If 2+ domains within this %, mark ambiguous
+  fallback: 40              # Below this → route to orchestrator
+  no_match: 0               # Empty/greeting → respond, don't route
+```
+
+### 1.2 Keyword Weighting
+```yaml
+keywords:
+  generic_weight: 5
+  domain_weight: 10
+  technology_weight: 8
+  entity_weight: 15          # Exact skill name match → 100% confidence
+
+  multipliers:
+    exact_phrase: 2.0
+    word_boundary: 1.5
+    partial_match: 1.0
+```
+
+### 1.3 Stop Words (Ignored During Tokenization)
+```yaml
+stop_words:
+  id: [yang, dan, di, ke, dari, untuk, dengan, ini, itu, saya, tolong, bisa, bantu, mohon, kak, mas, mba, pak, bu]
+  en: [the, a, an, to, for, with, this, that, i, can, you, please, help, me, my]
+```
+
+## 2. Domain Keyword Map
+
+### 2.1 design_ui
+```yaml
+design_ui:
+  keywords:
+    high:
+      - landing page
+      - hero section
+      - parallax
+      - GSAP
+      - Lenis
+      - animasi
+      - animation
+      - desain
+      - design
+      - redesign
+      - UI/UX
+      - tampilan
+      - visual
+      - scrolling
+      - smooth scroll
+      - glassmorphism
+      - gradient
+      - reveal effect
+    medium:
+      - styling
+      - CSS
+      - tailwind
+      - warna
+      - font
+      - tipografi
+      - layout
+      - component
+      - section
+      - banner
+    low:
+      - halaman
+      - page
+      - buat
+      - tambah
+      - ubah
+  patterns:
+    - "(buat|bangun|desain|redesign|bikin)\\s+(landing|hero|halaman|page|section|component)"
+    - "(tambah|pasang|gunakan)\\s+(animasi|parallax|scroll|GSAP|Lenis)"
+    - "(styling|CSS|tailwind|warna|font|tipografi)"
+  target_skill: apple-parallax-web
+  fallback_skill: orchestrator
+```
+
+### 2.2 seo
+```yaml
+seo:
+  keywords:
+    high:
+      - SEO
+      - meta tag
+      - meta description
+      - schema
+      - structured data
+      - JSON-LD
+      - keyword
+      - peringkat
+      - ranking
+      - optimasi
+      - optimize
+      - LCP
+      - CLS
+      - INP
+      - Core Web Vitals
+      - Open Graph
+      - OG tag
+      - Twitter Card
+      - hreflang
+      - canonical
+      - sitemap
+      - robots.txt
+      - alt text
+      - heading structure
+    medium:
+      - title tag
+      - description
+      - crawling
+      - indexing
+      - search engine
+      - google
+      - bing
+    low:
+      - konten
+      - content
+      - audit
+      - cek
+      - periksa
+      - score
+  patterns:
+    - "(optimasi|optimize|tingkatkan)\\s+SEO"
+    - "(audit|cek|periksa)\\s+SEO"
+    - "(meta\\s*(tag|description)|schema|structured\\s*data|JSON-LD)"
+    - "(title|heading|H1|alt\\s*text|keyword|peringkat|ranking)"
+    - "(LCP|CLS|INP|Core\\s*Web\\s*Vitals|lighthouse)"
+  target_skill: seo-optimizer
+  fallback_skill: orchestrator
+```
+
+### 2.3 bug_fix
+```yaml
+bug_fix:
+  keywords:
+    high:
+      - bug
+      - error
+      - fix
+      - perbaiki
+      - debug
+      - crash
+      - broken
+      - tidak berfungsi
+      - tidak jalan
+      - salah
+      - gagal
+      - glitch
+      - issue
+    medium:
+      - masalah
+      - problem
+      - kendala
+    low:
+      - cek
+      - periksa
+      - kenapa
+  patterns:
+    - "(fix|perbaiki|debug|solve)\\s+(bug|error|issue|problem|masalah)"
+    - "(tidak|nggak|gak)\\s*(berfungsi|jalan|bisa|muncul|tampil)"
+    - "(error|crash|broken|glitch|bug)"
+  target_skill: orchestrator
+  mode: bug_checker_focused
+```
+
+### 2.4 audit
+```yaml
+audit:
+  keywords:
+    high:
+      - audit
+      - review
+      - quality
+      - lighthouse
+      - aksesibilitas
+      - accessibility
+      - performa
+      - performance
+      - score
+      - scoring
+    medium:
+      - evaluasi
+      - penilaian
+      - cek code
+      - review code
+    low:
+      - periksa
+      - cek
+  patterns:
+    - "(audit|review|periksa|evaluasi)\\s+(kode|code|website|site|halaman)"
+    - "(lighthouse|quality|skor|score|performa|performance)"
+  target_skill: orchestrator
+  mode: full_audit
+```
+
+### 2.5 project_build
+```yaml
+project_build:
+  keywords:
+    high:
+      - buat website
+      - bangun project
+      - dari awal
+      - from scratch
+      - setup project
+      - project baru
+      - scaffold
+      - full website
+      - full site
+    medium:
+      - generate
+      - buat halaman baru
+      - new page
+      - tambah halaman
+    low:
+      - buat
+      - bangun
+      - inisialisasi
+  patterns:
+    - "(buat|bangun|setup|inisialisasi|scaffold)\\s+(website|project|aplikasi|app|site)"
+    - "(dari\\s*awal|from\\s*scratch|baru|new)"
+  target_skill: orchestrator
+  mode: full_lifecycle
+```
+
+### 2.6 content
+```yaml
+content:
+  keywords:
+    high:
+      - konten
+      - content
+      - teks
+      - tulisan
+      - artikel
+      - berita
+      - news
+      - blog
+      - deskripsi
+      - narasi
+    medium:
+      - paragraf
+      - kalimat
+      - cerita
+    low:
+      - tulis
+      - baca
+  target_skill: orchestrator
+  mode: content_focused
+```
+
+### 2.7 data
+```yaml
+data:
+  keywords:
+    high:
+      - data
+      - API
+      - endpoint
+      - fetch
+      - database
+      - JSON
+      - konfigurasi
+      - config
+    medium:
+      - backend
+      - server
+      - request
+      - response
+    low:
+      - simpan
+      - load
+      - ambil
+  target_skill: orchestrator
+  mode: general
+```
+
+### 2.8 testing
+```yaml
+testing:
+  keywords:
+    high:
+      - test
+      - testing
+      - unit test
+      - integration test
+      - QA
+      - jest
+      - vitest
+      - cypress
+    medium:
+      - coba
+      - uji
+      - verifikasi
+    low:
+      - check
+  target_skill: orchestrator
+  mode: testing_focused
+```
+
+### 2.9 i18n
+```yaml
+i18n:
+  keywords:
+    high:
+      - terjemahan
+      - translate
+      - bahasa
+      - language
+      - i18n
+      - localization
+      - Indonesia
+      - Inggris
+      - English
+    medium:
+      - multi language
+      - bilingual
+    low:
+      - ganti bahasa
+  target_skill: orchestrator
+  mode: general
+```
+
+## 3. Skill Registry
+
+```yaml
+skills:
+  apple-parallax-web:
+    directory: ".opencode/skills/apple-parallax-web/"
+    entry_point: "SKILL.md"
+    type: "builder"
+    domains: [design_ui]
+    description: "Apple-quality landing pages with GSAP, Lenis, Splitting.js"
+
+  seo-optimizer:
+    directory: ".opencode/skills/seo-optimizer/"
+    entry_point: "SKILL.md"
+    type: "analyzer"
+    domains: [seo]
+    description: "SEO audit, optimization, structured data, Core Web Vitals"
+
+  orchestrator:
+    directory: ".opencode/skills/orchestrator/"
+    entry_point: "SKILL.md"
+    type: "controller"
+    domains: [bug_fix, audit, project_build, content, data, testing, i18n, unknown]
+    description: "Multi-agent project lifecycle manager. Universal fallback."
+
+  context-router:
+    directory: ".opencode/skills/context-router/"
+    entry_point: "SKILL.md"
+    type: "router"
+    domains: [*]
+    description: "Intelligent intent detection and skill routing gateway."
+```
+
+## 4. Context Enrichment Configuration
+
+```yaml
+context:
+  always_collect:
+    - source: "package.json"
+      fields: [name, dependencies, devDependencies, scripts]
+    - source: "src/"
+      fields: [file_count, component_count, page_count]
+    - source: ".opencode/skills/"
+      fields: [available_skills]
+
+  conditional_collect:
+    design_ui:
+      - source: "tailwind.config.js"
+        fields: [theme, colors, fonts]
+      - source: "src/index.css"
+        fields: [all]
+      - source: "src/components/"
+        fields: [layout_files, existing_sections]
+    
+    seo:
+      - source: "index.html"
+        fields: [meta_tags, structured_data, canonical, hreflang]
+      - source: "src/pages/"
+        fields: [page_list, meta_per_page]
+      - source: "public/"
+        fields: [robots.txt, sitemap.xml]
+    
+    bug_fix:
+      - source: "git diff"
+        fields: [changed_files, added_lines]
+      - source: "src/"
+        fields: [files_matching_prompt_keywords]
+
+  cache:
+    enabled: true
+    ttl_seconds: 300           # 5 minutes
+    refresh_triggers:
+      - new_file_created
+      - topic_change_detected
+      - user_switches_context
+```
+
+## 5. Routing Configuration
+
+```yaml
+routing:
+  activation_command: "skill(\"<target-skill>\")"
+  
+  max_sequential_skills: 3
+  sequential_cooldown: "0s"     # No wait between sequential routing
+  
+  prompt_format:
+    header: "[Router routed from context-router]"
+    include_context: true
+    include_instructions: true
+
+  error_handling:
+    on_skill_unavailable: "try_fallback"
+    on_fallback_unavailable: "report_and_wait"
+    on_activation_failed: "try_fallback"
+    max_retry_routes: 2
+```
+
+## 6. Ambiguity Resolution
+
+```yaml
+ambiguity:
+  detection:
+    min_score: 40              # Domains below this ignored in ambiguity check
+    gap_percentage: 15         # % gap between top 2 scores ≤ this → ambiguous
+    max_options_presented: 2   # Only show top 2
+  
+  resolution:
+    default_timeout_seconds: 30
+    on_timeout: "route_to_highest"
+    on_select_all: "route_sequentially"
+    sequential_max: 2          # Max 2 skills for "all" selection
+```
+
+## 7. Special Commands
+
+```yaml
+commands:
+  skills:
+    triggers: ["/skills", "skill apa aja", "list skill", "available skills", "skill list"]
+    response: "render_skills_table"
+  
+  status:
+    triggers: ["/status", "status"]
+    response: "render_status_dashboard"
+  
+  reset:
+    triggers: ["/reset", "reset"]
+    response: "clear_and_confirm"
+  
+  help:
+    triggers: ["/help", "help", "bantuan"]
+    response: "render_help_text"
+```
+
+## 8. Integration with Orchestrator
+
+```yaml
+orchestrator_integration:
+  agent_id: "router"
+  agent_name: "ContextRouter"
+  agent_type: "dispatcher"
+  priority: 10                # Highest — entry point before all agents
+  activation: "on_user_prompt"
+  capabilities:
+    - intent_detection
+    - context_enrichment
+    - skill_routing
+    - ambiguity_resolution
+  
+  non_interference:
+    can_delegate: true
+    can_observe: true
+    can_interrupt: false      # Never interrupt active agent
+    can_modify_files: false   # Never modify files directly
+    can_escalate: true        # Can escalate ambiguity to user
+  
+  handoff:
+    on_route: "pass_full_context"
+    on_complete: "receive_summary"
+    on_failure: "receive_error"
+  
+  membership:
+    join_agent_bus: false     # Not a full orchestrator agent
+    participate_in_gates: false
+    participate_in_locks: false
+```
+
+## 9. Notification Rules
+
+```yaml
+notifications:
+  silent: true               # Default silent mode
+  speak_on:
+    - route_initiated
+    - ambiguity_detected
+    - fallback_used
+    - skill_completed
+    - route_error
+    - command_response
+    - greeting
+  mute_on:
+    - analysis_in_progress
+    - context_enrichment
+    - pre_route_checks
+    - normal_routing
+```
+
+## 10. Edge Case Handling
+
+```yaml
+edge_cases:
+  long_prompt:
+    max_words_for_full_analysis: 500
+    on_exceed: "summarize_first_100_words + keyword_extract → route_to_orchestrator"
+  
+  code_blocks:
+    ignore_for_intent: true
+    min_natural_language_words: 5
+    on_insufficient_language: "route_to_orchestrator"
+  
+  non_task_messages:
+    thanks: "acknowledge + offer_help"
+    ok_good: "acknowledge + wait"
+    question_about_opencode: "answer_directly"
+    feedback: "acknowledge + log"
+  
+  bilingual:
+    match_both_languages: true
+    take_highest_score: true
+```
+
+---
+
+*This manifest defines all operational parameters for the Context Router. Modify thresholds to tune routing sensitivity. Lower confidence thresholds = more aggressive routing. Higher thresholds = more conservative (more fallback to orchestrator).*

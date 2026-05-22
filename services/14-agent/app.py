@@ -28,7 +28,6 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
 import httpx
-import structlog
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -63,28 +62,8 @@ from src.skills.analyze_findings import AnalyzeFindingsSkill
 from src.skills.classify_finding import ClassifyFindingSkill
 from src.skills.exploit_test import ExploitTestSkill
 from src.skills.generate_report import GenerateReportSkill
+from shared.observability import setup_observability
 from src.skills.notify import NotifySkill
-
-# ── Logging ────────────────────────────────────────────────
-
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer()
-        if sys.stdout.isatty()
-        else structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-)
-log = structlog.get_logger()
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -250,6 +229,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+log = setup_observability(app, "14-agent", "0.1.0")
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -834,7 +815,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=8014,
+        port=8019,
         log_level="info",
         reload=False,
     )

@@ -145,6 +145,8 @@ export const api = {
 
   // Service Health
   getHealthAll: () => request<ApiResponse<Record<string, {status: string; code?: number; error?: string}>>>('/api/health/all'),
+  getHealthGraph: () => request<ApiResponse<{nodes: Record<string, {name: string; status: string; colour: string; latency_ms: number; error: string; timestamp: string}>; edges: Array<{from: string; to: string}>}>>('/api/health/graph'),
+  getHealthMetrics: () => request<ApiResponse<{total_services: number; healthy: number; degraded: number; down: number; unknown: number; avg_latency_ms: number; p95_latency_ms: number; error_rate: number; timestamp: string}>>('/api/health/metrics'),
 
   // Pipeline
   getPipelineStatus: () => request<ApiResponse>('/api/pipeline'),

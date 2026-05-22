@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, AsyncGenerator
 from uuid import uuid4
 
-import structlog
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -32,27 +31,8 @@ from src.models import (
     SubmissionStatus,
 )
 from src.storage import SubmissionStorage
+from shared.observability import setup_observability
 from src.webhook_handler import handle_classify_intent_request, handle_immunefi_webhook
-
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer()
-        if sys.stdout.isatty()
-        else structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-)
-
-log = structlog.get_logger()
 
 SERVICE_NAME = "submission"
 SERVICE_VERSION = "0.1.0"
@@ -114,6 +94,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+log = setup_observability(app, "16-submission", "0.1.0")
 
 
 def ok(data: object = None) -> ApiResponse:

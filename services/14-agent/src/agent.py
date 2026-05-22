@@ -109,7 +109,7 @@ class AgentLoop:
 
         # Vector store: cari pengalaman serupa dari session sebelumnya
         try:
-            similar_past = await self.memory.vector.search(
+            similar_past = await self.memory.vector.retrieve(
                 f"{task_type.value}: {goal[:100]}",
                 limit=3,
             )
@@ -126,10 +126,12 @@ class AgentLoop:
 
         # Graph memory: catat session node
         try:
-            session_node_id = await self.memory.graph.add_node(
-                label=f"Session {session_id}: {goal[:50]}",
+            session_node_id = uuid.uuid4().hex[:8]
+            self.memory.graph.add_node(
+                node_id=session_node_id,
                 node_type="session",
                 properties={
+                    "label": f"Session {session_id}: {goal[:50]}",
                     "session_id": session_id,
                     "task_type": task_type.value,
                     "goal": goal[:200],
@@ -141,7 +143,7 @@ class AgentLoop:
 
         # Episodic store: record session start
         try:
-            await self.memory.episodic_store.store(
+            await self.memory.episodic_store.store_text(
                 "session_started",
                 {"session_id": session_id, "task_type": task_type.value, "goal": goal[:200]},
                 metadata={"session_id": session_id, "event": "start"},
@@ -202,7 +204,7 @@ class AgentLoop:
                         f"Findings: {len(session.output_data.get('findings', []))} | "
                         f"Steps: {step_num}"
                     )
-                    await self.memory.vector.store(
+                    await self.memory.vector.store_text(
                         f"session_{session_id}",
                         summary_text,
                         metadata={
@@ -221,18 +223,19 @@ class AgentLoop:
                         finding_label = (
                             finding.get("title") or finding.get("name", "unknown")
                         )[:100]
-                        finding_node_id = await self.memory.graph.add_node(
-                            label=f"Finding: {finding_label}",
+                        finding_node_id = uuid.uuid4().hex[:8]
+                        self.memory.graph.add_node(
+                            node_id=finding_node_id,
                             node_type="finding",
-                            properties=finding,
+                            properties={"label": f"Finding: {finding_label}", **finding},
                         )
                         graph_node = self.memory.get_working("_graph_session_node")
                         if graph_node:
-                            await self.memory.graph.add_edge(
-                                source_id=graph_node,
-                                target_id=finding_node_id,
+                            self.memory.graph.add_edge(
+                                from_id=graph_node,
+                                to_id=finding_node_id,
                                 relation="found",
-                                weight=1.0,
+                                properties={"weight": 1.0},
                             )
                 except Exception:
                     pass
@@ -294,7 +297,7 @@ class AgentLoop:
 
             # Episodic store: record each step
             try:
-                await self.memory.episodic_store.store(
+                await self.memory.episodic_store.store_text(
                     f"step_{step_num}_{action_name}",
                     {
                         "thought": thought[:200],

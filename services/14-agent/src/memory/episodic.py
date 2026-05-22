@@ -98,6 +98,15 @@ class EpisodicMemory(BaseMemory):
         self._save()
         return entry.entry_id
 
+    async def store_text(self, key: str, content: Any, metadata: dict[str, Any] | None = None) -> str:
+        """Store as MemoryEntry with key+content+metadata (convenience wrapper)."""
+        entry = MemoryEntry(
+            content=str(content),
+            metadata={"key": key, **(metadata or {})},
+            entry_id=key,
+        )
+        return await self.store(entry)
+
     async def retrieve(self, query: str, limit: int = 5) -> list[MemoryEntry]:
         """Simple keyword-based retrieval from episodes."""
         query_lower = query.lower()

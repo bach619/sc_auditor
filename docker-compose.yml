@@ -10,6 +10,14 @@ x-service-base: &service-base
     options:
       max-size: "10m"
       max-file: "3"
+  deploy:
+    resources:
+      limits:
+        cpus: "0.5"
+        memory: "512M"
+      reservations:
+        cpus: "0.1"
+        memory: "128M"
 
 services:
   01-config:
@@ -264,6 +272,30 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
 
+  15-dashboard:
+    <<: *service-base
+    build:
+      context: services/15-dashboard
+      dockerfile: Dockerfile
+    ports: ["8000:8000"]
+    volumes:
+      - vyper_dashboard:/data/dashboard
+      - vyper_learning:/data/learning
+    depends_on: [11-orchestrator, 01-config]
+    environment:
+      - CONFIG_URL=http://01-config:8000
+      - ORCHESTRATOR_URL=http://11-orchestrator:8000
+      - SCANNER_URL=http://04-scanner:8000
+      - SCANNER_SLITHER_URL=http://04a-scanner-slither:8014
+      - SCANNER_ECHIDNA_URL=http://04b-scanner-echidna:8015
+      - SCANNER_FORGE_URL=http://04c-scanner-forge:8016
+      - CLASSIFIER_URL=http://07-classifier:8000
+      - IMMUNEFI_URL=http://02-immunefi:8000
+      - SOURCE_URL=http://03-source:8000
+      - REPORTER_URL=http://09-reporter:8000
+      - NOTIFIER_URL=http://10-notifier:8000
+      - EXPLOIT_URL=http://08-exploit:8006
+      - AGENT_URL=http://14-agent:8019
   16-submission:
     <<: *service-base
     build:

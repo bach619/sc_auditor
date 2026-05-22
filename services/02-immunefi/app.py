@@ -17,9 +17,11 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 import httpx
-import structlog
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from shared.observability import setup_observability
+
+from shared.cache import CacheLayer, IMMUNEFI_PROGS_CACHE, TTL_IMMUNEFI_PROGS
 
 from src.models import (
     ApiResponse,
@@ -32,38 +34,23 @@ from src.models import (
 )
 from src.sync import SyncManager
 
-import time
-from fastapi import Response
-from prometheus_client import Counter, Gauge, Histogram, generate_latest, REGISTRY
-from prometheus_client.exposition import CONTENT_TYPE_LATEST
-
 # ── Dependent service URLs (for cross-service integration) ─
 
 ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://11-orchestrator:8009")
 SOURCE_URL = os.getenv("SOURCE_URL", "http://03-source:8000")
 CONFIG_URL = os.getenv("CONFIG_URL", "http://01-config:8000")
 
-# ── Logging ────────────────────────────────────────────────
 
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-)
 
-log = structlog.get_logger()
 
 # ── Constants ──────────────────────────────────────────────
 
 DATA_DIR = Path("/data/immunefi")
 SERVICE_NAME = "immunefi"
 SERVICE_VERSION = "0.2.0"
+
+# ── Cache ───────────────────────────────────────────────────
+immunefi_cache = CacheLayer(cache_dir="/data/cache/immunefi")
 
 # ── Sync Manager (global singleton) ───────────────────────
 
@@ -143,43 +130,8 @@ app.add_middleware(
 )
 
 
-# ── Metrics ────────────────────────────────────────────────────
-_request_count = Counter("vyper_request_count", "Total requests", ["service", "method", "endpoint", "status"])
-_request_duration = Histogram("vyper_request_duration_seconds", "Request latency", ["service", "method", "endpoint"], buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0))
-_error_count = Counter("vyper_error_count", "Total errors", ["service", "method", "endpoint", "error_type"])
-_service_info = Gauge("vyper_service_info", "Service metadata", ["service", "version"])
-_service_info.labels("02-immunefi", "1.0.0").set(1)
 
-@app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
-    if request.url.path == "/metrics":
-        return await call_next(request)
-    method = request.method
-    path = request.url.path
-    start = time.monotonic()
-    try:
-        response = await call_next(request)
-        _request_count.labels("02-immunefi", method, path, str(response.status_code)).inc()
-        _request_duration.labels("02-immunefi", method, path).observe(time.monotonic() - start)
-        if response.status_code >= 500:
-            _error_count.labels("02-immunefi", method, path, "server_error").inc()
-        return response
-    except Exception as e:
-        _request_count.labels("02-immunefi", method, path, "500").inc()
-        _error_count.labels("02-immunefi", method, path, type(e).__name__).inc()
-        raise
-
-@app.get("/metrics", include_in_schema=False)
-async def metrics_endpoint() -> Response:
-    return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
-
-@app.middleware("http")
-async def trace_middleware(request: Request, call_next):
-    trace_id = request.headers.get("X-Trace-ID", uuid.uuid4().hex[:12])
-    response = await call_next(request)
-    response.headers["X-Trace-ID"] = trace_id
-    return response
-
+log = setup_observability(app, "02-immunefi", "0.1.0")
 
 # ── Helper ─────────────────────────────────────────────────
 
@@ -406,9 +358,19 @@ async def run_sync() -> ApiResponse:
 
     Returns the completed SyncStatus.
     """
+    # Check cache
+    cached = await immunefi_cache.get(IMMUNEFI_PROGS_CACHE, {"programs": "list"})
+    if cached is not None:
+        log.info("immunefi.cache_hit", source="programs")
+        return ok(cached)
+
     log.info("sync.manual_trigger")
     async with httpx.AsyncClient(timeout=60.0) as client:
         status = await sync_manager.sync_all(client=client)
+
+    # Cache the results
+    await immunefi_cache.set(IMMUNEFI_PROGS_CACHE, {"programs": "list"}, status, ttl_seconds=TTL_IMMUNEFI_PROGS)
+
     return ok(status)
 
 

@@ -43,16 +43,16 @@ class SlashInput(Input):
     """
 
     def action_cursor_up(self) -> None:
-        app = cast("ChatApp", self.app)
-        if app._slash_active:
-            app.action_slash_up()
+        app = self.app
+        if app._slash_active:  # type: ignore[union-attr]
+            app.action_slash_up()  # type: ignore[union-attr]
         else:
             super().action_cursor_up()
 
     def action_cursor_down(self) -> None:
-        app = cast("ChatApp", self.app)
-        if app._slash_active:
-            app.action_slash_down()
+        app = self.app
+        if app._slash_active:  # type: ignore[union-attr]
+            app.action_slash_down()  # type: ignore[union-attr]
         else:
             super().action_cursor_down()
 
@@ -265,25 +265,13 @@ class ChatApp(App):
     /* ── Slash Command Menu ──────────────────────────────── */
     #slash-menu {
         height: auto;
-        max-height: 11;
+        max-height: 10;
         margin: 0 1;
+        padding: 0 1;
         border: tall $primary;
         background: $surface;
         display: none;
         overflow-y: auto;
-    }
-
-    .slash-item {
-        padding: 0 1;
-        height: 1;
-    }
-
-    .slash-item.selected {
-        background: $accent 35%;
-    }
-
-    .slash-item:hover {
-        background: $accent 50%;
     }
     """
 
@@ -311,6 +299,7 @@ class ChatApp(App):
         # Slash menu state
         self._slash_active = False
         self._slash_index = 0  # currently highlighted item index
+        self._slash_matched_commands: list[dict[str, str]] = []
 
     # ── Selection mode ─────────────────────────────────────────
 
@@ -339,22 +328,9 @@ class ChatApp(App):
         yield Static(id="status-bar")
         yield RichLog(id="chat-area", highlight=True, markup=True, max_lines=1000)
         yield Static(id="typing")
-        # Pre-mount each command as an individual Static widget.
-        # This avoids widget tree mutations during filtering later.
-        yield VerticalScroll(
-            *[
-                Static(
-                    f"[bold]{cmd['command']}[/bold]  "
-                    f"{cmd['label']}  "
-                    f"[dim]{cmd['description']}[/dim]",
-                    id=cmd["command"],
-                    classes="slash-item",
-                    markup=True,
-                )
-                for cmd in SLASH_COMMANDS
-            ],
-            id="slash-menu",
-        )
+        # Single Static widget — only Static.update() and display toggle,
+        # NO widget tree mutations (safe on Windows during message phase).
+        yield Static(id="slash-menu", markup=True)
         yield SlashInput(id="chat-input", placeholder="Ketik pertanyaan atau ketik / untuk menu...")
         yield Static(id="clipboard-msg")
         yield Static(id="selection-indicator")
@@ -373,11 +349,8 @@ class ChatApp(App):
             "[bold]y[/] copy  [bold]Y[/] all  "
             "[bold]p[/] plain  [bold]F2[/] select  [bold]q[/] quit"
         )
-        # Hide all slash menu items initially
-        menu = self.query_one("#slash-menu", VerticalScroll)
-        for item in menu.children:
-            item.display = "none"
-        menu.display = "none"
+        # Ensure slash menu is hidden initially
+        self.query_one("#slash-menu", Static).display = "none"
         self.query_one("#chat-input", Input).focus()
 
     def _update_status(self, text: str) -> None:
@@ -397,82 +370,92 @@ class ChatApp(App):
 
     # ── Slash Command Menu ──────────────────────────────────────
 
-    def _visible_slash_items(self) -> list[Static]:
-        """Return children of #slash-menu that are currently displayed."""
-        menu = self.query_one("#slash-menu", VerticalScroll)
-        return [c for c in menu.children if c.display != "none"]  # type: ignore[return-value]
+    def _build_menu_text(self) -> str:
+        """Build the menu text with a marker (▸) on the selected item."""
+        lines: list[str] = []
+        visible = self._slash_matched_commands
+        for idx, cmd in enumerate(visible):
+            marker = "[bold yellow]▸[/] " if idx == self._slash_index else "  "
+            lines.append(
+                f"{marker}[bold]{cmd['command']}[/bold]  "
+                f"{cmd['label']}  "
+                f"[dim]{cmd['description']}[/dim]"
+            )
+        return "\n".join(lines)
 
-    def _highlight_slash_item(self) -> None:
-        """Apply/remove 'selected' class on visible items based on _slash_index."""
-        visible = self._visible_slash_items()
-        for idx, item in enumerate(visible):
-            item.set_class(idx == self._slash_index, "selected")
+    def _rebuild_slash_menu(self) -> None:
+        """Refresh the menu text after index change."""
+        menu = self.query_one("#slash-menu", Static)
+        if not self._slash_matched_commands:
+            menu.display = "none"
+            self._slash_active = False
+            return
+        menu.update(self._build_menu_text())
+        menu.display = "block"
+        self._slash_active = True
 
     def on_input_changed(self, event: Input.Changed) -> None:
         """Detect '/' at start of input to show slash command menu.
 
-        Toggles display on pre-mounted Static children — no widget tree
+        Uses only Static.update() and display toggle — no widget tree
         mutations (no mount/remove/clear/append), safe during message phase.
         """
         value = event.value
-        menu = self.query_one("#slash-menu", VerticalScroll)
+        menu = self.query_one("#slash-menu", Static)
 
         if not value.startswith("/") or " " in value:
-            self._hide_slash_menu(menu)
+            menu.display = "none"
+            self._slash_active = False
+            self._slash_matched_commands = []
             return
 
         prefix = value.rstrip()
-        visible_count = 0
 
-        for item in menu.children:
-            # item.id is the command name (e.g. "/connect")
-            cmd_name = item.id or ""
-            if cmd_name.startswith(prefix):
-                item.display = "block"
-                visible_count += 1
-            else:
-                item.display = "none"
+        # Filter commands matching the typed prefix
+        matched: list[dict[str, str]] = []
+        for cmd in SLASH_COMMANDS:
+            if cmd["command"].startswith(prefix):
+                matched.append(cmd)
 
-        if visible_count > 0:
+        if matched:
+            self._slash_matched_commands = matched
+            self._slash_index = 0
+            menu.update(self._build_menu_text())
             menu.display = "block"
             self._slash_active = True
-            self._slash_index = 0
-            self._highlight_slash_item()
         else:
-            self._hide_slash_menu(menu)
+            self._slash_matched_commands = []
+            menu.display = "none"
+            self._slash_active = False
 
-    def _hide_slash_menu(self, menu: VerticalScroll | None = None) -> None:
+    def _hide_slash_menu(self) -> None:
         """Hide the slash command menu."""
-        if menu is None:
-            menu = self.query_one("#slash-menu", VerticalScroll)
+        menu = self.query_one("#slash-menu", Static)
         menu.display = "none"
         self._slash_active = False
+        self._slash_matched_commands = []
         # Refocus input so user can keep typing
         self.query_one("#chat-input", Input).focus()
 
     def action_slash_up(self) -> None:
         """Move selection up in the slash menu."""
-        visible = self._visible_slash_items()
-        if not visible:
+        if not self._slash_matched_commands:
             return
         self._slash_index = max(0, self._slash_index - 1)
-        self._highlight_slash_item()
+        self._rebuild_slash_menu()
 
     def action_slash_down(self) -> None:
         """Move selection down in the slash menu."""
-        visible = self._visible_slash_items()
-        if not visible:
+        if not self._slash_matched_commands:
             return
-        self._slash_index = min(len(visible) - 1, self._slash_index + 1)
-        self._highlight_slash_item()
+        self._slash_index = min(len(self._slash_matched_commands) - 1, self._slash_index + 1)
+        self._rebuild_slash_menu()
 
     def action_slash_select(self) -> None:
         """Select the currently highlighted slash command and insert it."""
-        visible = self._visible_slash_items()
-        if not visible:
+        if not self._slash_matched_commands:
             return
-        selected = visible[self._slash_index]
-        cmd_name = selected.id or ""
+        cmd_name = self._slash_matched_commands[self._slash_index]["command"]
         inp = self.query_one("#chat-input", Input)
         inp.value = f"{cmd_name} "
         inp.cursor_position = len(inp.value)
@@ -486,9 +469,8 @@ class ChatApp(App):
     def on_key(self, event: events.Key) -> None:
         """Intercept Enter/Escape when slash menu is active.
 
-        Arrow up/down is handled by SlashInput subclass so it takes
-        priority over Input cursor movement. Only reads index/classes —
-        no widget tree mutations — safe on Windows.
+        Arrow up/down is handled by SlashInput subclass. Only uses
+        Static.update() and display toggle — no widget tree mutations.
         """
         if not self._slash_active:
             return
@@ -504,6 +486,13 @@ class ChatApp(App):
         elif key == "escape":
             event.stop()
             self.action_slash_hide()
+        elif key == "up":
+            # Safety net in case SlashInput didn't catch it
+            event.stop()
+            self.action_slash_up()
+        elif key == "down":
+            event.stop()
+            self.action_slash_down()
 
     # ── Message handling ──────────────────────────────────────
 

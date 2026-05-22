@@ -10,10 +10,10 @@ from __future__ import annotations
 import os
 import time
 from datetime import datetime, timezone
+from shared.observability import setup_observability
 from pathlib import Path
 from typing import Any, Optional
 
-import structlog
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -47,26 +47,6 @@ from src.storage import (
 # ── Paths ───────────────────────────────────────────────────────
 
 BASE_DIR = Path(__file__).resolve().parent
-
-# ── Logging ─────────────────────────────────────────────────────
-
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.dev.ConsoleRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True,
-)
-logger = structlog.get_logger(service="dashboard")
 
 # ── Security Headers Middleware ─────────────────────────────────
 
@@ -105,6 +85,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "X-API-Key"],
 )
+
+logger = setup_observability(app, "15-dashboard", "1.0.0")
 
 app.add_middleware(SecurityHeadersMiddleware)
 

@@ -22,7 +22,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
-import structlog
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -55,34 +54,16 @@ from vyper_lib.models import (
     ToolInfo,
     ToolResult,
 )
+from shared.observability import setup_observability
 from vyper_lib.solc_manager import SolcManager, create_solc_manager
 from vyper_lib.deps import DependencyResolver, create_dependency_resolver
 from vyper_lib.slither_config import SlitherConfigBuilder, create_slither_config
-
-from fastapi import Response
-from prometheus_client import Counter, Gauge, Histogram, generate_latest, REGISTRY
-from prometheus_client.exposition import CONTENT_TYPE_LATEST
-
-# ── Logging ────────────────────────────────────────────────
-
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.dev.ConsoleRenderer()
-        if sys.stdout.isatty()
-        else structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
+from src.detector_loader import (
+    CustomDetectorRegistry,
+    CustomDetectorRunner,
+    DetectorLoadError,
+    DetectorSandbox,
 )
-
-log = structlog.get_logger()
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -185,6 +166,18 @@ class IntelStatsResponse(BaseModel):
     nlp: dict[str, Any]
 
 
+class CustomScanRequest(BaseModel):
+    """Request body for POST /scan/custom."""
+    chain: str = "ethereum"
+    address: str = ""
+    sources: dict[str, str]
+    compiler: str = "0.8.20"
+    config_tier: str = "default"
+    timeout: int = 600
+    custom_detectors: list[str] = []
+    include_built_in: bool = True
+
+
 # ── App State ──────────────────────────────────────────────
 
 
@@ -209,6 +202,12 @@ class AppState:
             fixer=self.fixer,
         )
 
+        # Custom detectors
+        self.detector_registry = CustomDetectorRegistry(
+            detectors_dir=str(DATA_DIR / "detectors")
+        )
+        self.detector_runner = CustomDetectorRunner(self.detector_registry)
+
 
 def _get_state(request: Request) -> AppState:
     return request.app.state.vyper
@@ -226,6 +225,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     SOURCES_DIR.mkdir(parents=True, exist_ok=True)
     FP_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load custom detectors on startup
+    DETECTORS_DIR = DATA_DIR / "detectors"
+    DETECTORS_DIR.mkdir(parents=True, exist_ok=True)
+    detector_count = state.detector_registry.load_all()
+    if detector_count:
+        log.info("custom_detectors.loaded", count=detector_count)
 
     solc_versions = state.solc_mgr.list_versions()
     log.info(
@@ -257,44 +263,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ── Metrics ────────────────────────────────────────────────────
-_request_count = Counter("vyper_request_count", "Total requests", ["service", "method", "endpoint", "status"])
-_request_duration = Histogram("vyper_request_duration_seconds", "Request latency", ["service", "method", "endpoint"], buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0))
-_error_count = Counter("vyper_error_count", "Total errors", ["service", "method", "endpoint", "error_type"])
-_service_info = Gauge("vyper_service_info", "Service metadata", ["service", "version"])
-_service_info.labels("04a-slither", "1.0.0").set(1)
-
-@app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
-    if request.url.path == "/metrics":
-        return await call_next(request)
-    method = request.method
-    path = request.url.path
-    start = time.monotonic()
-    try:
-        response = await call_next(request)
-        _request_count.labels("04a-slither", method, path, str(response.status_code)).inc()
-        _request_duration.labels("04a-slither", method, path).observe(time.monotonic() - start)
-        if response.status_code >= 500:
-            _error_count.labels("04a-slither", method, path, "server_error").inc()
-        return response
-    except Exception as e:
-        _request_count.labels("04a-slither", method, path, "500").inc()
-        _error_count.labels("04a-slither", method, path, type(e).__name__).inc()
-        raise
-
-@app.get("/metrics", include_in_schema=False)
-async def metrics_endpoint() -> Response:
-    return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
-
-@app.middleware("http")
-async def trace_middleware(request: Request, call_next):
-    trace_id = request.headers.get("X-Trace-ID", uuid.uuid4().hex[:12])
-    response = await call_next(request)
-    response.headers["X-Trace-ID"] = trace_id
-    return response
-
+log = setup_observability(app, "04a-scanner-slither", "0.1.0")
 
 # ── Helper ─────────────────────────────────────────────────
 
@@ -738,6 +707,152 @@ async def intel_stats(request: Request) -> ApiResponse:
     except Exception as exc:
         log.exception("intel.stats.failed", error=str(exc))
         raise err(f"Stats failed: {exc}", status_code=500)
+
+
+# ── Custom Detector Endpoints ─────────────────────────────
+
+
+@app.get("/detectors")
+async def list_detectors(request: Request) -> ApiResponse:
+    """List all registered custom detectors."""
+    state = _get_state(request)
+    return ok({
+        "built_in_count": state.detector_registry.get_built_in_count(),
+        "custom_detectors": state.detector_registry.metadata,
+        "total": len(state.detector_registry.detectors),
+    })
+
+
+@app.post("/detectors")
+async def register_detector(name: str, source: str, request: Request) -> ApiResponse:
+    """Register a new custom detector."""
+    state = _get_state(request)
+    try:
+        meta = state.detector_registry.register_detector(name, source)
+        log.info("detector.registered", name=name)
+        return ok(meta)
+    except DetectorLoadError as e:
+        raise err(str(e))
+
+
+@app.delete("/detectors/{name}")
+async def unregister_detector(name: str, request: Request) -> ApiResponse:
+    """Unregister and delete a custom detector."""
+    state = _get_state(request)
+    if state.detector_registry.unregister_detector(name):
+        log.info("detector.unregistered", name=name)
+        return ok({"removed": name})
+    raise err(f"Detector '{name}' not found", status_code=404)
+
+
+@app.get("/detectors/{name}/source")
+async def get_detector_source(name: str, request: Request) -> ApiResponse:
+    """Get the source code of a custom detector."""
+    state = _get_state(request)
+    source = state.detector_registry.get_source(name)
+    if source is not None:
+        return ok({"name": name, "source": source})
+    raise err(f"Detector '{name}' not found", status_code=404)
+
+
+@app.post("/scan/custom")
+async def scan_with_custom(body: CustomScanRequest, request: Request) -> ApiResponse:
+    """Run Slither scan with custom detectors."""
+    from src.slither import SlitherRunner
+    import uuid, shutil, asyncio
+
+    start = time.monotonic()
+    state = _get_state(request)
+
+    if not body.sources:
+        raise err("At least one source file is required")
+
+    audit_id = str(uuid.uuid4())
+    audit_dir = SOURCES_DIR / audit_id
+    audit_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # Write source files
+        for file_path, source_code in body.sources.items():
+            target = audit_dir / file_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source_code, encoding="utf-8")
+
+        log.info("custom_scan.start",
+            audit_id=audit_id, contract=body.address,
+            custom_detectors=body.custom_detectors,
+        )
+
+        # Ensure solc version
+        try:
+            await asyncio.to_thread(state.solc_mgr.ensure_version, body.compiler)
+        except RuntimeError as exc:
+            log.warning("solc.unavailable", error=str(exc))
+
+        all_findings: list[Finding] = []
+
+        # Run built-in Slither if requested
+        if body.include_built_in:
+            config = SlitherConfigBuilder().with_tier(body.config_tier).build()
+            slither_result = await asyncio.to_thread(
+                state.slither_runner.run,
+                audit_dir, config=config, timeout=body.timeout,
+            )
+            if slither_result.success:
+                all_findings.extend(slither_result.findings)
+
+        # Run custom detectors
+        if body.custom_detectors:
+            custom_findings = await asyncio.to_thread(
+                state.detector_runner.run_detectors,
+                audit_dir,
+                body.custom_detectors,
+                timeout=body.timeout,
+            )
+            all_findings.extend(custom_findings)
+
+        elapsed = time.monotonic() - start
+
+        critical = sum(1 for f in all_findings if f.severity == "critical")
+        high = sum(1 for f in all_findings if f.severity == "high")
+
+        result = ToolResult(
+            tool="slither+custom",
+            success=True,
+            findings=all_findings,
+            duration_seconds=round(elapsed, 2),
+        )
+
+        response = ScanResponse(
+            audit_id=audit_id,
+            contract_address=body.address,
+            chain=body.chain,
+            compiler=body.compiler,
+            tools=[result],
+            all_findings=all_findings,
+            total_findings=len(all_findings),
+            critical_count=critical,
+            high_count=high,
+            duration_seconds=round(elapsed, 2),
+        )
+
+        log.info("custom_scan.complete",
+            findings=len(all_findings),
+            custom=len(body.custom_detectors),
+            duration=round(elapsed, 2),
+        )
+
+        return ok(response)
+
+    except Exception as exc:
+        log.exception("custom_scan.failed", audit_id=audit_id, error=str(exc))
+        raise err(f"Custom scan failed: {exc}", status_code=500)
+
+    finally:
+        try:
+            shutil.rmtree(audit_dir, ignore_errors=True)
+        except OSError:
+            pass
 
 
 # ── Util ───────────────────────────────────────────────────

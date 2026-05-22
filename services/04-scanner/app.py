@@ -22,7 +22,8 @@ from pathlib import Path
 from typing import Any, AsyncGenerator
 
 import httpx
-import structlog
+from shared.cache import CacheLayer
+from shared.observability import setup_observability
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -46,31 +47,10 @@ from src.slither import SlitherRunner, create_slither_runner
 from src.slither_config import SlitherConfigBuilder, create_slither_config
 from src.solc_manager import SolcManager, create_solc_manager
 
-from fastapi import Response
-from prometheus_client import Counter, Gauge, Histogram, generate_latest, REGISTRY
-from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
-# ── Logging ────────────────────────────────────────────────
 
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer()
-        if sys.stdout.isatty()
-        else structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-)
 
-log = structlog.get_logger()
+
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -86,6 +66,12 @@ MYTHRIL_URL = os.getenv("MYTHRIL_URL", "http://localhost:8013")
 
 # Halmos sidecar URL (set via env, defaults to Docker compose service name)
 HALMOS_URL = os.getenv("HALMOS_URL", "http://04d-scanner-halmos:8017")
+
+# Scanner-Slither sidecar URL (custom detector engine)
+SCANNER_SLITHER_URL = os.getenv("SCANNER_SLITHER_URL", "http://04a-scanner-slither:8014")
+
+# ── Cache ───────────────────────────────────────────────────
+scan_cache = CacheLayer(cache_dir="/data/cache/scanner")
 
 # ── Global state ───────────────────────────────────────────
 
@@ -169,43 +155,8 @@ app.add_middleware(
 )
 
 
-# ── Metrics ────────────────────────────────────────────────────
-_request_count = Counter("vyper_request_count", "Total requests", ["service", "method", "endpoint", "status"])
-_request_duration = Histogram("vyper_request_duration_seconds", "Request latency", ["service", "method", "endpoint"], buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0))
-_error_count = Counter("vyper_error_count", "Total errors", ["service", "method", "endpoint", "error_type"])
-_service_info = Gauge("vyper_service_info", "Service metadata", ["service", "version"])
-_service_info.labels("04-scanner", "1.0.0").set(1)
 
-@app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
-    if request.url.path == "/metrics":
-        return await call_next(request)
-    method = request.method
-    path = request.url.path
-    start = time.monotonic()
-    try:
-        response = await call_next(request)
-        _request_count.labels("04-scanner", method, path, str(response.status_code)).inc()
-        _request_duration.labels("04-scanner", method, path).observe(time.monotonic() - start)
-        if response.status_code >= 500:
-            _error_count.labels("04-scanner", method, path, "server_error").inc()
-        return response
-    except Exception as e:
-        _request_count.labels("04-scanner", method, path, "500").inc()
-        _error_count.labels("04-scanner", method, path, type(e).__name__).inc()
-        raise
-
-@app.get("/metrics", include_in_schema=False)
-async def metrics_endpoint() -> Response:
-    return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
-
-@app.middleware("http")
-async def trace_middleware(request: Request, call_next):
-    trace_id = request.headers.get("X-Trace-ID", uuid.uuid4().hex[:12])
-    response = await call_next(request)
-    response.headers["X-Trace-ID"] = trace_id
-    return response
-
+log = setup_observability(app, "04-scanner", "0.1.0")
 
 # ── Helper ─────────────────────────────────────────────────
 
@@ -314,6 +265,13 @@ async def run_scan(body: ScanRequest, request: Request) -> ApiResponse:
     # Resolve tools list
     tools_to_run = body.tools or ["slither", "echidna"]
     audit_id = str(uuid.uuid4())
+
+    # Check cache first
+    cache_key = {"contract": body.address, "chain": body.chain, "tools": tools_to_run if isinstance(tools_to_run, list) else ["all"]}
+    cached = await scan_cache.get("scan", cache_key)
+    if cached is not None:
+        log.info("scan.cache_hit", contract=body.address)
+        return ok(cached)
 
     # Create working directory for this audit
     audit_dir = SOURCES_DIR / audit_id
@@ -427,6 +385,9 @@ async def run_scan(body: ScanRequest, request: Request) -> ApiResponse:
             duration=round(elapsed, 2),
         )
 
+        # Cache results
+        await scan_cache.set("scan", cache_key, scan_response.model_dump(mode="json"), ttl_seconds=86400)
+
         return ok(scan_response)
 
     except Exception as exc:
@@ -457,6 +418,32 @@ async def get_scan_result(audit_id: str) -> ApiResponse:
     except (json.JSONDecodeError, OSError) as exc:
         log.error("scan.result_read_error", audit_id=audit_id, error=str(exc))
         raise err("Failed to read scan result", status_code=500)
+
+
+# ── Custom Detector Scan (proxy to scanner-slither) ──────────
+
+
+@app.post("/scan/custom")
+async def scan_custom(body: dict[str, Any], request: Request) -> JSONResponse:
+    """Run Slither scan with custom detectors — proxied to scanner-slither sidecar.
+
+    Forward body to 04a-scanner-slither:8014/scan/custom.
+    Supports ``custom_detectors`` list and ``include_built_in`` flag.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=body.get("timeout", 600) + 30) as client:
+            resp = await client.post(
+                f"{SCANNER_SLITHER_URL}/scan/custom",
+                json=body,
+            )
+            return JSONResponse(
+                content=resp.json(),
+                status_code=resp.status_code,
+            )
+    except httpx.RequestError as exc:
+        raise err(f"Scanner-slither sidecar unreachable: {exc}", status_code=502)
+    except Exception as exc:
+        raise err(f"Custom scan proxy failed: {exc}", status_code=500)
 
 
 # ---------------------------------------------------------------------------

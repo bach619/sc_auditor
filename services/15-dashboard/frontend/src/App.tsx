@@ -25,6 +25,7 @@ import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import Archive from './pages/Archive';
 import AgentIntelligence from './pages/AgentIntelligence';
+import DetectorManager from './pages/DetectorManager';
 import NotFound from './pages/NotFound';
 
 export default function App() {
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="/cases" element={<Cases />} />
           <Route path="/cases/:caseId" element={<CaseDetail />} />
           <Route path="/archive" element={<Archive />} />
+          <Route path="/detectors" element={<DetectorManager />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

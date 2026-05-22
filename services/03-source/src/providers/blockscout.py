@@ -12,7 +12,7 @@ import httpx
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from vyper_lib import parse_standard_input_json
+from vyper_lib.utils import parse_standard_input_json
 from src.models import SourceResult
 
 log = structlog.get_logger()

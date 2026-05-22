@@ -237,7 +237,7 @@ class AgentDaemon:
                 f"Task types: {set(s.task_type.value for s in completed)}"
             )
             try:
-                await self.agent.memory.vector.store(
+                await self.agent.memory.vector.store_text(
                     "self_assessment",
                     summary,
                     metadata={
@@ -280,7 +280,7 @@ class AgentDaemon:
 
                 # Store in vector memory
                 for prog in programs[:3]:
-                    await self.agent.memory.vector.store(
+                    await self.agent.memory.vector.store_text(
                         f"auto_hunt_{prog.get('slug', 'unknown')}",
                         f"High-value target: {prog.get('name', 'Unknown')} "
                         f"reward={prog.get('max_payout', 0)}",

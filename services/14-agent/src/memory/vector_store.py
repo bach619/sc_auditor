@@ -131,6 +131,19 @@ class VectorMemory(BaseMemory):
         log.debug("vector_memory.stored", entry_id=entry.entry_id)
         return entry.entry_id
 
+    async def search(self, query: str, limit: int = 5, **filters: Any) -> list[MemoryEntry]:
+        """Search by semantic similarity. Alias for retrieve()."""
+        return await self.retrieve(query, limit=limit)
+
+    async def store_text(self, key: str, content: str, metadata: dict[str, Any] | None = None) -> str:
+        """Store text as MemoryEntry (convenience wrapper for callers that pass key+content+metadata)."""
+        entry = MemoryEntry(
+            content=content,
+            metadata={"key": key, **(metadata or {})},
+            entry_id=key,
+        )
+        return await self.store(entry)
+
     async def retrieve(self, query: str, limit: int = 5) -> list[MemoryEntry]:
         if not self.entries:
             return []

@@ -29,6 +29,7 @@ class PipelineState(str, Enum):
     REPORTING = "REPORTING"
     NOTIFYING = "NOTIFYING"
     COMPLETED = "COMPLETED"
+    COMPLETED_WITH_WARN = "COMPLETED_WITH_WARN"
 
     # ── Failure states ──
     FETCH_FAILED = "FETCH_FAILED"
@@ -46,6 +47,7 @@ class PipelineState(str, Enum):
     def is_terminal(self) -> bool:
         return self in {
             PipelineState.COMPLETED,
+            PipelineState.COMPLETED_WITH_WARN,
             PipelineState.FETCH_FAILED,
             PipelineState.SCAN_FAILED,
             PipelineState.INTEL_CORRELATION_FAILED,
@@ -60,7 +62,7 @@ class PipelineState(str, Enum):
 
     @property
     def is_failure(self) -> bool:
-        return self.is_terminal and self != PipelineState.COMPLETED
+        return self.is_terminal and self not in (PipelineState.COMPLETED, PipelineState.COMPLETED_WITH_WARN)
 
 
 class AuditPriority(str, Enum):
@@ -127,6 +129,10 @@ class AuditRecord(BaseModel):
     report_path: Optional[str] = None
     duration_seconds: Optional[float] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    partial_results: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Maps step name → success|skipped|degraded|failed",
+    )
 
     def add_step(self, step: PipelineStep) -> None:
         self.steps.append(step)
