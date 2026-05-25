@@ -1,4 +1,4 @@
-"""Learning system for Vyper Agent — feedback-based self-improvement."""
+"""Learning system for Antonio — feedback-based self-improvement."""
 
 from __future__ import annotations
 

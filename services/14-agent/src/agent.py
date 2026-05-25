@@ -1,4 +1,4 @@
-"""ReAct Agent Loop — the brain of Vyper Agent.
+"""Antonio — Main AI Agent with ReAct loop + Planning + Delegation.
 
 Implements the Reasoning + Acting (ReAct) pattern:
 1. THINK: Agent reasons about current state and decides next action
@@ -30,6 +30,7 @@ from src.models import (
     AgentStep,
     TaskType,
 )
+from src.planner import Planner, ExecutionPlan
 from src.skills.registry import SkillRegistry
 
 log = structlog.get_logger()
@@ -57,6 +58,7 @@ class AgentLoop:
         self.registry = registry
         self.llm = llm
         self.memory = AgentMemory()
+        self.planner = Planner()
         self.http_client = http_client
         self._sessions: dict[str, AgentSession] = {}
 
@@ -150,6 +152,33 @@ class AgentLoop:
             )
         except Exception:
             pass
+
+        # ── PLANNING PHASE ──
+        # Before executing, create an execution plan
+        try:
+            available = list(self.registry._skills.keys()) if hasattr(self.registry, '_skills') else []
+            plan = await self.planner.create_plan(
+                goal=goal,
+                input_data=input_data,
+                available_skills=available,
+            )
+            self.memory.set_working("execution_plan", {
+                "goal": plan.goal,
+                "steps": [
+                    {"step": s.step_number, "goal": s.goal, "skill": s.required_skill,
+                     "depends_on": s.depends_on}
+                    for s in plan.steps
+                ],
+            })
+            log.info(
+                "plan_created",
+                session_id=session_id,
+                steps=len(plan.steps),
+                goal=goal[:100],
+            )
+        except Exception as exc:
+            log.warning("plan_creation_failed", error=str(exc))
+            # Non-blocking — continue with ReAct loop without plan
 
         # ReAct loop
         for step_num in range(1, max_steps + 1):

@@ -169,7 +169,7 @@ class VyperClient:
             ("07-classifier",     "http://localhost:8005"),
             ("12-webhook",        "http://localhost:8010"),
             ("13-upkeep",         "http://localhost:8012"),
-            ("14-agent",          "http://localhost:8021"),
+            ("14-agent",          self.cfg.get("agent_url") or "http://localhost:8021"),
             ("16-submission",     "http://localhost:8018"),
         ]
 

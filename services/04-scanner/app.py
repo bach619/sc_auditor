@@ -46,7 +46,8 @@ from src.models import (
 from src.slither import SlitherRunner, create_slither_runner
 from src.slither_config import SlitherConfigBuilder, create_slither_config
 from src.solc_manager import SolcManager, create_solc_manager
-
+from src.agent_loop import ScannerAgent
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 
 
 
@@ -89,6 +90,7 @@ class AppState:
         self.mythril_version: str | None = None
         self.halmos_available: bool = False
         self.halmos_version: str | None = None
+        self.scanner_agent: ScannerAgent | None = None
         self._shutdown_requested: bool = False
 
     @property
@@ -128,7 +130,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         solc_versions=len(solc_versions),
     )
 
+    # Init Scanner Agent
+    http_client = httpx.AsyncClient(timeout=30.0)
+    state.scanner_agent = ScannerAgent(http_client=http_client)
+    log.info("scanner.agent_initialized", agent_role=state.scanner_agent.agent_role)
+
     yield
+
+    # Cleanup Scanner Agent
+    if state.scanner_agent is not None:
+        await state.scanner_agent._http.aclose()
 
     log.info("scanner.shutdown", service=SERVICE_NAME)
 
@@ -1016,6 +1027,58 @@ def _extract_pip_version(pip_output: str, tool: str) -> str | None:
             if match:
                 return match.group(1)
     return None
+
+
+# ── Agent Protocol Endpoints ────────────────────────────────
+
+
+@app.get("/agent/manifest")
+async def agent_manifest(request: Request) -> JSONResponse:
+    """Publish agent manifest for Antonio discovery."""
+    state = _get_state(request)
+    agent = state.scanner_agent
+    if agent is None:
+        return JSONResponse(
+            content={"data": None, "meta": {"status": "error", "error": "Agent not initialized"}},
+            status_code=503,
+        )
+    from dataclasses import asdict
+    manifest = agent.get_manifest()
+    return JSONResponse(content={"data": asdict(manifest), "meta": {"status": "ok"}})
+
+
+@app.post("/agent/delegate")
+async def agent_delegate(body: dict, request: Request) -> JSONResponse:
+    """Receive a delegation from Antonio."""
+    state = _get_state(request)
+    agent = state.scanner_agent
+    if agent is None:
+        return JSONResponse(
+            content={"data": None, "meta": {"status": "error", "error": "Agent not initialized"}},
+            status_code=503,
+        )
+
+    from dataclasses import asdict
+    delegation_req = DelegationRequest(**body)
+    response = await agent.handle_delegation(delegation_req)
+    return JSONResponse(content={"data": asdict(response), "meta": {"status": "ok"}})
+
+
+@app.post("/agent/negotiate")
+async def agent_negotiate(body: dict, request: Request) -> JSONResponse:
+    """Handle a negotiation request from Antonio."""
+    state = _get_state(request)
+    agent = state.scanner_agent
+    if agent is None:
+        return JSONResponse(
+            content={"data": None, "meta": {"status": "error", "error": "Agent not initialized"}},
+            status_code=503,
+        )
+
+    from dataclasses import asdict
+    negotiation_req = NegotiationRequest(**body)
+    response = await agent.handle_negotiation(negotiation_req)
+    return JSONResponse(content={"data": asdict(response), "meta": {"status": "ok"}})
 
 
 # ── Entry Point ────────────────────────────────────────────

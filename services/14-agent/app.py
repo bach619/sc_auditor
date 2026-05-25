@@ -1,4 +1,4 @@
-"""Vyper Agent Service — AI Agent with ReAct loop + Skills + Memory.
+"""Antonio Agent Service — AI Agent with ReAct loop + Skills + Memory.
 
 Port: 8014
 
@@ -39,6 +39,7 @@ from src.lead_auditor import LeadAuditor
 from src.learning.feedback import FeedbackLearner
 from src.llm import AgentReasoningClient
 from src.memory import AgentMemory
+from src.utils.circuit_breaker import all_circuit_breakers
 from src.models import (
     AgentRequest,
     AgentResponse,
@@ -64,11 +65,14 @@ from src.skills.exploit_test import ExploitTestSkill
 from src.skills.generate_report import GenerateReportSkill
 from shared.observability import setup_observability
 from src.skills.notify import NotifySkill
+from src.skills.delegate_task import DelegateTaskSkill
+from src.skills.deduplicate_findings import DeduplicateFindingsSkill
+from services.shared.agent_protocol.registry import AgentRegistry
 
 # ── Constants ──────────────────────────────────────────────
 
-SERVICE_NAME = "agent"
-SERVICE_VERSION = "0.1.0"
+SERVICE_NAME = "antonio"
+SERVICE_VERSION = "0.2.0"
 CONFIG_URL = "http://01-config:8000"
 
 # ── App State ──────────────────────────────────────────────
@@ -82,6 +86,7 @@ class AppState:
         self.lead_auditor: LeadAuditor | None = None
         self.daemon: AgentDaemon | None = None
         self.learner: FeedbackLearner | None = None
+        self.agent_registry: AgentRegistry | None = None
         self.http_client: httpx.AsyncClient | None = None
 
 
@@ -159,7 +164,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     registry.register(ExploitTestSkill(state.http_client))
     registry.register(GenerateReportSkill(state.http_client))
     registry.register(NotifySkill(state.http_client))
+    registry.register(DeduplicateFindingsSkill())
     state.registry = registry
+
+    # Init Agent Registry for backend agent discovery
+    state.agent_registry = AgentRegistry(http_client=state.http_client)
+
+    # Register delegation skill
+    registry.register(DelegateTaskSkill(state.agent_registry))
+
+    # Start background discovery of backend agents
+    state.agent_registry.start_background_refresh(interval=30)
 
     # Init Agent Loop
     state.agent = AgentLoop(
@@ -216,8 +231,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # ── Application ────────────────────────────────────────────
 
 app = FastAPI(
-    title="Vyper Agent Service",
-    description="AI Agent with ReAct loop, skills, and memory for smart contract auditing",
+    title="Antonio Agent Service",
+    description="Antonio — AI Agent with ReAct loop, skills, and memory for smart contract auditing",
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
@@ -262,6 +277,63 @@ async def health() -> ApiResponse:
             memory_entries=state.agent.memory.total_entries,
         )
     )
+
+
+@app.get("/agent/manifest")
+async def agent_manifest() -> ApiResponse:
+    """Publish Antonio manifest for discovery by backend agents."""
+    if state is None or state.registry is None:
+        raise _err("Service not initialized", 503)
+
+    skills_info = []
+    for skill in state.registry.list_skills():
+        skills_info.append({
+            "name": skill.name,
+            "description": skill.description,
+            "parameters": skill.parameters,
+        })
+
+    active = state.agent.active_sessions if state.agent else 0
+
+    manifest = {
+        "service_name": "14-agent",
+        "agent_role": "antonio",
+        "version": "0.2.0",
+        "capabilities": skills_info,
+        "constraints": {
+            "max_concurrent_tasks": 5,
+            "requires_api_key": True,
+            "max_context_length": 16000,
+        },
+        "current_load": {
+            "active_tasks": active,
+            "queue_depth": 0,
+            "status": "idle" if active == 0 else "busy",
+        },
+    }
+    return _ok(manifest)
+
+
+@app.get("/agent/registry")
+async def agent_registry_status() -> ApiResponse:
+    """List all discovered backend agents and their capabilities."""
+    if state is None or state.agent_registry is None:
+        raise _err("Agent registry not initialized", 503)
+
+    agents = state.agent_registry.get_all_agents()
+    return _ok({
+        "total_agents": len(agents),
+        "agents": [
+            {
+                "service": a.service_name,
+                "role": a.agent_role,
+                "capabilities": [c.name.value for c in a.capabilities],
+                "status": a.current_load.get("status", "unknown"),
+                "active_tasks": a.current_load.get("active_tasks", 0),
+            }
+            for a in agents
+        ],
+    })
 
 
 @app.post("/agent/run")
@@ -579,6 +651,23 @@ async def learning_recommendations(
         task_type=task_type
     )
     return _ok(recommendations)
+
+
+# ── Circuit Breaker Endpoint ───────────────────────────────
+
+
+@app.get("/circuit-breakers")
+async def get_circuit_breakers() -> ApiResponse:
+    """Get status of all circuit breakers."""
+    return _ok(all_circuit_breakers())
+
+
+@app.post("/circuit-breakers/reset")
+async def reset_circuit_breakers() -> ApiResponse:
+    """Reset all circuit breakers."""
+    from src.utils.circuit_breaker import reset_all
+    reset_all()
+    return _ok({"message": "All circuit breakers reset"})
 
 
 # ── Memory Stats Endpoint (T14) ────────────────────────────

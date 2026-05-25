@@ -53,3 +53,6 @@ vyper.exe
 
 # Built binary
 /vyper
+
+# MSI installer
+*.msi

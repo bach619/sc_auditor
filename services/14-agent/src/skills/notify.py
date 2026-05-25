@@ -65,7 +65,7 @@ class NotifySkill(BaseSkill):
     async def run(self, **kwargs: Any) -> Any:
         body = {
             "channel": kwargs.get("channel", "discord"),
-            "title": kwargs.get("title", "Vyper Agent Notification"),
+            "title": kwargs.get("title", "Antonio Notification"),
             "message": kwargs.get("message", ""),
             "severity": kwargs.get("severity", "info"),
             "metadata": kwargs.get("metadata", {}),

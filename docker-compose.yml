@@ -255,8 +255,8 @@ services:
   14-agent:
     <<: *service-base
     build:
-      context: services/14-agent
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/14-agent/Dockerfile
     ports: ["8021:8000"]   # 8021 (bentrok duluan dengan 04a-scanner-slither di 8014)
     volumes: [vyper_agent:/data/agent]
     depends_on:

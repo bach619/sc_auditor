@@ -23,6 +23,7 @@ from shared.observability import setup_observability
 
 from shared.cache import CacheLayer, IMMUNEFI_PROGS_CACHE, TTL_IMMUNEFI_PROGS
 
+from src.agent_loop import ImmunefiAgent
 from src.models import (
     ApiResponse,
     HealthData,
@@ -33,6 +34,7 @@ from src.models import (
     SyncStatus,
 )
 from src.sync import SyncManager
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 
 # ── Dependent service URLs (for cross-service integration) ─
 
@@ -58,6 +60,9 @@ sync_manager = SyncManager(DATA_DIR)
 
 # Background sync task tracking
 _sync_tasks: dict[str, asyncio.Task] = {}
+
+# Immunefi Agent (initialized in lifespan)
+_immunefi_agent: ImmunefiAgent | None = None
 
 
 # ── Lifespan ───────────────────────────────────────────────
@@ -102,6 +107,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 log.warning("app.dependency_unreachable", service=name, error=str(e)[:80])
 
     asyncio.create_task(_check_deps())
+
+    # Init Immunefi Agent
+    global _immunefi_agent
+    _immunefi_agent = ImmunefiAgent(
+        sync_service=sync_manager,
+        storage=sync_manager,
+        scorer=sync_manager,
+        competition=sync_manager,
+        predictor=sync_manager,
+        onchain=sync_manager,
+    )
+    log.info("app.agent_initialized")
 
     yield
 
@@ -1219,3 +1236,53 @@ async def get_stats() -> ApiResponse:
             total_repos=total_repos,
         )
     )
+
+
+# ── Agent Endpoints ─────────────────────────────────────────
+
+@app.get("/agent/manifest")
+async def agent_manifest() -> ApiResponse:
+    """Get agent capabilities and skill manifest."""
+    agent = _immunefi_agent
+    if not agent:
+        return ok({"error": "Agent not initialized"})
+    manifest = agent.get_manifest()
+    return ok(manifest)
+
+
+@app.post("/agent/delegate")
+async def agent_delegate(body: dict) -> ApiResponse:
+    """Delegate a task to the Immunefi agent."""
+    agent = _immunefi_agent
+    if not agent:
+        return ok({"error": "Agent not initialized"})
+
+    request = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await agent.handle_delegation(request)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def agent_negotiate(body: dict) -> ApiResponse:
+    """Negotiate task feasibility with the agent."""
+    agent = _immunefi_agent
+    if not agent:
+        return ok({"error": "Agent not initialized"})
+
+    request = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await agent.handle_negotiation(request)
+    return ok(response)

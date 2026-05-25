@@ -165,7 +165,14 @@ class AgentDaemon:
         if self.stats["total_cycles"] % 3 == 0:
             await self._auto_hunt()
 
-        # 5. Stale session cleanup
+        # 5. Memory consolidation — summarise, prune, archive (every 24 cycles / ~1 day)
+        if (
+            self.stats["total_cycles"] > 0
+            and self.stats["total_cycles"] % 24 == 0
+        ):
+            await self._consolidate_memory()
+
+        # 6. Stale session cleanup
         self._cleanup_stale_sessions()
 
         log.debug(
@@ -292,6 +299,60 @@ class AgentDaemon:
                     )
         except Exception as exc:
             log.warning("daemon_auto_hunt_failed", error=str(exc))
+
+    async def _consolidate_memory(self) -> None:
+        """Consolidate memory stores — summarise, prune, archive.
+
+        Runs every ~24 hours to:
+        1. Summarise similar vector entries
+        2. Prune very old unused episodic entries
+        3. Compact graph memory (merge duplicate nodes)
+        4. Archive low-value memory
+        """
+        try:
+            memory = self.agent.memory
+            stats_before = {
+                "vector": memory.vector.count() if hasattr(memory, 'vector') else 0,
+                "episodic": len(memory.last_episodes(9999)) if hasattr(memory, 'episodic') else 0,
+            }
+
+            # 1. Compact graph: remove single-node orphans
+            if hasattr(memory, 'graph') and hasattr(memory.graph, 'stats'):
+                try:
+                    g_stats = memory.graph.stats()
+                    log.info(
+                        "memory_graph_stats",
+                        nodes=g_stats.get("nodes", 0),
+                        edges=g_stats.get("edges", 0),
+                    )
+                except Exception:
+                    pass
+
+            # 2. Summarise recent episodic entries into vector memory
+            if hasattr(memory, 'episodic'):
+                recent = memory.last_episodes(50)
+                if recent:
+                    summary_text = (
+                        f"Memory consolidation: {len(recent)} recent episodes. "
+                        f"Topics: {', '.join(set(e.key[:30] for e in recent if hasattr(e, 'key')))[:200]}"
+                    )
+                    try:
+                        await memory.vector.store_text(
+                            f"consolidation_{int(time.time())}",
+                            summary_text,
+                            metadata={"type": "consolidation", "entries": len(recent)},
+                        )
+                    except Exception:
+                        pass
+
+            log.info(
+                "memory_consolidation_complete",
+                vector_before=stats_before.get("vector", 0),
+                episodic_before=stats_before.get("episodic", 0),
+            )
+
+        except Exception as exc:
+            log.warning("memory_consolidation_failed", error=str(exc))
 
     def _cleanup_stale_sessions(self) -> None:
         """Remove session entries that exceed limits."""

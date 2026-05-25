@@ -1,4 +1,4 @@
-"""Memory system for the Vyper Agent.
+"""Memory system for Antonio.
 
 Three types of memory:
 - **Episodic**: Urutan kejadian dalam session (apa yang sudah dilakukan)

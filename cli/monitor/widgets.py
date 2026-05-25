@@ -236,6 +236,179 @@ class SummaryBar(Static):
         return Panel(text, border_style="dim", padding=(0, 1))
 
 
+class AgentPanel(Static):
+    """Live tracker for Antonio agent — active session, current action, status."""
+
+    agent_data: reactive[dict | None] = reactive(None)
+
+    def render(self) -> Panel:
+        if not self.agent_data:
+            return Panel("[dim]No agent data — 14-agent not reachable[/dim]",
+                         title="[bold cyan]🤖 Antonio Agent[/]", border_style="dim")
+
+        health = self.agent_data.get("health", {})
+        sessions = self.agent_data.get("sessions", [])
+        daemon = self.agent_data.get("daemon", {})
+
+        health_data = health.get("data", {}) if isinstance(health, dict) else {}
+        svc_status = health.get("status", "unhealthy")
+
+        # Service status
+        status_icon = "🟢" if svc_status == "healthy" else "🔴"
+        status_style = "green" if svc_status == "healthy" else "red"
+        active_sessions = health_data.get("active_sessions", 0) if health_data else 0
+        skills_loaded = health_data.get("skills_loaded", 0) if health_data else 0
+
+        text = Text.assemble(
+            (f"{status_icon} ", ""),
+            ("Status:     ", "dim"),
+            (f"{svc_status.upper()}", f"bold {status_style}"),
+            ("  |  ", "dim"),
+            ("Sessions: ", "dim"),
+            (f"{active_sessions} active", "bold green" if active_sessions else "dim"),
+            ("\n", ""),
+        )
+
+        # Daemon info
+        if daemon:
+            d_running = daemon.get("running", False)
+            d_cycles = daemon.get("total_cycles", 0)
+            d_errors = daemon.get("total_errors", 0)
+            text += Text.assemble(
+                ("Daemon:     ", "dim"),
+                ("✅ ON" if d_running else "❌ OFF", "bold green" if d_running else "dim"),
+                (f"  ({d_cycles} cycles", "dim"),
+                (f", {d_errors} err)" if d_errors else ")", "dim"),
+                ("\n", ""),
+            )
+
+        text += Text.assemble(
+            ("Skills:     ", "dim"), (f"{skills_loaded} registered", "bold"), ("\n", ""),
+        )
+
+        # Active session
+        active = [s for s in sessions if s.get("status") in ("thinking", "acting", "observing")]
+        if active:
+            s = active[0]
+            sid = s.get("session_id", "?")[:12]
+            sgoal = s.get("goal", "")[:48]
+            sstatus = s.get("status", "?")
+            steps = s.get("steps", 0)
+            status_icons = {"thinking": "🤔", "acting": "⚡", "observing": "👀"}
+            icon = status_icons.get(sstatus, "🔵")
+
+            text += Text.assemble(
+                ("\nActive:     ", "bold yellow"),
+                (f"{icon} ", ""),
+                (sid, "bold cyan"), "\n",
+                ("            ", ""), (sgoal, ""), "\n",
+                ("            ", ""),
+                (f"{sstatus} (step {steps})", "yellow"),
+            )
+
+        return Panel(text, title="[bold cyan]🤖 Antonio Agent[/]", border_style="cyan" if svc_status == "healthy" else "red")
+
+
+class MemoryPanel(Static):
+    """Memory store statistics — vector, episodic, graph entries."""
+
+    agent_data: reactive[dict | None] = reactive(None)
+
+    def render(self) -> Panel:
+        if not self.agent_data:
+            return Panel("[dim]No memory data[/dim]",
+                         title="[bold]🧠 Memory[/]", border_style="dim")
+
+        memory = self.agent_data.get("memory", {})
+        if not memory:
+            return Panel("[dim]Memory stats unavailable[/dim]",
+                         title="[bold]🧠 Memory[/]", border_style="dim")
+
+        text = Text()
+        labels = {
+            "total_entries": ("Total entries", "bold"),
+            "working_memory": ("Working", ""),
+            "episodic_memory": ("Episodic", ""),
+            "semantic_memory": ("Semantic", ""),
+            "vector_store": ("Vector", ""),
+            "graph_nodes": ("Graph nodes", ""),
+            "graph_edges": ("Graph edges", ""),
+        }
+
+        has_any = False
+        for key, (label, style) in labels.items():
+            val = memory.get(key)
+            if val is not None:
+                has_any = True
+                text.append_text(Text(f"  {label}: ", style="dim"))
+                text.append_text(Text(f"{val:,}\n", style=style))
+
+        # If no specific keys, render generic
+        if not has_any:
+            for k, v in memory.items():
+                if isinstance(v, (int, float, str)):
+                    text.append_text(Text(f"  {k}: ", style="dim"))
+                    text.append_text(Text(f"{v}\n", style=""))
+
+        if not text:
+            text = Text("[dim]Empty[/dim]")
+
+        return Panel(text, title="[bold]🧠 Memory[/]", border_style="blue")
+
+
+class CircuitBreakerPanel(Static):
+    """Circuit breaker status per backend service."""
+
+    agent_data: reactive[dict | None] = reactive(None)
+    circuit_breakers: reactive[dict | None] = reactive(None)
+
+    def render(self) -> Panel:
+        text = Text()
+
+        # Show real CB data if available
+        cb_data = self.circuit_breakers
+        if cb_data:
+            for name, cb in list(cb_data.items())[:5]:
+                state = cb.get("state", "CLOSED")
+                failures = cb.get("failure_count", 0)
+                threshold = cb.get("failure_threshold", 5)
+
+                if state == "CLOSED":
+                    icon, sc = "🟢", "green"
+                elif state == "HALF_OPEN":
+                    icon, sc = "🟡", "yellow"
+                else:
+                    icon, sc = "🔴", "red"
+
+                label = name.replace("skill:", "")[:24]
+                text.append_text(Text(f"  {icon} ", ""))
+                text.append_text(Text(f"{label}: ", style="dim"))
+                text.append_text(Text(f"{state}", style=f"bold {sc}"))
+                if failures:
+                    text.append_text(Text(f" ({failures}/{threshold})", style="dim"))
+                text.append_text(Text("\n", style=""))
+
+            if len(cb_data) > 5:
+                text.append_text(Text(f"  ... and {len(cb_data) - 5} more\n", style="dim"))
+        else:
+            # Fallback: derive from health data
+            health = self.agent_data.get("health", {}) if self.agent_data else {}
+            svc_status = health.get("status", "unknown") if isinstance(health, dict) else "unknown"
+            icon = "🟢" if svc_status == "healthy" else "🔴"
+            text.append_text(Text(f"  {icon} Agent 14: ", style="dim"))
+            text.append_text(Text(f"{svc_status.upper()}\n", style="green" if svc_status == "healthy" else "red"))
+
+            sessions = self.agent_data.get("sessions", []) if self.agent_data else []
+            active = len([s for s in sessions if s.get("status") in ("thinking", "acting", "observing")])
+            text.append_text(Text(f"  ⚡ Active: ", style="dim"))
+            text.append_text(Text(f"{active}\n", style="bold yellow" if active else "dim"))
+
+            if not self.agent_data:
+                text = Text("[dim]No circuit breaker data[/dim]")
+
+        return Panel(text, title="[bold]🔌 Circuit Breakers[/]", border_style="yellow")
+
+
 class ShortcutsBar(Static):
     """Bottom bar with keyboard shortcuts."""
 
@@ -247,6 +420,8 @@ class ShortcutsBar(Static):
             (" Pause  ", "dim"),
             (" [1-6]", "bold"),
             (" Filter  ", "dim"),
+            (" [a]", "bold"),
+            (" Agent  ", "dim"),
             (" [↑↓]", "bold"),
             (" Scroll  ", "dim"),
             (" [r]", "bold"),

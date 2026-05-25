@@ -1,4 +1,4 @@
-"""Pydantic models for Vyper Agent Service."""
+"""Pydantic models for Antonio Agent Service."""
 
 from __future__ import annotations
 

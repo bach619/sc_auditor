@@ -26,6 +26,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from src.agent_loop import AIAgent
 from src.analyzer import Analyzer, count_cache_entries
 from src.fixer import FixSuggester
 from src.llm import LLMClient
@@ -39,10 +40,10 @@ from src.models import (
     HealthData,
     Meta,
 )
-
-
-
-
+from shared.agent_protocol.models import (
+    DelegationRequest,
+    NegotiationRequest,
+)
 
 
 # ── Constants ──────────────────────────────────────────────
@@ -70,6 +71,7 @@ class AppState:
         self.llm: LLMClient | None = None
         self.analyzer: Analyzer | None = None
         self.fixer: FixSuggester | None = None
+        self.ai_agent: AIAgent | None = None
         self.http_client: httpx.AsyncClient | None = None
         self._shutdown_requested: bool = False
 
@@ -185,6 +187,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     state.analyzer = Analyzer(
         llm=llm,
         max_concurrent=config["max_concurrent_ai"],
+    )
+
+    # Create AI Agent layer (wraps analyzer with agent capabilities)
+    state.ai_agent = AIAgent(
+        analyzer=state.analyzer,
+        llm_client=state.llm,
     )
 
     # Create the FixSuggester
@@ -510,6 +518,37 @@ async def clear_cached_analysis(finding_hash: str) -> ApiResponse:
 
     log.info("cache.deleted", hash_prefix=finding_hash[:16])
     return ok({"deleted": True, "hash": finding_hash})
+
+
+@app.get("/agent/manifest")
+async def agent_manifest() -> ApiResponse:
+    """Publish agent manifest for Antonio discovery."""
+    if state is None or state.ai_agent is None:
+        raise err("Service not initialized", 503)
+    return ok(state.ai_agent.get_manifest().__dict__)
+
+
+@app.post("/agent/delegate")
+async def agent_delegate(body: dict) -> ApiResponse:
+    """Receive a delegation from Antonio."""
+    if state is None or state.ai_agent is None:
+        raise err("Service not initialized", 503)
+
+    import asyncio
+    request = DelegationRequest(**body)
+    response = await state.ai_agent.handle_delegation(request)
+    return ok(response.__dict__)
+
+
+@app.post("/agent/negotiate")
+async def agent_negotiate(body: dict) -> ApiResponse:
+    """Handle a negotiation request from Antonio."""
+    if state is None or state.ai_agent is None:
+        raise err("Service not initialized", 503)
+
+    request = NegotiationRequest(**body)
+    response = await state.ai_agent.handle_negotiation(request)
+    return ok(response.__dict__)
 
 
 # ── Entry Point ────────────────────────────────────────────

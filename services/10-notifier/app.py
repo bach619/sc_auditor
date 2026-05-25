@@ -37,8 +37,8 @@ from src.models import (
 )
 from src.telegram import TelegramNotifier, create_telegram_notifier
 
-
-
+from src.agent_loop import NotifierAgent
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 
 
 
@@ -61,6 +61,7 @@ class AppState:
         self.email: EmailNotifier = create_email_notifier()
         self.desktop: DesktopNotifier = create_desktop_notifier()
         self.channels: list[ChannelConfig] = []
+        self.notifier_agent: NotifierAgent | None = None
         self._load_channels()
 
     def _load_channels(self) -> None:
@@ -127,6 +128,63 @@ class AppState:
                 return c
         return None
 
+    async def send_notification(
+        self,
+        message: str,
+        channel: str = "all",
+        subject: str | None = None,
+        title: str | None = None,
+    ) -> list[DeliveryResult]:
+        """Send a notification to specified channel(s).
+
+        Used by SendChannelSkill to dispatch to one or all channels.
+        """
+        channels_to_deliver = _resolve_channels(self, channel)
+        deliveries: list[DeliveryResult] = []
+
+        for channel_name in channels_to_deliver:
+            if channel_name == "email":
+                to_email = os.environ.get("NOTIFICATION_EMAIL", "")
+                result = await self.email.send(
+                    subject=subject or "Vyper Notification",
+                    body=message,
+                    to_email=to_email,
+                )
+            elif channel_name == "telegram":
+                if not self.telegram:
+                    result = DeliveryResult(
+                        channel="telegram",
+                        success=False,
+                        error="Telegram not configured",
+                    )
+                else:
+                    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+                    result = await self.telegram.send_simple(
+                        text=message,
+                        chat_id=chat_id,
+                    )
+            elif channel_name == "discord":
+                webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "")
+                result = await self.discord.send_embed(
+                    title=title or "Vyper Notification",
+                    description=message,
+                    webhook_url=webhook_url,
+                )
+            elif channel_name == "desktop":
+                result = await self.desktop.send(
+                    title=title or "Vyper Notification",
+                    message=message,
+                )
+            else:
+                result = DeliveryResult(
+                    channel=channel_name,
+                    success=False,
+                    error=f"Unknown channel: {channel_name}",
+                )
+            deliveries.append(result)
+
+        return deliveries
+
     async def close(self) -> None:
         """Release HTTP clients and other resources."""
         await self.discord.close()
@@ -160,6 +218,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         channels_total=len(state.channels),
         channels_enabled=enabled,
     )
+
+    state.notifier_agent = NotifierAgent(
+        email_notifier=state.email,
+        telegram_notifier=state.telegram,
+        discord_notifier=state.discord,
+        notifier_service=state,
+    )
+    log.info("notifier.agent_initialized", agent_role="notification_dispatcher", skills=state.notifier_agent.skill_registry.count)
 
     yield
 
@@ -577,6 +643,46 @@ def _log_delivery(result: DeliveryResult, body: NotifyRequest) -> None:
             f.write(line)
     except OSError as exc:
         log.error("delivery_log.write_failed", error=str(exc))
+
+
+# ── Agent Endpoints ────────────────────────────────────────
+
+
+@app.get("/agent/manifest")
+async def agent_manifest(request: Request) -> ApiResponse:
+    """Publish agent manifest for Antonio discovery."""
+    state = _get_state(request)
+    agent = state.notifier_agent
+    if agent is None:
+        return ApiResponse(data=None, meta=Meta(status="error"))
+    from dataclasses import asdict
+    return ApiResponse(data=asdict(agent.get_manifest()), meta=Meta(status="ok"))
+
+
+@app.post("/agent/delegate")
+async def agent_delegate(body: dict, request: Request) -> ApiResponse:
+    """Receive a delegation from Antonio."""
+    state = _get_state(request)
+    agent = state.notifier_agent
+    if agent is None:
+        return ApiResponse(data=None, meta=Meta(status="error"))
+    from dataclasses import asdict
+    delegation_req = DelegationRequest(**body)
+    response = await agent.handle_delegation(delegation_req)
+    return ApiResponse(data=asdict(response), meta=Meta(status="ok"))
+
+
+@app.post("/agent/negotiate")
+async def agent_negotiate(body: dict, request: Request) -> ApiResponse:
+    """Handle a negotiation request from Antonio."""
+    state = _get_state(request)
+    agent = state.notifier_agent
+    if agent is None:
+        return ApiResponse(data=None, meta=Meta(status="error"))
+    from dataclasses import asdict
+    negotiation_req = NegotiationRequest(**body)
+    response = await agent.handle_negotiation(negotiation_req)
+    return ApiResponse(data=asdict(response), meta=Meta(status="ok"))
 
 
 # ── Entry Point ────────────────────────────────────────────

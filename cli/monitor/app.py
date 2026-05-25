@@ -11,12 +11,16 @@ from __future__ import annotations
 import asyncio
 
 from textual.app import App, ComposeResult
+from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widgets import Input, Static
 from textual import work
 
 from cli.monitor.client import MonitorClient
-from cli.monitor.widgets import StatusBar, EventLog, SummaryBar, ShortcutsBar
+from cli.monitor.widgets import (
+    StatusBar, EventLog, SummaryBar, ShortcutsBar,
+    AgentPanel, MemoryPanel, CircuitBreakerPanel,
+)
 
 # ── Mouse escape sequences ─────────────────────────────────────
 
@@ -49,6 +53,35 @@ class VyperMonitorApp(App):
     StatusBar {
         height: 3;
         dock: top;
+    }
+
+    /* ── Main layout: agent sidebar + event log ── */
+    Horizontal {
+        height: 1fr;
+    }
+
+    #agent-column {
+        width: 38;
+        min-width: 30;
+        max-width: 50;
+        dock: left;
+    }
+
+    AgentPanel {
+        height: 10;
+        border: solid $secondary;
+        margin: 0 0 1 0;
+    }
+
+    MemoryPanel {
+        height: 8;
+        border: solid $secondary;
+        margin: 0 0 1 0;
+    }
+
+    CircuitBreakerPanel {
+        height: 5;
+        border: solid $secondary;
     }
 
     EventLog {
@@ -105,6 +138,7 @@ class VyperMonitorApp(App):
         ("5", "filter_error", "Error"),
         ("6", "filter_critical", "Critical"),
         ("r", "refresh", "Refresh"),
+        ("a", "toggle_agent", "Toggle agent panel"),
         # Copy-paste
         ("y", "copy_events", "Copy events"),
         ("Y", "copy_visible", "Copy visible"),
@@ -114,6 +148,7 @@ class VyperMonitorApp(App):
     ]
 
     selection_mode: reactive[bool] = reactive(False)
+    show_agent_panel: reactive[bool] = reactive(True)
 
     def __init__(self, poll_interval: int = 5) -> None:
         super().__init__()
@@ -141,9 +176,25 @@ class VyperMonitorApp(App):
         """Toggle selection mode on/off."""
         self.selection_mode = not self.selection_mode
 
+    # ── Agent panel toggle ─────────────────────────────────────
+
+    def watch_show_agent_panel(self, old: bool, new: bool) -> None:
+        """Show/hide the agent column."""
+        col = self.query_one("#agent-column")
+        col.display = "block" if new else "none"
+
+    def action_toggle_agent(self) -> None:
+        """Toggle agent panel on/off."""
+        self.show_agent_panel = not self.show_agent_panel
+
     def compose(self) -> ComposeResult:
         yield StatusBar()
-        yield EventLog()
+        with Horizontal():
+            with Vertical(id="agent-column"):
+                yield AgentPanel()
+                yield MemoryPanel()
+                yield CircuitBreakerPanel()
+            yield EventLog()
         yield SummaryBar()
         yield ShortcutsBar()
         yield Input(id="search", placeholder="Search events...")
@@ -155,6 +206,7 @@ class VyperMonitorApp(App):
         self._poll_health()
         self._poll_events()
         self._poll_stats()
+        self._poll_agent()
 
     def _flash_clipboard(self, msg: str) -> None:
         """Show a brief clipboard message at the bottom."""
@@ -203,6 +255,25 @@ class VyperMonitorApp(App):
             except Exception:
                 pass
             await asyncio.sleep(10)
+
+    @work(thread=False, group="polling", exit_on_error=False)
+    async def _poll_agent(self) -> None:
+        """Poll Antonio agent data for the side panels."""
+        while True:
+            try:
+                agent_data = await self.client.get_agent_status()
+                if agent_data:
+                    self.query_one(AgentPanel).agent_data = agent_data
+                    self.query_one(MemoryPanel).agent_data = agent_data
+                    cb_panel = self.query_one(CircuitBreakerPanel)
+                    cb_panel.agent_data = agent_data
+                    # Also try to fetch real CB data
+                    cb_data = await self.client.get_circuit_breakers()
+                    if cb_data:
+                        cb_panel.circuit_breakers = cb_data
+            except Exception:
+                pass
+            await asyncio.sleep(5)
 
     # ── Key handlers ────────────────────────────────────────────
 

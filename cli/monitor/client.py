@@ -151,6 +151,61 @@ class MonitorClient:
 
         return self._event_buffer[-50:]
 
+    async def get_circuit_breakers(self) -> dict[str, Any] | None:
+        """GET Antonio's circuit breaker statuses."""
+        try:
+            base = self.cfg.get("agent_url") or "http://localhost:8021"
+            resp = await self.http.get(f"{base}/circuit-breakers", timeout=5.0)
+            if resp.status_code == 200:
+                body = resp.json()
+                return body.get("data", body) if isinstance(body, dict) else None
+        except Exception:
+            pass
+        return None
+
+    async def get_agent_status(self) -> dict | None:
+        """GET Antonio agent health + manifest data."""
+        try:
+            base = self.cfg.get("agent_url") or "http://localhost:8021"
+            health = await self.check_service_health(base, "14-agent")
+
+            sessions_data: list[dict] = []
+            try:
+                r = await self.http.get(f"{base}/agent/sessions?limit=20", timeout=5.0)
+                if r.status_code == 200:
+                    sess = r.json()
+                    if isinstance(sess, dict):
+                        sessions_data = (sess.get("data") or {}).get("sessions", [])
+            except Exception:
+                pass
+
+            daemon_data: dict = {}
+            try:
+                r = await self.http.get(f"{base}/daemon/status", timeout=5.0)
+                if r.status_code == 200:
+                    d_body = r.json()
+                    daemon_data = d_body.get("data", d_body) if isinstance(d_body, dict) else {}
+            except Exception:
+                pass
+
+            memory_data: dict = {}
+            try:
+                r = await self.http.get(f"{base}/memory/stats", timeout=5.0)
+                if r.status_code == 200:
+                    m_body = r.json()
+                    memory_data = m_body.get("data", m_body) if isinstance(m_body, dict) else {}
+            except Exception:
+                pass
+
+            return {
+                "health": health,
+                "sessions": sessions_data,
+                "daemon": daemon_data,
+                "memory": memory_data,
+            }
+        except Exception:
+            return None
+
     async def get_queue_size(self) -> int:
         """GET /queue to get queue size."""
         try:

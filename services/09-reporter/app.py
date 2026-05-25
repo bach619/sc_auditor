@@ -27,6 +27,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.full import FullReportGenerator
 from src.immunefi import ImmunefiReportGenerator
+from src.agent_loop import ReporterAgent
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 from src.models import (
     ApiResponse,
     ExploitResult,
@@ -65,6 +67,7 @@ class AppState:
     def __init__(self) -> None:
         self.immunefi_gen: ImmunefiReportGenerator = ImmunefiReportGenerator()
         self.full_gen: FullReportGenerator = FullReportGenerator()
+        self.reporter_agent: ReporterAgent | None = None
         self._shutdown_requested: bool = False
 
     @property
@@ -104,6 +107,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     except PermissionError:
         log.warning("data_dir.permission_denied", path=str(DATA_DIR))
+
+    # Init Reporter Agent
+    state.reporter_agent = ReporterAgent()
 
     log.info(
         "reporter.startup",
@@ -410,6 +416,52 @@ async def get_full_report(audit_id: str) -> ApiResponse:
             path=str(report_dir / "full.md"),
         )
     )
+
+
+# ── Agent Endpoints ────────────────────────────────────────
+
+
+@app.get("/agent/manifest")
+async def agent_manifest(request: Request) -> ApiResponse:
+    """Publish agent manifest for Antonio discovery."""
+    state = _get_state(request)
+    agent = state.reporter_agent
+    if agent is None:
+        raise err("Agent not initialized", status_code=503)
+
+    from dataclasses import asdict
+
+    return ok(asdict(agent.get_manifest()))
+
+
+@app.post("/agent/delegate")
+async def agent_delegate(body: dict, request: Request) -> ApiResponse:
+    """Receive a delegation from Antonio."""
+    state = _get_state(request)
+    agent = state.reporter_agent
+    if agent is None:
+        raise err("Agent not initialized", status_code=503)
+
+    from dataclasses import asdict
+
+    delegation_req = DelegationRequest(**body)
+    response = await agent.handle_delegation(delegation_req)
+    return ok(asdict(response))
+
+
+@app.post("/agent/negotiate")
+async def agent_negotiate(body: dict, request: Request) -> ApiResponse:
+    """Handle a negotiation request from Antonio."""
+    state = _get_state(request)
+    agent = state.reporter_agent
+    if agent is None:
+        raise err("Agent not initialized", status_code=503)
+
+    from dataclasses import asdict
+
+    negotiation_req = NegotiationRequest(**body)
+    response = await agent.handle_negotiation(negotiation_req)
+    return ok(asdict(response))
 
 
 # ── Entry Point ────────────────────────────────────────────

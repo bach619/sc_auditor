@@ -33,6 +33,8 @@ from src.pipeline import Pipeline
 from src.priority import PriorityScorer
 from src.resource_governor import ResourceGovernor, ToolType
 from shared.observability import setup_observability
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
+from src.agent_loop import OrchestratorAgent
 from src.similarity import ContractSimilarity
 
 # ── Application ─────────────────────────────────────────────────
@@ -59,6 +61,7 @@ batch: BatchProcessor
 scorer: PriorityScorer
 similarity: ContractSimilarity
 daemon: Daemon
+orchestrator_agent: OrchestratorAgent
 
 
 @app.on_event("startup")
@@ -77,6 +80,13 @@ async def startup() -> None:
     similarity = ContractSimilarity()
     batch = BatchProcessor(pipeline)
     daemon = Daemon(pipeline, batch, scorer)
+
+    orchestrator_agent = OrchestratorAgent(
+        pipeline=pipeline,
+        daemon=daemon,
+        priority_service=scorer,
+        similarity=similarity,
+    )
 
     logger.info(
         "Orchestrator ready — step_timeout=%ds, max_retries=%d",
@@ -485,6 +495,48 @@ async def get_resource_status() -> JSONResponse:
             "max": governor.max_slots(tool),
         }
     return _ok(data=slots)
+
+
+# ── Agent Protocol Endpoints ─────────────────────────────────────
+
+@app.get("/agent/manifest")
+async def agent_manifest() -> JSONResponse:
+    """Get the OrchestratorAgent manifest with capabilities and skills."""
+    import dataclasses
+    manifest = orchestrator_agent.get_manifest()
+    return _ok(data=dataclasses.asdict(manifest))
+
+
+@app.post("/agent/delegate")
+async def agent_delegate(body: dict) -> JSONResponse:
+    """Delegate a task to the OrchestratorAgent."""
+    import dataclasses
+    request = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await orchestrator_agent.handle_delegation(request)
+    return JSONResponse(content=dataclasses.asdict(response))
+
+
+@app.post("/agent/negotiate")
+async def agent_negotiate(body: dict) -> JSONResponse:
+    """Negotiate a task with the OrchestratorAgent (feasibility check)."""
+    import dataclasses
+    request = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await orchestrator_agent.handle_negotiation(request)
+    return JSONResponse(content=dataclasses.asdict(response))
 
 
 # ── Run (for dev) ───────────────────────────────────────────────
