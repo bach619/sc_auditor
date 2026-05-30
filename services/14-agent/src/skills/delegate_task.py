@@ -63,7 +63,7 @@ class DelegateTaskSkill(BaseSkill):
         if not goal:
             return SkillResult(success=False, error="goal is required")
 
-        from services.shared.agent_protocol.models import AgentCapability
+        from shared.agent_protocol.models import AgentCapability
         try:
             capability = AgentCapability(capability_str)
         except ValueError:
@@ -81,7 +81,7 @@ class DelegateTaskSkill(BaseSkill):
 
         service_name, manifest = agent_info
 
-        from services.shared.agent_protocol.models import DelegationRequest, generate_task_id
+        from shared.agent_protocol.models import DelegationRequest, generate_task_id
         request = DelegationRequest(
             task_id=generate_task_id(),
             goal=goal,

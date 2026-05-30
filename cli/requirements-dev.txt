@@ -1,0 +1,6 @@
+# Development dependencies for VYPER TUI v2
+-r requirements.txt
+
+pytest>=8.0.0
+pytest-asyncio>=0.24.0
+pytest-textual-snapshot>=0.3.0

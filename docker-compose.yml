@@ -295,7 +295,7 @@ services:
       - REPORTER_URL=http://09-reporter:8000
       - NOTIFIER_URL=http://10-notifier:8000
       - EXPLOIT_URL=http://08-exploit:8006
-      - AGENT_URL=http://14-agent:8019
+      - AGENT_URL=http://14-agent:8000
   16-submission:
     <<: *service-base
     build:
@@ -314,6 +314,7 @@ services:
 
 volumes:
   vyper_agent:
+  vyper_dashboard:
   vyper_config:
   vyper_scanner_slither:
   vyper_scanner_echidna:

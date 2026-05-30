@@ -19,7 +19,6 @@
 - [19 Microservices](#19-microservices)
 - [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
-- [CLI Tool](#cli-tool)
 - [Dashboard](#dashboard)
 - [Status Pengembangan](#status-pengembangan)
 - [Struktur Project](#struktur-project)
@@ -48,7 +47,6 @@
 │  Semua service jalan, komunikasi via HTTP/REST.              │
 │                                                              │
 │  Dashboard: http://localhost:8000                            │
-│  CLI:       vyper audit 0x4c9edd...                         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -216,12 +214,11 @@ Setiap state punya **failure state** (source_failed, scan_failed, timeout, dll) 
 | **Foundry (Forge)** | Build verification, test runner | Rust (binary) |
 | **Anvil** | Local fork Ethereum node untuk exploit | Rust (Docker) |
 
-### Frontend & CLI
+### Frontend
 
 | Layer | Teknologi |
 |-------|-----------|
 | **Dashboard** | React 18 + TypeScript + Tailwind v4 |
-| **CLI** | Typer + Rich + httpx async |
 | **Build** | Vite 8 |
 
 ---
@@ -268,31 +265,22 @@ Dashboard React SPA dengan:
 - 📈 Platform metrics & tool performance
 - ⚙️ Settings & konfigurasi
 
-### Pipeline CLI
+### Menggunakan Service
 
 ```bash
-# Install CLI tool
-pip install -e .
+# Start semua service
+docker compose up --build -d
 
-# Lihat semua command
-vyper --help
+# Pipeline audit — langsung via API Orchestrator
+curl -X POST http://localhost:8009/audit/start \
+  -H "Content-Type: application/json" \
+  -d '{"address": "0x4c9edd...", "chain": "ethereum"}'
 
-# Docker lifecycle
-vyper up          # Start semua service
-vyper down        # Stop semua service
-vyper status      # Cek status service
-vyper logs        # Stream log
+# Cek status audit
+curl http://localhost:8009/audit/{audit_id}/status
 
-# Audit pipeline
-vyper audit 0x4c9edd5852cd905f086c759e8383e09bff1e68b3 --chain ethereum
-vyper scan contract.sol --tools slither,mythril
-vyper exploit finding-001 --attack reentrancy
-
-# Monitoring
-vyper dashboard          # Buka dashboard di browser
-vyper status aud_abc123  # Cek status audit
-vyper list               # Lihat semua audit
-vyper stats              # Lihat metrics platform
+# Cek health semua service via Dashboard
+open http://localhost:8000
 ```
 
 ### Data Storage
@@ -311,32 +299,7 @@ Semua data persist di Docker volumes:
 └── learning/                    # Feedback & improvements
 ```
 
----
 
-## CLI Tool
-
-17 commands via **Typer** CLI:
-
-| Perintah | Fungsi |
-|----------|--------|
-| `vyper up` | Start Docker Compose services |
-| `vyper down` | Stop semua service |
-| `vyper logs` | Stream logs |
-| `vyper ps` | Status containers |
-| `vyper restart` | Restart services |
-| `vyper audit` | Full pipeline audit |
-| `vyper scan` | Quick scan (scanner only) |
-| `vyper exploit` | Generate PoC |
-| `vyper status` | Cek status audit |
-| `vyper list` | List semua audit |
-| `vyper stats` | Platform metrics |
-| `vyper queue` | Lihat priority queue |
-| `vyper health` | Health check semua service |
-| `vyper dashboard` | Buka dashboard browser |
-| `vyper config` | Config management |
-| `vyper init` | Init config file |
-
----
 
 ## Dashboard
 
@@ -376,7 +339,7 @@ Dashboard adalah **React SPA** yang berjalan di port 8000, menggantikan Jinja2 t
 | Prioritas | Status |
 |-----------|--------|
 | **P1: E2E Pipeline** | ✅ 7/7 steps — Immunefi → Source → Scanner → AI → Classifier → Exploit → Reporter → Notifier |
-| **P2: CLI Tool** | ✅ 17 commands — Typer + Rich + httpx |
+
 | **Scanner Split** | ✅ 04 → 04a (Slither) + 04b (Echidna) + 04c (Forge) + 05 (Mythril) + 04d (Halmos) |
 | **Mythril Sidecar** | ✅ Modular isolation via container |
 | **Dashboard React SPA** | ✅ Migrasi dari Jinja2 → React + Vite + Tailwind |
@@ -411,23 +374,6 @@ sc_auditor/
 ├── docker-compose.yml           # Orkestrasi 19 service
 ├── Dockerfile.base              # Base Python 3.11-slim image
 ├── .env.example                 # Template environment
-│
-├── vyper_lib/                   # Shared library (model, solc manager)
-│   ├── models.py                # Finding, ToolResult, ApiResponse
-│   └── solc_manager.py          # Compiler version management
-│
-├── cli/                         # CLI tool (Typer)
-│   ├── main.py                  # Entry point
-│   ├── client.py                # HTTP client wrapper
-│   ├── output.py                # Rich output formatter
-│   ├── config.py                # Config management
-│   └── commands/                # 6 command groups
-│       ├── docker.py            # up/down/logs/ps/restart
-│       ├── audit.py             # Full pipeline
-│       ├── scan.py              # Quick scan
-│       ├── exploit.py           # PoC generation
-│       ├── status.py            # Status monitoring
-│       └── config_cmd.py        # Config CLI
 │
 ├── services/                    # 19 microservices
 │   ├── 01-config/               # Config management

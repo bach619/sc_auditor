@@ -31,7 +31,14 @@ services/dashboard/frontend/dist/
 Thumbs.db
 
 # Docker
-*.log
+# Local Docker artifacts and overrides (keep Dockerfile and docker-compose.yml tracked)
+.docker/
+docker-compose.override.yml
+docker-compose.override.yaml
+docker-compose.*.local
+docker-compose.local.yml
+.env.docker
+*.tar
 
 # Data volume (runtime)
 /data/

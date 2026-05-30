@@ -1,2 +1,2 @@
 # VYPER TUI v2 — Terminal Command Center
-# Package entry point: python -m cli.app
+# src package root

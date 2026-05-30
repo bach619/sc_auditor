@@ -1,8 +1,6 @@
 """Vyper backend library — Smart Contract Bug Hunter services.
 
-Note: The Vyper CLI has been migrated to Go.
-Install the Go CLI:  go install ./cmd/vyper/
-Python library remains for backend service imports.
+This package contains the shared library used by all microservices.
 
 Installation:
     pip install -e .
@@ -21,7 +19,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Vyper Team",
     python_requires=">=3.10",
-    packages=find_packages(include=["cli", "cli.*", "services", "services.shared", "services.shared.*"]),
+    packages=find_packages(include=["services", "services.*"]),
     install_requires=[
         "httpx>=0.27.0",
         "pyyaml>=6.0",

@@ -97,10 +97,77 @@ Setiap agenda WAJIB melalui 4 fase berurutan. Tidak boleh ada fase yang dilewati
 | 3 | **Jangan label closed sebelum 100%** | Menyesatkan, user kira selesai padahal belum |
 | 4 | **Jangan skip planning** | Planning = contract dengan user, tanpanya tidak ada acuan sukses |
 | 5 | **Jangan ubah status tanpa update README** | Index harus sinkron dengan status aktual |
+| 6 | **Jangan lupa log ke SYSTEM_LOG.md** | Setiap perubahan tanpa log = hilang jejak. Log WAJIB sebelum close fase |
 
 ---
 
-## 4. Format Penamaan File
+## 4.5 System Log — Catat Setiap Perubahan
+
+> **WAJIB** — setiap agent WAJIB mencatat setiap write/modify/delete ke `SYSTEM_LOG.md`.
+
+Setiap kali agent melakukan perubahan file (CREATE, MODIFY, DELETE, REFACTOR, FIX, CONFIG, TEST, DOCS), **WAJIB** mencatatnya di `SYSTEM_LOG.md`.
+
+### Cara Mencatat
+
+**Opsi A: Gunakan script helper (recommended)**
+```bash
+python scripts/log_change.py --type CREATE --file "path/file.py" --desc "Menambahkan fitur X" --agent lore-master
+python scripts/log_change.py --type MODIFY --file "path/file.py" --desc "Refactor fungsi Y" --agent vibe-coder --tag "agenda-14"
+python scripts/log_change.py --type DELETE --file "path/old.md" --desc "Hapus file usang"
+```
+
+**Opsi B: Edit langsung `SYSTEM_LOG.md`**
+Tambahkan baris baru di bagian atas (di bawah `## YYYY-MM-DD`):
+```
+### `YYYY-MM-DD HH:MM | [TYPE] | File: path | Agent: agent | Deskripsi`
+```
+
+### Aturan Logging
+
+| # | Aturan | Konsekuensi Jika Dilanggar |
+|---|--------|----------------------------|
+| 1 | **Setiap CREATE file → WAJIB log** | Hilang track asal-usul file |
+| 2 | **Setiap MODIFY file → WAJIB log** | Tidak ada history perubahan |
+| 3 | **Setiap DELETE file → WAJIB log** | File hilang tanpa jejak |
+| 4 | **REFACTOR besar → WAJIB log** | Tidak terlihat scope perubahan |
+| 5 | **CONFIG change → WAJIB log** | Konfigurasi berubah silent |
+| 6 | **Gunakan `--tag` untuk grouping** (misal `--tag "agenda-14"`) | Memudahkan filter &追踪 |
+| 7 | **Log di akhir sesi** — kumpulkan semua perubahan, lalu log batch | Efisien, tidak ganggu flow |
+| 8 | **Jangan log TEST entry** untuk test script itu sendiri | Hanya log perubahan real |
+| 9 | **Deskripsi dalam Bahasa Indonesia** atau English — konsisten | Memudahkan pembacaan |
+
+### Format Detail
+
+```
+### `YYYY-MM-DD HH:MM | [TYPE] | File: path | Agent: agent | Deskripsi`
+```
+
+| Field | Contoh | Keterangan |
+|-------|--------|------------|
+| `HH:MM` | `14:30` | Waktu perubahan (24h) |
+| `TYPE` | `CREATE` | Salah satu dari 9 tipe |
+| `File` | `services/04-scanner/app.py` | Path relative ke root repo |
+| `Agent` | `vibe-coder` | Nama agent yang melakukan perubahan |
+| `Tag` | `[agenda-14]` | (Opsional) — di awal deskripsi |
+| `Deskripsi` | `Tambah endpoint /scan/custom` | Deskripsi singkat & jelas |
+
+### Valid Tipe
+
+| TYPE | Digunakan Untuk |
+|------|----------------|
+| `CREATE` | File baru |
+| `MODIFY` | Edit file existing |
+| `DELETE` | Hapus file |
+| `REFACTOR` | Restruktur kode besar (rename, move, split) |
+| `FIX` | Bug fix |
+| `DOCS` | Dokumentasi (README, docs/, komentar) |
+| `CONFIG` | Config change (docker, CI, opencode.json) |
+| `TEST` | Test files |
+| `META` | System log infrastructure itu sendiri |
+
+---
+
+## 5. Format Penamaan File
 
 | Status | Format |
 |--------|--------|

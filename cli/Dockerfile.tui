@@ -1,0 +1,30 @@
+# VYPER TUI v2 — Docker Image
+# Terminal User Interface untuk VYPER smart contract security platform
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY cli/requirements.txt .
+RUN pip install --no-cache-dir \
+    textual>=0.60.0 \
+    httpx>=0.27.0 \
+    rich>=13.0.0 \
+    pydantic>=2.0.0 \
+    python-dotenv>=1.0.0 \
+    aiofiles>=23.0.0 \
+    python-dateutil>=2.8.0
+
+# Copy TUI code
+COPY cli/ .
+
+# Environment
+ENV PYTHONUNBUFFERED=1
+ENV VYPER_DASHBOARD_URL=http://15-dashboard:8000
+
+# Terminal capabilities
+ENV TERM=xterm-256color
+
+# Run
+CMD ["python", "-m", "cli.app"]

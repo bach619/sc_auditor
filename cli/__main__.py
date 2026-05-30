@@ -1,6 +1,9 @@
-"""Allow `python -m vyper.cli` invocation."""
+#!/usr/bin/env python3
+"""
+Entry point untuk `python -m cli`.
+Delegate ke cli.app.main()
+"""
 
-from cli.main import app
+from cli.app import main
 
-if __name__ == "__main__":
-    app()
+main()

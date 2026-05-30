@@ -67,7 +67,7 @@ from shared.observability import setup_observability
 from src.skills.notify import NotifySkill
 from src.skills.delegate_task import DelegateTaskSkill
 from src.skills.deduplicate_findings import DeduplicateFindingsSkill
-from services.shared.agent_protocol.registry import AgentRegistry
+from shared.agent_protocol.registry import AgentRegistry
 
 # ── Constants ──────────────────────────────────────────────
 

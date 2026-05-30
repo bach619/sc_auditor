@@ -1,6 +1,8 @@
 # VYPER — Microservice Smart Contract Bug Hunter
 
 > **Arsitektur Final**: Microservice, Docker Compose, HTTP/REST, Python FastAPI
+>
+> **Catatan**: CLI (Go + Python) telah dihapus dari project. Semua interaksi via Dashboard React SPA (port 8000) atau API langsung ke service. Lihat `docker-compose.yml` untuk port mapping.
 > **Target**: Personal Use — Scan Immunefi Contracts, Find TP Bugs, Generate Reports
 > **Tanggal**: 20 Mei 2026
 
@@ -489,21 +491,6 @@ vyper/
 ├── vyper_lib/                      # Shared library (models + utilities)
 │   ├── __init__.py
 │   └── models.py                   # Pydantic models shared across services
-│
-├── cli/                            # Vyper CLI Tool (17 commands)
-│   ├── __init__.py
-│   ├── __main__.py
-│   ├── client.py                   # HTTP client wrapper
-│   ├── config.py                   # Config management
-│   ├── output.py                   # Rich output formatting
-│   └── commands/                   # Perintah CLI
-│       ├── docker.py               # docker compose lifecycle
-│       ├── audit.py                # Audit pipeline
-│       ├── scan.py                 # Direct scan
-│       ├── exploit.py              # Exploit generation
-│       ├── status.py               # Status monitoring
-│       ├── dashboard.py            # Dashboard launcher
-│       └── config_cmd.py           # Config commands
 │
 ├── services/                       # 20 microservices
 │   ├── 01-immunefi/
@@ -5386,8 +5373,8 @@ VYPER — MICROSERVICE SMART CONTRACT BUG HUNTER
  ✅ Backup & restore     — Weekly auto-backup, named snapshots
  ✅ Resource governor    — Throttle saat laptop dipakai / battery low
  ✅ Webhook system       — POST events ke Slack, PagerDuty, etc
- ✅ CLI tool             — 17 commands (Typer + Rich), pip install
- ✅ CLI completion       — Bash/Zsh/PowerShell auto-completion
+ ✅ CLI tool             — Removed. Semua interaksi via Dashboard atau API langsung.
+ ✅ API Gateway          — Dashboard React SPA proxy ke semua service (port 8000)
  ✅ RPC rate limiter     — Token bucket + queue + failover per provider
  ✅ Autonomous daemon    — 24/7 auto-hunt via orchestrator
  ✅ Agent intelligence   — Memory system + autonomous agent daemon
