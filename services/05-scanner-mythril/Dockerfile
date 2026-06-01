@@ -8,10 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY services/05-scanner-mythril/requirements.txt .
 RUN pip install --no-cache-dir --default-timeout=120 -r requirements.txt
 
-COPY . .
+COPY services/05-scanner-mythril/ .
+COPY services/shared/ ./shared/
 
 RUN mkdir -p /data/scanner-mythril && chmod 777 /data/scanner-mythril
 

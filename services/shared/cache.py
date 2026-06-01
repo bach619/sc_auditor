@@ -111,10 +111,19 @@ class CacheLayer:
     ) -> None:
         """Store in cache."""
         key = self._make_key(prefix, data)
+
+        class _SafeEncoder(json.JSONEncoder):
+            def default(self, obj: Any) -> str:
+                if hasattr(obj, "model_dump"):
+                    return obj.model_dump()
+                if hasattr(obj, "_asdict"):
+                    return obj._asdict()
+                return str(obj)
+
         payload = json.dumps({
             "value": value,
             "expires_at": time.time() + ttl_seconds,
-        })
+        }, cls=_SafeEncoder)
 
         if self._redis is not None:
             try:

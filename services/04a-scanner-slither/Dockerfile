@@ -21,6 +21,9 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 RUN pip install --no-cache-dir solc-select && \
     pip install --no-cache-dir slither-analyzer
 
+# Copy shared library
+COPY services/shared/ ./shared/
+
 # Copy service code
 COPY services/04a-scanner-slither/ .
 

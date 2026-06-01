@@ -385,8 +385,9 @@ async def run_sync() -> ApiResponse:
     async with httpx.AsyncClient(timeout=60.0) as client:
         status = await sync_manager.sync_all(client=client)
 
-    # Cache the results
-    await immunefi_cache.set(IMMUNEFI_PROGS_CACHE, {"programs": "list"}, status, ttl_seconds=TTL_IMMUNEFI_PROGS)
+    # Cache the results (convert SyncStatus → dict for JSON serialization)
+    status_dict = status.model_dump() if hasattr(status, "model_dump") else status
+    await immunefi_cache.set(IMMUNEFI_PROGS_CACHE, {"programs": "list"}, status_dict, ttl_seconds=TTL_IMMUNEFI_PROGS)
 
     return ok(status)
 

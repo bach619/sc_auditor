@@ -23,8 +23,8 @@ services:
   01-config:
     <<: *service-base
     build:
-      context: services/01-config
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/01-config/Dockerfile
     ports: ["8011:8000"]
     volumes: [vyper_config:/data/config]
     healthcheck:
@@ -36,8 +36,8 @@ services:
   02-immunefi:
     <<: *service-base
     build:
-      context: services/02-immunefi
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/02-immunefi/Dockerfile
     ports: ["8001:8000"]
     volumes: [vyper_immunefi:/data/immunefi]
     depends_on: [01-config]
@@ -47,8 +47,8 @@ services:
   03-source:
     <<: *service-base
     build:
-      context: services/03-source
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/03-source/Dockerfile
     ports: ["8002:8000"]
     volumes: [vyper_source:/data/source]
     depends_on: [01-config]
@@ -58,8 +58,8 @@ services:
   04-scanner:
     <<: *service-base
     build:
-      context: services/04-scanner
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/04-scanner/Dockerfile
     ports: ["8003:8000"]
     volumes: [vyper_scanner:/data/scanner]
     depends_on: [01-config]
@@ -67,14 +67,14 @@ services:
       - CONFIG_URL=http://01-config:8000
       - MYTHRIL_URL=http://05-scanner-mythril:8013
 
-   # ── Scanner Services (split from 04-scanner) ──────────────────
-   # Each scanner runs as an independent microservice for fault isolation,
-   # independent scaling, and smaller Docker images.
-   #
-   # 04a = Slither (static analysis)
-   # 04b = Echidna (fuzzing)
-   # 04c = Forge   (build verification)
-   # 05  = Mythril (symbolic execution) — already existed
+  # ── Scanner Services (split from 04-scanner) ──────────────────
+  # Each scanner runs as an independent microservice for fault isolation,
+  # independent scaling, and smaller Docker images.
+  #
+  # 04a = Slither (static analysis)
+  # 04b = Echidna (fuzzing)
+  # 04c = Forge   (build verification)
+  # 05  = Mythril (symbolic execution) — already existed
 
   04a-scanner-slither:
     <<: *service-base
@@ -123,8 +123,8 @@ services:
   05-scanner-mythril:
     <<: *service-base
     build:
-      context: services/05-scanner-mythril
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/05-scanner-mythril/Dockerfile
     ports: ["8013:8013"]
     volumes: [vyper_scanner_mythril:/data/scanner-mythril]
     depends_on: [01-config]
@@ -134,8 +134,8 @@ services:
   06-ai:
     <<: *service-base
     build:
-      context: services/06-ai
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/06-ai/Dockerfile
     ports: ["8004:8000"]
     volumes: [vyper_ai:/data/ai]
     depends_on: [01-config]
@@ -146,8 +146,8 @@ services:
   07-classifier:
     <<: *service-base
     build:
-      context: services/07-classifier
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/07-classifier/Dockerfile
     ports: ["8005:8000"]
     volumes:
       - vyper_classifier:/data/classifier
@@ -159,8 +159,8 @@ services:
   08-exploit:
     <<: *service-base
     build:
-      context: services/08-exploit
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/08-exploit/Dockerfile
     ports: ["8006:8006"]
     volumes:
       - vyper_exploit:/data/exploit
@@ -182,8 +182,8 @@ services:
   09-reporter:
     <<: *service-base
     build:
-      context: services/09-reporter
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/09-reporter/Dockerfile
     ports: ["8007:8007"]
     volumes: [vyper_reporter:/data/reporter]
     depends_on: [01-config]
@@ -193,8 +193,8 @@ services:
   10-notifier:
     <<: *service-base
     build:
-      context: services/10-notifier
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/10-notifier/Dockerfile
     ports: ["8008:8000"]
     volumes: [vyper_notifier:/data/notifier]
     depends_on: [01-config]
@@ -204,8 +204,8 @@ services:
   11-orchestrator:
     <<: *service-base
     build:
-      context: services/11-orchestrator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/11-orchestrator/Dockerfile
     ports: ["8009:8000"]
     volumes:
       - vyper_orchestrator:/data/orchestrator
@@ -233,8 +233,8 @@ services:
   12-webhook:
     <<: *service-base
     build:
-      context: services/12-webhook
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/12-webhook/Dockerfile
     ports: ["8010:8000"]
     volumes: [vyper_webhook:/data/webhook]
     depends_on: [01-config]
@@ -244,8 +244,8 @@ services:
   13-upkeep:
     <<: *service-base
     build:
-      context: services/13-upkeep
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/13-upkeep/Dockerfile
     ports: ["8012:8000"]
     volumes: [vyper_upkeep:/data/upkeep]
     depends_on: [01-config]
@@ -275,8 +275,8 @@ services:
   15-dashboard:
     <<: *service-base
     build:
-      context: services/15-dashboard
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/15-dashboard/Dockerfile
     ports: ["8000:8000"]
     volumes:
       - vyper_dashboard:/data/dashboard
@@ -296,11 +296,12 @@ services:
       - NOTIFIER_URL=http://10-notifier:8000
       - EXPLOIT_URL=http://08-exploit:8006
       - AGENT_URL=http://14-agent:8000
+
   16-submission:
     <<: *service-base
     build:
-      context: services/16-submission
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/16-submission/Dockerfile
     ports: ["8018:8000"]
     volumes: [vyper_submission:/data/submission]
     depends_on: [01-config, 02-immunefi, 03-source, 06-ai, 08-exploit, 11-orchestrator]

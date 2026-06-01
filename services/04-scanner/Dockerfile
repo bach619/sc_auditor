@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY services/04-scanner/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -31,7 +31,8 @@ RUN ECHIDNA_VER=$(curl -fsSL https://api.github.com/repos/crytic/echidna/release
     install -m 755 /tmp/echidna /usr/local/bin/echidna && \
     echo "Echidna installed: $(echidna --version 2>/dev/null || echo 'failed')"
 
-COPY . .
+COPY services/04-scanner/ .
+COPY services/shared/ ./shared/
 
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser

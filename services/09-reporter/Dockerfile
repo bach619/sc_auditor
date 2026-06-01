@@ -4,10 +4,11 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY services/09-reporter/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY services/09-reporter/ .
+COPY services/shared/ ./shared/
 
 # Create data directories as root with world-writable permissions
 # (will be mounted as volumes, so this is just a fallback)

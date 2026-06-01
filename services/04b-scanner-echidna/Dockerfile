@@ -28,6 +28,9 @@ RUN ECHIDNA_VER=$(curl -fsSL https://api.github.com/repos/crytic/echidna/release
     install -m 755 /tmp/echidna /usr/local/bin/echidna && \
     echo "Echidna installed: $(echidna --version 2>/dev/null || echo 'failed')"
 
+# Copy shared library
+COPY services/shared/ ./shared/
+
 # Copy service code
 COPY services/04b-scanner-echidna/ .
 

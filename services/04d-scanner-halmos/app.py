@@ -49,8 +49,10 @@ from pydantic import BaseModel, Field
 
 
 class Meta(BaseModel):
+    status: str = "ok"
     service: str = SERVICE_NAME
     version: str = SERVICE_VERSION
+    timestamp: str = ""
 
 
 class ApiResponse(BaseModel):
@@ -67,6 +69,7 @@ class ScanRequest(BaseModel):
 
 
 class HealthInfo(BaseModel):
+    status: str = "ok"
     service: str = SERVICE_NAME
     version: str = SERVICE_VERSION
     halmos_available: bool = False
@@ -162,7 +165,15 @@ log = setup_observability(app, "04d-scanner-halmos", "0.1.0")
 
 
 def ok(data: object = None) -> ApiResponse:
-    return ApiResponse(ok=True, data=data)
+    import datetime
+    return ApiResponse(
+        ok=True,
+        data=data,
+        meta=Meta(
+            status="ok",
+            timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+        ),
+    )
 
 
 def err(detail: str, status_code: int = 400) -> HTTPException:

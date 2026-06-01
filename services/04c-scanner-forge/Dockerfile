@@ -31,6 +31,9 @@ RUN curl -fsSL https://foundry.paradigm.xyz -o /tmp/foundryup.sh && \
     ln -sf /root/.foundry/bin/anvil /usr/local/bin/anvil && \
     echo "Foundry installed: $(forge --version 2>/dev/null || echo 'failed')"
 
+# Copy shared library
+COPY services/shared/ ./shared/
+
 # Copy service code
 COPY services/04c-scanner-forge/ .
 

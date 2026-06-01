@@ -34,9 +34,17 @@
 ### `2026-05-26 06:57 | [CREATE] | File: scripts/log_change.py | Agent: lore-master | CLI helper untuk nge-log perubahan ke SYSTEM_LOG.md`
 ### `2026-05-26 06:57 | [CREATE] | File: SYSTEM_LOG.md | Agent: lore-master | Membuat system log untuk mencatat semua perubahan opencode write`
 
+## 2026-05-30
+
+### `2026-05-30 | [MODIFY] | File: docs/presentasi/VYPER_PRESENTATION.html | Agent: lore-master | Mobile-friendly responsive — 3 breakpoints (1024px, 768px, 480px), typografi scaling, grid→stack, table horizontal scroll, nav compact, body scroll fix`
+
 ---
 
-## 2026-05-25 & Sebelumnya
+## 2026-06-01
+
+`12:00 | [REFACTOR] | File: src/index.css + src/Layout.tsx + 27 page files | Agent: lore-master | Deskripsi: Dark mode deep-dark overhaul — ganti 6 palet warna dark mode di seluruh frontend dashboard (background: #0f0f13→#08080f, surface: #18181b→#0a0a12, card: #1a1a1e→#0d0d16, elevated: #1f1f23→#0f0f1a, border: #27272a→#1a1a28, text-primary: #f4f4f5→#d4d4dc, text-muted: #a1a1aa→#68687a, text-subtle: #52525b→#3a3a4a). Juga update AgentIntelligence.tsx gray classes ke variant lebih gelap. Total ~500+ replace di 29 file.`
+
+`14:00 | [REFACTOR] | File: Seluruh frontend dashboard | Agent: lore-master | Deskripsi: Refactor total — dari 27 halaman + inline Tailwind menjadi 8 halaman dengan shadcn/ui component library. Menghapus MUI dependency. Install class-variance-authority, clsx, tailwind-merge, lucide-react, Radix UI. Membuat 10 shadcn components (button, card, input, select, badge, table, dialog, tabs, skeleton, separator), 6 wrapper components (PageHeader, StatCard, StatusBadge, ErrorBanner, LoadingState, EmptyState), 3 layout files (Layout, Sidebar, Header). 8 pages baru: Dashboard, Programs, Scanning (tabs: audits/pipeline/cases), Exploit, Reports, Agent, AI Agent, Settings. Build verifikasi — zero TypeScript errors. Hapus 24 file page lama + App.css.`
 
 > Lihat `.context/activity-log.md` dan `daily_agenda/activity-log.md` untuk aktivitas sebelumnya.
 > System Log ini mulai berlaku sejak 2026-05-26.

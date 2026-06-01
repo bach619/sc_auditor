@@ -60,20 +60,26 @@ class ScannerAgent(BaseAgent):
         self.register_capability(CapabilityDefinition(
             name=AgentCapability.RUN_STATIC_ANALYSIS,
             description="Run static analysis tools (Slither, Mythril) to find vulnerabilities",
-            estimated_duration_ms=120_000,
-            estimated_cost_usd=0.01,
+            input_schema={},
+            output_schema={},
+            estimated_duration_ms=5_000,
+            estimated_cost_usd=0.02,
             confidence=0.80,
         ))
         self.register_capability(CapabilityDefinition(
             name=AgentCapability.RUN_FUZZING,
             description="Run fuzzing with Echidna for property-based testing",
-            estimated_duration_ms=600_000,
+            input_schema={},
+            output_schema={},
+            estimated_duration_ms=10_000,
             estimated_cost_usd=0.05,
             confidence=0.70,
         ))
         self.register_capability(CapabilityDefinition(
             name=AgentCapability.RUN_SYMBOLIC,
             description="Run symbolic execution with Halmos",
+            input_schema={},
+            output_schema={},
             estimated_duration_ms=300_000,
             estimated_cost_usd=0.03,
             confidence=0.75,

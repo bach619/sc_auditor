@@ -16,11 +16,10 @@ from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi.staticfiles import StaticFiles
 from src.models import (
     ApiResponse,
     Case,
@@ -95,8 +94,6 @@ app.state.limiter = limiter
 app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 STATIC_DIR = BASE_DIR / "static"
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # ── Startup / Shutdown ──────────────────────────────────────────
 
@@ -471,10 +468,21 @@ async def api_list_programs(
     search: Optional[str] = Query(None),
     chain: Optional[str] = Query(None),
 ) -> JSONResponse:
-    """List Immunefi programs (proxies to Immunefi Service)."""
+    """List Immunefi programs (proxies to Immunefi Service).
+
+    Immunefi returns:   {"data": {"data": [...], "total": N, ...}, "meta": {...}}
+    We need to extract the inner "data" list for the frontend.
+    """
     try:
         result = await proxy.get_programs(search=search, chain=chain)
-        return _ok(data=result.get("data"))
+        inner = result.get("data", {})
+        if isinstance(inner, dict):
+            programs_list = inner.get("data", [])
+            total = inner.get("total", 0)
+        else:
+            programs_list = inner if isinstance(inner, list) else []
+            total = len(programs_list)
+        return _ok(data=programs_list, total=total)
     except Exception as e:
         logger.error("List programs failed", error=str(e))
         return _err(f"Failed to fetch programs: {e}", status_code=502)
@@ -940,10 +948,27 @@ async def api_case_report_pdf(case_id: str) -> JSONResponse:
 
 @app.get("/{path:path}")
 async def spa_fallback(request: Request, path: str) -> HTMLResponse:
-    """Catch-all route: serve React SPA for non-API, non-event paths."""
-    # Don't catch API routes
+    """Catch-all route: serve static assets or React SPA for non-API paths."""
     if path.startswith("api/") or path.startswith("events") or path == "health":
         raise HTTPException(status_code=404)
+    
+    # Serve static files (JS, CSS, images) if they exist
+    file_path = STATIC_DIR / path
+    if file_path.exists() and file_path.is_file():
+        content = file_path.read_bytes()
+        from fastapi.responses import Response
+        media_type = {
+            ".js": "application/javascript",
+            ".css": "text/css",
+            ".svg": "image/svg+xml",
+            ".png": "image/png",
+            ".ico": "image/x-icon",
+            ".json": "application/json",
+            ".woff2": "font/woff2",
+        }.get(file_path.suffix, "application/octet-stream")
+        return Response(content=content, media_type=media_type)
+    
+    # SPA fallback: serve index.html
     index_path = STATIC_DIR / "index.html"
     if index_path.exists():
         content = index_path.read_text()

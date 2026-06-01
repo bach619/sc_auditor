@@ -62,6 +62,20 @@ class ImmunefiAgent(BaseAgent):
         self.register_capability(CapabilityDefinition(
             name=AgentCapability.FETCH_PROGRAM,
             description="Fetch and sync bounty programs from all providers",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "provider": {"type": "string", "description": "Provider name (immunefi, hackerone, etc.)"},
+                    "full_sync": {"type": "boolean", "description": "Force full re-sync"},
+                },
+            },
+            output_schema={
+                "type": "object",
+                "properties": {
+                    "programs": {"type": "array", "description": "List of synced programs"},
+                    "error": {"type": "string", "description": "Error message if failed"},
+                },
+            },
         ))
 
     async def _execute_task(self, request: DelegationRequest) -> Any:

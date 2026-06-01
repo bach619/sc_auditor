@@ -1,8 +1,8 @@
 FROM node:20-slim AS frontend-build
 WORKDIR /frontend
-COPY frontend/package*.json ./
+COPY services/15-dashboard/frontend/package*.json ./
 RUN npm ci
-COPY frontend/ .
+COPY services/15-dashboard/frontend/ .
 RUN npm run build
 
 FROM python:3.11-slim
@@ -11,10 +11,11 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY services/15-dashboard/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY services/15-dashboard/ .
+COPY services/shared/ ./shared/
 RUN rm -rf frontend templates
 
 COPY --from=frontend-build /static ./static

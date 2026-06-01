@@ -25,6 +25,9 @@ WORKDIR /app
 COPY services/04d-scanner-halmos/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy shared library
+COPY services/shared/ ./shared/
+
 # Copy service code
 COPY services/04d-scanner-halmos/ .
 

@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.manager import ConfigManager
-from src.models import BulkConfig, ConfigResponse, ConfigValue, ErrorResponse, HealthResponse
+from src.models import BulkConfig, ConfigResponse, ConfigValue, ErrorResponse, HealthResponse, Meta
 
 # ---------------------------------------------------------------------------
 # Application state

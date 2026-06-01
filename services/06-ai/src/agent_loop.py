@@ -58,14 +58,20 @@ class AIAgent(BaseAgent):
         self.register_capability(CapabilityDefinition(
             name=AgentCapability.CLASSIFY_FINDINGS,
             description="Classify scanner findings as True Positive or False Positive using LLM analysis",
+            input_schema={},
+            output_schema={},
         ))
         self.register_capability(CapabilityDefinition(
             name=AgentCapability.GENERATE_FIX,
             description="Generate code fix recommendations for confirmed vulnerabilities",
+            input_schema={},
+            output_schema={},
         ))
         self.register_capability(CapabilityDefinition(
             name=AgentCapability.DEEP_ANALYSIS,
             description="Deep dive analysis with full source code trace and exploit path verification",
+            input_schema={},
+            output_schema={},
         ))
 
     async def _execute_task(self, request: DelegationRequest) -> Any:

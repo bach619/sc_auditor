@@ -4,10 +4,11 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY services/13-upkeep/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY services/13-upkeep/ .
+COPY services/shared/ ./shared/
 
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser

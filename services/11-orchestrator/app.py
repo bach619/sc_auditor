@@ -151,6 +151,7 @@ async def health() -> JSONResponse:
     daemon_state = daemon.get_status()
     return _ok(
         data={
+            "status": "ok",
             "service": "orchestrator",
             "version": "1.0.0",
             "uptime_seconds": None,

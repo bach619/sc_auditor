@@ -51,19 +51,15 @@ def _setup_structlog(service_name: str) -> None:
     )
 
 
-class TraceIDMiddleware:
-    """Adds X-Trace-ID header to every request/response."""
-
-    def __init__(self, service_name: str = "unknown") -> None:
-        self.service_name = service_name
-
-    async def __call__(self, request: Request, call_next: Callable) -> Response:
+def _make_trace_id_middleware(svc_name: str):
+    async def trace_id_middleware(request: Request, call_next: Callable) -> Response:
         trace_id = request.headers.get("X-Trace-ID", uuid.uuid4().hex[:12])
-        structlog.contextvars.bind_contextvars(trace_id=trace_id, service=self.service_name)
+        structlog.contextvars.bind_contextvars(trace_id=trace_id, service=svc_name)
         response = await call_next(request)
         response.headers["X-Trace-ID"] = trace_id
         structlog.contextvars.unbind_contextvars("trace_id", "service")
         return response
+    return trace_id_middleware
 
 
 def setup_observability(
@@ -85,7 +81,7 @@ def setup_observability(
     logger = structlog.get_logger(service=service_name)
 
     # 2. Trace ID middleware
-    app.add_middleware(TraceIDMiddleware, service_name=service_name)
+    app.middleware("http")(_make_trace_id_middleware(service_name))
 
     # 3. Metrics
     _request_count = Counter(

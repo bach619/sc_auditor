@@ -20,14 +20,23 @@ class DelegateTaskSkill(BaseSkill):
     """
 
     def __init__(self, agent_registry: Any | None = None) -> None:
-        super().__init__()
         self._agent_registry = agent_registry
-        self.name = "delegate_task"
-        self.description = (
+        super().__init__()
+
+    @property
+    def name(self) -> str:
+        return "delegate_task"
+
+    @property
+    def description(self) -> str:
+        return (
             "Delegate a task to a specialized backend agent "
             "(AI analysis, scanner, exploit engine, etc.)"
         )
-        self.parameters = {
+
+    @property
+    def parameters(self) -> dict[str, Any]:
+        return {
             "capability": {
                 "type": "string",
                 "description": "Required capability: classify_findings, run_static_analysis, "
@@ -45,6 +54,9 @@ class DelegateTaskSkill(BaseSkill):
                 "required": True,
             },
         }
+
+    async def run(self, **kwargs: Any) -> Any:
+        return await self.execute(**kwargs)
 
     async def execute(self, **kwargs: Any) -> SkillResult:
         """Delegate task to the best available backend agent."""

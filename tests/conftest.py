@@ -9,6 +9,7 @@ mapping and can be overridden via environment variables, e.g.::
 
 from __future__ import annotations
 
+import asyncio
 import os
 import tempfile
 from pathlib import Path
@@ -58,12 +59,22 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
+@pytest.fixture(scope="function")
+def event_loop():
+    """Create a fresh event loop per test function (fixes Windows Event loop is closed)."""
+    policy = asyncio.WindowsProactorEventLoopPolicy() if os.name == "nt" else asyncio.DefaultEventLoopPolicy()
+    loop = policy.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    loop.close()
+
+
 # ── HTTP client ─────────────────────────────────────────────────
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def async_client() -> httpx.AsyncClient:
-    """Shared HTTP client for all integration tests."""
+    """Fresh HTTP client per test (function-scoped to avoid event loop issues on Windows)."""
     async with httpx.AsyncClient(timeout=30.0) as client:
         yield client
 

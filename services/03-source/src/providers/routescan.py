@@ -12,8 +12,8 @@ from typing import Any
 import httpx
 import structlog
 
-from vyper_lib.utils import parse_standard_input_json
 from src.models import SourceResult
+from src.utils import parse_standard_input_json
 from src.providers import SourceProvider
 
 log = structlog.get_logger()

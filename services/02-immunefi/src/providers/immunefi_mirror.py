@@ -37,7 +37,7 @@ class ImmunefiMirrorProvider:
     name = "immunefi_mirror"
     priority = 10  # Lower than official API
 
-    MIRROR_URL = "https://immunefi.com/api/programs"
+    MIRROR_URL = "https://immunefi.com/api/explore/programs/"
     WEB_BASE = "https://immunefi.com"
 
     def __init__(self, cache_dir: str | None = None) -> None:

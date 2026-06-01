@@ -57,6 +57,8 @@ class OrchestratorAgent(BaseAgent):
         self.register_capability(CapabilityDefinition(
             name=AgentCapability.FETCH_PROGRAM,
             description="Coordinate full audit pipelines across all services",
+            input_schema={},
+            output_schema={},
         ))
 
     async def _execute_task(self, request: DelegationRequest) -> Any:

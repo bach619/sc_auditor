@@ -11,4 +11,53 @@
   --color-vyper-700: #4839b8;
   --color-vyper-800: #3628a0;
   --color-vyper-900: #241788;
+
+  /* Deep dark theme colors — bisa dipakai via bg-main, text-main, dll */
+  --color-main: #08080f;
+  --color-surface: #0a0a12;
+  --color-card: #0d0d16;
+  --color-elevated: #0f0f1a;
+  --color-border: #1a1a28;
+  --color-text-primary: #d4d4dc;
+  --color-text-muted: #68687a;
+  --color-text-subtle: #3a3a4a;
+
+  /* Light theme colors */
+  --color-light-main: #f5f5f5;
+  --color-light-surface: #ffffff;
+  --color-light-card: #ffffff;
+  --color-light-border: #e4e4e7;
+  --color-light-text-primary: #09090b;
+  --color-light-text-muted: #71717a;
+}
+
+/* ── Dark & Light Variants for Class-Based Toggle ────────── */
+/* Tanpa ini, dark:variant Tailwind v4 pakai media query (prefers-color-scheme),
+   bukan class .dark pada <html>. Juga light:variant tidak built-in di v4. */
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
+
+/* ── Base Layer ──────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    border-color: var(--color-border);
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
+  }
+
+  html {
+    background-color: var(--color-main);
+    color: var(--color-text-primary);
+  }
+
+  html.light {
+    background-color: var(--color-light-main);
+    color: var(--color-light-text-primary);
+  }
 }

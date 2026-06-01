@@ -1,8 +1,21 @@
-import { useEffect, useState } from 'react';
-import { api, type Audit, type DaemonState, type MetricsSummary, type PipelineStats, type CaseStatsData } from '../lib/api';
-import { useSSE } from '../hooks/useSSE';
-
-type ModalState = { open: false } | { open: true; loading: boolean; error: string };
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { api, type Audit, type DaemonState, type MetricsSummary, type CaseStatsData } from '../lib/api'
+import { useSSE } from '../hooks/useSSE'
+import { useDaemon } from '../lib/daemon-context'
+import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
+import { Input } from '../components/ui/input'
+import { Select } from '../components/ui/select'
+import { StatCard } from '../components/StatCard'
+import { StatusBadge } from '../components/StatusBadge'
+import { LoadingState } from '../components/LoadingState'
+import { ErrorBanner } from '../components/ErrorBanner'
+import { PageHeader } from '../components/PageHeader'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog'
+import { formatDuration, formatDate, shortId } from '../lib/utils'
+import { Play, Square, RefreshCw, Loader2 } from 'lucide-react'
 
 const CHAINS = [
   { value: 'ethereum', label: 'Ethereum' },
@@ -12,573 +25,272 @@ const CHAINS = [
   { value: 'optimism', label: 'Optimism' },
   { value: 'avalanche', label: 'Avalanche' },
   { value: 'solana', label: 'Solana' },
-];
-
-function statusBadge(state: string) {
-  const colors: Record<string, string> = {
-    COMPLETED: 'bg-green-500/20 text-green-400',
-    RUNNING: 'bg-blue-500/20 text-blue-400',
-    PENDING: 'bg-yellow-500/20 text-yellow-400',
-    FAILED: 'bg-red-500/20 text-red-400',
-    SCANNING: 'bg-purple-500/20 text-purple-400',
-  };
-  const cls = colors[state] || 'bg-gray-500/20 text-gray-400';
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
-      {state}
-    </span>
-  );
-}
-
-function durationStr(seconds?: number): string {
-  if (seconds == null) return '—';
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}m ${s}s`;
-}
-
-function shortId(id: string): string {
-  return id.length > 8 ? `${id.slice(0, 8)}...` : id;
-}
-
-function statCardClass(): string {
-  return 'rounded-xl p-6 dark:bg-[#1a1a1e] dark:border dark:border-[#27272a] light:bg-white light:border light:border-[#e4e4e7] hover:dark:border-vyper-500 hover:dark:shadow-[0_4px_20px_rgba(108,92,231,0.1)] hover:light:border-vyper-500 hover:light:shadow-[0_4px_20px_rgba(108,92,231,0.08)] transition-all duration-200';
-}
-
-function inputFieldClass(): string {
-  return 'w-full px-3 py-2 rounded-lg text-sm outline-none focus:border-vyper-500 focus:shadow-[0_0_0_2px_rgba(108,92,231,0.2)] dark:bg-[#18181b] dark:border dark:border-[#27272a] dark:text-[#f4f4f5] light:bg-white light:border light:border-[#d4d4d8] light:text-[#09090b] transition-all';
-}
+]
 
 export default function Dashboard() {
-  const [audits, setAudits] = useState<Audit[]>([]);
-  const [auditsLoading, setAuditsLoading] = useState(true);
-  const [stats, setStats] = useState<PipelineStats | null>(null);
-  const [metrics, setMetrics] = useState<MetricsSummary | null>(null);
-  const [caseStats, setCaseStats] = useState<CaseStatsData | null>(null);
-  const [daemon, setDaemon] = useState<DaemonState | null>(null);
-  const [daemonToggling, setDaemonToggling] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [modal, setModal] = useState<ModalState>({ open: false });
-  const [clock, setClock] = useState('');
-  const [actionError, setActionError] = useState('');
+  const navigate = useNavigate()
+  const { setDaemonStatus } = useDaemon()
+  const [audits, setAudits] = useState<Audit[]>([])
+  const [auditsLoading, setAuditsLoading] = useState(true)
+  const [stats, setStats] = useState<any>(null)
+  const [metrics, setMetrics] = useState<MetricsSummary | null>(null)
+  const [caseStats, setCaseStats] = useState<CaseStatsData | null>(null)
+  const [daemon, setDaemon] = useState<DaemonState>({ status: 'running', total_contracts_audited: 0, total_cycles_completed: 0 })
+  const [daemonToggling, setDaemonToggling] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalLoading, setModalLoading] = useState(false)
+  const [modalError, setModalError] = useState('')
+  const [clock, setClock] = useState('')
+  const [actionError, setActionError] = useState('')
 
-  // Real-time clock
   useEffect(() => {
-    const update = () =>
-      setClock(
-        new Date().toLocaleString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        })
-      );
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
-  }, []);
+    const update = () => setClock(new Date().toLocaleString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    }))
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [])
 
-  // Fetch all dashboard data
   useEffect(() => {
-    let cancelled = false;
-
+    let cancelled = false
     async function load() {
       try {
         const [auditsRes, statsRes, daemonRes, metricsRes, caseStatsRes] = await Promise.all([
-          api.getAudits({ limit: 10 }),
-          api.getStats(),
-          api.getDaemonStatus(),
-          api.getMetrics(),
-          api.getCaseStats(),
-        ]);
-
-        if (cancelled) return;
-
-        setAudits(auditsRes.data || []);
-        setStats(statsRes.data || null);
-        setDaemon(daemonRes.data || null);
-        setMetrics(metricsRes.data || null);
-        setCaseStats(caseStatsRes.data || null);
-      } catch {
-        // leave defaults (loading states)
-      } finally {
-        if (!cancelled) setAuditsLoading(false);
-      }
+          api.getAudits({ limit: 10 }), api.getStats(), api.getDaemonStatus(),
+          api.getMetrics(), api.getCaseStats(),
+        ])
+        if (cancelled) return
+        setAudits(auditsRes.data || [])
+        setStats(statsRes.data || null)
+        setDaemon(daemonRes.data || { status: 'running', total_contracts_audited: 0, total_cycles_completed: 0 })
+        setMetrics(metricsRes.data || null)
+        setCaseStats(caseStatsRes.data || null)
+      } catch {}
+      if (!cancelled) setAuditsLoading(false)
     }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
-    load();
-    return () => { cancelled = true; };
-  }, []);
-
-  // SSE for live updates to daemon status
   useSSE((msg) => {
     if (msg.event === 'daemon_status' && msg.data) {
-      setDaemon((prev) => prev ? { ...prev, status: msg.data.status } : prev);
+      setDaemon((prev) => prev ? { ...prev, status: msg.data.status } : prev)
     }
     if (msg.event === 'audit_complete' || msg.event === 'audit_progress') {
-      // Refresh audit list on progress/complete events
-      api.getAudits({ limit: 10 }).then((r) => setAudits(r.data || [])).catch(() => {});
+      api.getAudits({ limit: 10 }).then((r) => setAudits(r.data || [])).catch(() => {})
     }
-  });
+  })
 
-  const daemonIsRunning = daemon?.status === 'running';
-  const daemonIsPaused = daemon?.status === 'paused';
-  const daemonBadgeColor = daemonIsRunning
-    ? 'bg-green-500/10 text-green-400'
-    : daemonIsPaused
-      ? 'bg-yellow-500/10 text-yellow-400'
-      : 'bg-red-500/10 text-red-400';
-  const daemonBadgeLabel = daemonIsRunning ? 'Active' : daemonIsPaused ? 'Paused' : 'Offline';
-  const daemonStatusLabel = daemonIsRunning ? 'Running' : daemonIsPaused ? 'Paused' : 'Stopped';
-  const daemonDetail =
-    daemonIsRunning && daemon?.last_run_at
-      ? `Last run: ${new Date(daemon.last_run_at).toLocaleString()}`
-      : daemonIsRunning
-        ? 'Waiting for first run...'
-        : 'Click "Toggle Daemon" to start';
-
-  // ── Handlers ──────────────────────────────────────
+  const daemonIsRunning = daemon?.status === 'running'
 
   async function handleToggleDaemon() {
-    setDaemonToggling(true);
-    setActionError('');
+    setDaemonToggling(true)
+    setActionError('')
     try {
-      if (daemonIsRunning) {
-        await api.daemonStop();
-      } else {
-        await api.daemonStart();
-      }
-      // Refresh daemon status
-      const res = await api.getDaemonStatus();
-      setDaemon(res.data || null);
+      if (daemonIsRunning) await api.daemonStop()
+      else await api.daemonStart()
+      const res = await api.getDaemonStatus()
+      const newState = res.data || { status: daemonIsRunning ? 'stopped' : 'running', total_contracts_audited: 0, total_cycles_completed: 0 }
+      setDaemon(newState)
+      setDaemonStatus(newState.status)
     } catch (err: any) {
-      setActionError(err?.message || 'Failed to toggle daemon');
-    } finally {
-      setDaemonToggling(false);
-    }
+      setActionError(err?.message || 'Failed to toggle daemon')
+    } finally { setDaemonToggling(false) }
   }
 
   async function handleRunSync() {
-    setSyncing(true);
-    setActionError('');
+    setSyncing(true)
+    setActionError('')
     try {
-      await api.daemonSync();
-      const res = await api.getDaemonStatus();
-      setDaemon(res.data || null);
+      await api.daemonSync()
+      const res = await api.getDaemonStatus()
+      setDaemon(res.data || null)
     } catch (err: any) {
-      setActionError(err?.message || 'Failed to run sync');
-    } finally {
-      setSyncing(false);
-    }
+      setActionError(err?.message || 'Failed to run sync')
+    } finally { setSyncing(false) }
   }
 
   async function handleStartAudit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setModal({ open: true, loading: true, error: '' });
-
-    const form = e.currentTarget;
-    const data = new FormData(form);
-
+    e.preventDefault()
+    setModalLoading(true)
+    setModalError('')
+    const form = e.currentTarget
+    const data = new FormData(form)
     try {
       await api.startAudit({
         chain: String(data.get('chain') || 'ethereum'),
         address: String(data.get('address') || ''),
         program: String(data.get('program') || ''),
         priority: Number(data.get('priority')) || 5,
-      });
-
-      setModal({ open: false });
-      setActionError('');
-
-      // Refresh audits and stats
-      const [auditsRes, statsRes] = await Promise.all([
-        api.getAudits({ limit: 10 }),
-        api.getStats(),
-      ]);
-      setAudits(auditsRes.data || []);
-      setStats(statsRes.data || null);
+      })
+      setModalOpen(false)
+      const [auditsRes, statsRes] = await Promise.all([api.getAudits({ limit: 10 }), api.getStats()])
+      setAudits(auditsRes.data || [])
+      setStats(statsRes.data || null)
     } catch (err: any) {
-      setModal({ open: true, loading: false, error: err?.message || 'Failed to start audit' });
-    }
+      setModalError(err?.message || 'Failed to start audit')
+    } finally { setModalLoading(false) }
   }
 
-  const tpRate = metrics?.true_positive_rate ?? 0;
+  const tpRate = metrics?.true_positive_rate ?? 0
 
   return (
     <div className="space-y-6">
-      {/* ── Welcome Header ─────────────────────────── */}
-      <div>
-        <h2 className="text-2xl font-bold">Welcome to Vyper</h2>
-        <p className="dark:text-[#a1a1aa] light:text-[#71717a] mt-1">
-          Smart contract bug hunting platform —{' '}
-          <span className="font-mono text-sm">{clock}</span>
-        </p>
-      </div>
+      <PageHeader title="Welcome to Vyper" description={`Smart contract bug hunting platform — ${clock}`} />
 
-      {/* ── Error Banner ────────────────────────────── */}
-      {actionError && (
-        <div className="rounded-xl p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
-          <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          <span>{actionError}</span>
-          <button onClick={() => setActionError('')} className="ml-auto text-red-400/70 hover:text-red-400">✕</button>
-        </div>
-      )}
+      {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError('')} />}
 
-      {/* ── Stat Cards ──────────────────────────────── */}
+      {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Audits */}
-        <div className={statCardClass()}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm dark:text-[#a1a1aa] light:text-[#71717a]">Total Audits</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-vyper-500/10 text-vyper-400 font-medium">+12%</span>
-          </div>
-          <div className="text-3xl font-bold">{stats?.total_audits ?? '—'}</div>
-          <div className="text-xs dark:text-[#a1a1aa] light:text-[#71717a] mt-1">Last 30 days</div>
-        </div>
-
-        {/* Critical Findings */}
-        <div className={statCardClass()}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm dark:text-[#a1a1aa] light:text-[#71717a]">Critical Findings</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-medium">High Risk</span>
-          </div>
-          <div className="text-3xl font-bold text-red-400">{metrics?.critical_findings ?? '—'}</div>
-          <div className="text-xs dark:text-[#a1a1aa] light:text-[#71717a] mt-1">Unresolved</div>
-        </div>
-
-        {/* TP Rate */}
-        <div className={statCardClass()}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm dark:text-[#a1a1aa] light:text-[#71717a]">TP Rate</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 font-medium">Accuracy</span>
-          </div>
-          <div className="text-3xl font-bold text-green-400">
-            {metrics != null ? `${(tpRate * 100).toFixed(1)}%` : '—'}
-          </div>
-          <div className="text-xs dark:text-[#a1a1aa] light:text-[#71717a] mt-1">True Positive Rate</div>
-        </div>
-
-        {/* Daemon Status */}
-        <div className={statCardClass()}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm dark:text-[#a1a1aa] light:text-[#71717a]">Daemon Status</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${daemonBadgeColor}`}>
-              {daemon ? daemonBadgeLabel : 'Checking'}
-            </span>
-          </div>
-          <div className="text-3xl font-bold">{daemon ? daemonStatusLabel : '—'}</div>
-          <div className="text-xs dark:text-[#a1a1aa] light:text-[#71717a] mt-1">
-            {daemon ? daemonDetail : 'Fetching...'}
-          </div>
-        </div>
+        <StatCard label="Total Audits" value={stats?.total_audits} subtext="Last 30 days" trend="+12%" />
+        <StatCard label="Critical Findings" value={metrics?.critical_findings} subtext="Unresolved" accent accentColor="red" />
+        <StatCard label="TP Rate" value={metrics != null ? `${(tpRate * 100).toFixed(1)}%` : '—'} subtext="True Positive Rate" accent accentColor="green" />
+        <StatCard label="Daemon Status" value={daemon ? (daemonIsRunning ? 'Running' : 'Stopped') : '—'}
+          subtext={daemonIsRunning && daemon?.last_run_at ? `Last run: ${new Date(daemon.last_run_at).toLocaleString()}` : 'Click to toggle'}
+          accent accentColor={daemonIsRunning ? 'green' : 'yellow'} />
       </div>
 
-      {/* ── Quick Actions ──────────────────────────── */}
-      <div className={statCardClass()}>
-        <h3 className="font-semibold mb-4">Quick Actions</h3>
+      {/* Quick Actions */}
+      <Card>
+        <h3 className="font-semibold mb-4 dark:text-[#d4d4dc] light:text-[#09090b]">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => setModal({ open: true, loading: false, error: '' })}
-            className="bg-vyper-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-vyper-600 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-            </svg>
-            Start Audit
-          </button>
-
-          <button
-            onClick={handleToggleDaemon}
-            disabled={daemonToggling}
-            className="bg-transparent border dark:border-[#27272a] dark:text-[#a1a1aa] light:border-[#e4e4e7] light:text-[#71717a] px-4 py-2 rounded-lg font-medium hover:border-vyper-500 hover:text-vyper-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-            </svg>
-            <span>{daemonToggling ? 'Toggling...' : 'Toggle Daemon'}</span>
-          </button>
-
-          <button
-            onClick={handleRunSync}
-            disabled={syncing}
-            className="bg-transparent border dark:border-[#27272a] dark:text-[#a1a1aa] light:border-[#e4e4e7] light:text-[#71717a] px-4 py-2 rounded-lg font-medium hover:border-vyper-500 hover:text-vyper-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-            </svg>
+          <Button onClick={() => { setModalOpen(true); setModalError('') }}>
+            <Play className="w-4 h-4" /> Start Audit
+          </Button>
+          <Button variant="outline" onClick={handleToggleDaemon} disabled={daemonToggling}>
+            {daemonToggling
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : daemonIsRunning
+                ? <Square className="w-4 h-4" />
+                : <Play className="w-4 h-4" />
+            }
+            {daemonToggling ? 'Toggling...' : daemonIsRunning ? 'Stop Daemon' : 'Start Daemon'}
+          </Button>
+          <Button variant="outline" onClick={handleRunSync} disabled={syncing}>
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             {syncing ? 'Syncing...' : 'Run Sync'}
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
-      {/* ── Case Management Stats ────────────────────── */}
+      {/* Case Management */}
       {caseStats && (
         <>
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Case Management</h3>
-            <a href="/cases" className="text-sm text-vyper-400 hover:text-vyper-300 transition-colors">
-              View all cases →
-            </a>
+            <h3 className="font-semibold dark:text-[#d4d4dc] light:text-[#09090b]">Case Management</h3>
+            <Link to="/scanning" className="text-sm text-vyper-400 hover:text-vyper-300 transition-colors">View all cases →</Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className={statCardClass()}>
-              <span className="text-sm dark:text-[#a1a1aa] light:text-[#71717a]">Open Cases</span>
-              <div className="text-3xl font-bold mt-1">{caseStats.open_cases}</div>
-            </div>
-            <div className={statCardClass()}>
-              <span className="text-sm dark:text-[#a1a1aa] light:text-[#71717a]">Closed Cases</span>
-              <div className="text-3xl font-bold mt-1">{caseStats.closed_cases}</div>
-            </div>
-            <div className={statCardClass()}>
-              <span className="text-sm dark:text-[#a1a1aa] light:text-[#71717a]">Avg Confidence</span>
-              <div className="text-3xl font-bold mt-1">{(caseStats.avg_confidence * 100).toFixed(0)}%</div>
-            </div>
-            <div className={statCardClass()}>
-              <span className="text-sm dark:text-[#a1a1aa] light:text-[#71717a]">Total Bounty</span>
-              <div className="text-3xl font-bold mt-1 text-green-400">
-                ${caseStats.total_bounty.toLocaleString()}
-              </div>
-            </div>
+            <StatCard label="Open Cases" value={caseStats.open_cases} />
+            <StatCard label="Closed Cases" value={caseStats.closed_cases} />
+            <StatCard label="Avg Confidence" value={`${(caseStats.avg_confidence * 100).toFixed(0)}%`} accent accentColor="blue" />
+            <StatCard label="Total Bounty" value={`$${caseStats.total_bounty.toLocaleString()}`} accent accentColor="green" />
           </div>
 
-          {/* Recent Open Cases in Dashboard */}
           {caseStats.recent_cases && caseStats.recent_cases.length > 0 && (
-            <div className={statCardClass()}>
-              <h3 className="font-semibold mb-4">Recent Open Cases</h3>
+            <Card>
+              <h3 className="font-semibold mb-4 dark:text-[#d4d4dc] light:text-[#09090b]">Recent Open Cases</h3>
               <div className="space-y-2">
                 {caseStats.recent_cases.map((c) => (
-                  <a
-                    key={c.case_id}
-                    href={`/cases/${c.case_id}`}
-                    className="flex items-center justify-between py-2 px-3 rounded-lg dark:bg-[#18181b] light:bg-[#f4f4f5] hover:dark:bg-vyper-500/5 hover:light:bg-vyper-500/3 transition-colors"
-                  >
+                  <Link key={c.case_id} to={`/scanning?case=${c.case_id}`}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg dark:bg-[#0a0a12] light:bg-[#f4f4f5] hover:dark:bg-vyper-500/5 transition-colors">
                     <div className="flex items-center gap-3">
                       <span className={`w-2 h-2 rounded-full ${
-                        c.severity === 'Critical' ? 'bg-red-500' :
-                        c.severity === 'High' ? 'bg-orange-500' :
-                        c.severity === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'
-                      }`} />
+                        c.severity === 'Critical' ? 'bg-red-500' : c.severity === 'High' ? 'bg-orange-500' :
+                        c.severity === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'}`} />
                       <div>
-                        <div className="text-sm font-medium">{c.title}</div>
-                        <div className="text-xs font-mono dark:text-[#a1a1aa] light:text-[#71717a]">{c.case_id}</div>
+                        <div className="text-sm font-medium dark:text-[#d4d4dc] light:text-[#09090b]">{c.title}</div>
+                        <div className="text-xs font-mono dark:text-[#68687a] light:text-[#71717a]">{c.case_id}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs dark:text-[#a1a1aa] light:text-[#71717a]">
-                        {(c.confidence * 100).toFixed(0)}% confidence
-                      </span>
-                      <svg className="w-4 h-4 dark:text-[#a1a1aa] light:text-[#71717a]" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </a>
+                    <div className="text-xs dark:text-[#68687a] light:text-[#71717a]">{(c.confidence * 100).toFixed(0)}% confidence</div>
+                  </Link>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
         </>
       )}
 
-      {/* ── Recent Audits ──────────────────────────── */}
-      <div className={statCardClass()}>
+      {/* Recent Audits */}
+      <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Recent Audits</h3>
-          <a href="/audits" className="text-sm text-vyper-400 hover:text-vyper-300 transition-colors">
-            View all →
-          </a>
+          <h3 className="font-semibold dark:text-[#d4d4dc] light:text-[#09090b]">Recent Audits</h3>
+          <Link to="/scanning" className="text-sm text-vyper-400 hover:text-vyper-300 transition-colors">View all →</Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider dark:bg-[#18181b] dark:text-[#a1a1aa] dark:border-b dark:border-[#27272a] light:bg-[#f4f4f5] light:text-[#71717a] light:border-b light:border-[#e4e4e7]">
-                  Audit ID
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider dark:bg-[#18181b] dark:text-[#a1a1aa] dark:border-b dark:border-[#27272a] light:bg-[#f4f4f5] light:text-[#71717a] light:border-b light:border-[#e4e4e7]">
-                  Program
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider dark:bg-[#18181b] dark:text-[#a1a1aa] dark:border-b dark:border-[#27272a] light:bg-[#f4f4f5] light:text-[#71717a] light:border-b light:border-[#e4e4e7]">
-                  Chain
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider dark:bg-[#18181b] dark:text-[#a1a1aa] dark:border-b dark:border-[#27272a] light:bg-[#f4f4f5] light:text-[#71717a] light:border-b light:border-[#e4e4e7]">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider dark:bg-[#18181b] dark:text-[#a1a1aa] dark:border-b dark:border-[#27272a] light:bg-[#f4f4f5] light:text-[#71717a] light:border-b light:border-[#e4e4e7]">
-                  Findings
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider dark:bg-[#18181b] dark:text-[#a1a1aa] dark:border-b dark:border-[#27272a] light:bg-[#f4f4f5] light:text-[#71717a] light:border-b light:border-[#e4e4e7]">
-                  Duration
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider dark:bg-[#18181b] dark:text-[#a1a1aa] dark:border-b dark:border-[#27272a] light:bg-[#f4f4f5] light:text-[#71717a] light:border-b light:border-[#e4e4e7]">
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {auditsLoading ? (
-                <tr className="dark:border-b dark:border-[#27272a] light:border-b light:border-[#e4e4e7]">
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm dark:text-[#a1a1aa] light:text-[#71717a]">
-                    Loading audits...
-                  </td>
-                </tr>
-              ) : audits.length === 0 ? (
-                <tr className="dark:border-b dark:border-[#27272a] light:border-b light:border-[#e4e4e7]">
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm dark:text-[#a1a1aa] light:text-[#71717a]">
-                    No audits yet. Start your first audit!
-                  </td>
-                </tr>
-              ) : (
-                audits.map((a) => (
-                  <tr
-                    key={a.audit_id}
-                    onClick={() => window.location.href = `/audits/${a.audit_id}`}
-                    className="dark:border-b dark:border-[#27272a] light:border-b light:border-[#e4e4e7] hover:dark:bg-vyper-500/5 hover:light:bg-vyper-500/3 transition-colors cursor-pointer"
-                  >
-                    <td className="px-4 py-3 text-sm font-mono text-xs dark:text-[#f4f4f5] light:text-[#09090b]">
-                      {shortId(a.audit_id)}
-                    </td>
-                    <td className="px-4 py-3 text-sm dark:text-[#f4f4f5] light:text-[#09090b]">
-                      {a.program || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm dark:text-[#f4f4f5] light:text-[#09090b]">
-                      {a.chain || '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {statusBadge(a.state || 'PENDING')}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right dark:text-[#f4f4f5] light:text-[#09090b]">
-                      {a.findings_count ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right font-mono text-xs dark:text-[#f4f4f5] light:text-[#09090b]">
-                      {durationStr(a.duration_seconds)}
-                    </td>
-                    <td className="px-4 py-3 text-xs dark:text-[#f4f4f5] light:text-[#09090b]">
-                      {a.created_at ? new Date(a.created_at).toLocaleDateString() : '—'}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Audit ID</TableHead>
+              <TableHead>Program</TableHead>
+              <TableHead>Chain</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Findings</TableHead>
+              <TableHead className="text-right">Duration</TableHead>
+              <TableHead>Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {auditsLoading ? (
+              <TableRow><TableCell colSpan={7} className="text-center py-8 dark:text-[#68687a]">Loading audits...</TableCell></TableRow>
+            ) : audits.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center py-8 dark:text-[#68687a]">No audits yet. Start your first audit!</TableCell></TableRow>
+            ) : audits.map((a) => (
+              <TableRow key={a.audit_id} onClick={() => navigate(`/scanning?audit=${a.audit_id}`)} className="cursor-pointer">
+                <TableCell><span className="font-mono text-xs">{shortId(a.audit_id)}</span></TableCell>
+                <TableCell>{a.program || '—'}</TableCell>
+                <TableCell>{a.chain || '—'}</TableCell>
+                <TableCell><StatusBadge status={a.state || 'PENDING'} /></TableCell>
+                <TableCell className="text-right">{a.findings_count ?? '—'}</TableCell>
+                <TableCell className="text-right font-mono text-xs">{formatDuration(a.duration_seconds)}</TableCell>
+                <TableCell className="text-xs dark:text-[#68687a]">{formatDate(a.created_at)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
 
-      {/* ── Start Audit Modal ──────────────────────── */}
-      {modal.open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={(e) => { if (e.target === e.currentTarget) setModal({ open: false }); }}
-        >
-          <div
-            className="rounded-xl p-6 w-full max-w-md mx-4 dark:bg-[#1a1a1e] dark:border dark:border-[#27272a] light:bg-white light:border light:border-[#e4e4e7]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-semibold text-lg mb-4">Start New Audit</h3>
-
-            <form onSubmit={handleStartAudit}>
-              <div className="space-y-4">
-                {/* Chain */}
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-[#f4f4f5] light:text-[#09090b]">
-                    Chain
-                  </label>
-                  <select name="chain" className={inputFieldClass()} required>
-                    {CHAINS.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Contract Address */}
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-[#f4f4f5] light:text-[#09090b]">
-                    Contract Address
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    className={`${inputFieldClass()} font-mono text-xs`}
-                    placeholder="0x..."
-                    required
-                  />
-                </div>
-
-                {/* Program */}
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-[#f4f4f5] light:text-[#09090b]">
-                    Program (optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="program"
-                    className={inputFieldClass()}
-                    placeholder="Immunefi program slug"
-                  />
-                </div>
-
-                {/* Priority */}
-                <div>
-                  <label className="block text-sm font-medium mb-1 dark:text-[#f4f4f5] light:text-[#09090b]">
-                    Priority (0-10)
-                  </label>
-                  <input
-                    type="number"
-                    name="priority"
-                    className={inputFieldClass()}
-                    defaultValue={5}
-                    min={0}
-                    max={10}
-                  />
-                </div>
+      {/* Start Audit Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start New Audit</DialogTitle>
+            <DialogDescription>Configure and start a new smart contract audit.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleStartAudit}>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-[#d4d4dc] light:text-[#09090b]">Chain</label>
+                <Select name="chain" required>
+                  {CHAINS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </Select>
               </div>
-
-              {/* Error message */}
-              {modal.open && 'error' in modal && modal.error && (
-                <div className="mt-3 text-sm text-red-400">
-                  {modal.error}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setModal({ open: false })}
-                  disabled={'loading' in modal && modal.loading}
-                  className="bg-transparent border dark:border-[#27272a] dark:text-[#a1a1aa] light:border-[#e4e4e7] light:text-[#71717a] px-4 py-2 rounded-lg font-medium hover:border-vyper-500 hover:text-vyper-500 transition-all disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={'loading' in modal && modal.loading}
-                  className="bg-vyper-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-vyper-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {'loading' in modal && modal.loading ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Starting...
-                    </>
-                  ) : (
-                    'Start Audit'
-                  )}
-                </button>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-[#d4d4dc] light:text-[#09090b]">Contract Address</label>
+                <Input type="text" name="address" placeholder="0x..." required className="font-mono text-xs" />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-[#d4d4dc] light:text-[#09090b]">Program (optional)</label>
+                <Input type="text" name="program" placeholder="Immunefi program slug" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 dark:text-[#d4d4dc] light:text-[#09090b]">Priority (0-10)</label>
+                <Input type="number" name="priority" defaultValue={5} min={0} max={10} />
+              </div>
+            </div>
+            {modalError && <p className="mt-3 text-sm text-red-400">{modalError}</p>}
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={() => setModalOpen(false)} disabled={modalLoading}>Cancel</Button>
+              <Button type="submit" disabled={modalLoading}>
+                {modalLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</> : 'Start Audit'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
-  );
+  )
 }
