@@ -22,6 +22,9 @@ class AgentCapability(str, Enum):
     GENERATE_REPORT = "generate_report"
     EXPORT_REPORT = "export_report"
     SEND_NOTIFICATION = "send_notification"
+    MANAGE_WEBHOOK = "manage_webhook"
+    SCHEDULE_TASKS = "schedule_tasks"
+    SUBMIT_FINDING = "submit_finding"
 
 
 class AgentStatus(str, Enum):

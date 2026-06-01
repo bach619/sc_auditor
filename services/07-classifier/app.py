@@ -27,11 +27,13 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from shared.observability import setup_observability
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 
+from src.agent import ClassifierAgent
 from src.classify import Classifier
 from src.improver import PatternLearner
 from src.metrics import MetricsTracker
@@ -69,6 +71,10 @@ class AppState:
             pattern_learner=self.pattern_learner
         )
         self.metrics_tracker: MetricsTracker = MetricsTracker()
+        self.agent: ClassifierAgent = ClassifierAgent(
+            classifier=self.classifier,
+            metrics=self.metrics_tracker,
+        )
         self._shutdown_requested: bool = False
 
     @property
@@ -421,6 +427,47 @@ def _raw_to_finding(raw: dict[str, Any], audit_id: str) -> Finding:
             Classification(raw["ai_verdict"]) if raw.get("ai_verdict") else None
         ),
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Agent Endpoints
+# ═══════════════════════════════════════════════════════════════
+
+
+@app.get("/agent/manifest")
+async def classifier_agent_manifest(request: Request) -> ApiResponse:
+    state = _get_state(request)
+    return ok(state.agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def classifier_agent_delegate(request: Request, body: dict) -> ApiResponse:
+    state = _get_state(request)
+    req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await state.agent.handle_delegation(req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def classifier_agent_negotiate(request: Request, body: dict) -> ApiResponse:
+    state = _get_state(request)
+    req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await state.agent.handle_negotiation(req)
+    return ok(response)
 
 
 # ===========================================================================

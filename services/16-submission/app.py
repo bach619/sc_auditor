@@ -11,6 +11,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.agent import SubmissionAgent
 from src.draft_generator import generate_draft
 from src.evidence_collector import EvidenceCollector
 from src.intent_classifier import classify_intent
@@ -32,6 +33,7 @@ from src.models import (
 )
 from src.storage import SubmissionStorage
 from shared.observability import setup_observability
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 from src.webhook_handler import handle_classify_intent_request, handle_immunefi_webhook
 
 SERVICE_NAME = "submission"
@@ -50,6 +52,11 @@ class AppState:
             orchestrator_url=os.environ.get("ORCHESTRATOR_URL", "http://11-orchestrator:8000"),
         )
         self.ai_url = os.environ.get("AI_URL", "http://06-ai:8004")
+        self.agent = SubmissionAgent(
+            storage=self.storage,
+            evidence=self.evidence,
+            ai_url=self.ai_url,
+        )
 
     async def close(self) -> None:
         pass
@@ -368,6 +375,51 @@ async def get_category_stats(request: Request) -> ApiResponse:
         )
 
     return ok(stats)
+
+
+# ═══════════════════════════════════════════════════════════
+# Agent Endpoints
+# ═══════════════════════════════════════════════════════════
+
+
+def _get_agent(request: Request) -> SubmissionAgent:
+    return request.app.state.vyper.agent
+
+
+@app.get("/agent/manifest")
+async def submission_agent_manifest(request: Request) -> ApiResponse:
+    agent = _get_agent(request)
+    return ok(agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def submission_agent_delegate(request: Request, body: dict) -> ApiResponse:
+    agent = _get_agent(request)
+    req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await agent.handle_delegation(req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def submission_agent_negotiate(request: Request, body: dict) -> ApiResponse:
+    agent = _get_agent(request)
+    req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await agent.handle_negotiation(req)
+    return ok(response)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ import structlog
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.agent import UpkeepAgent
 from src.backup import BackupManager, create_backup_manager
 from src.metrics import MetricsAggregator, create_metrics_aggregator
 from src.resource_governor import ResourceGovernor, SystemLoad
@@ -36,6 +37,7 @@ from src.models import (
     UpdateResult,
 )
 from shared.observability import setup_observability
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 from src.update import UpdateManager, create_update_manager
 
 # ── Constants ──────────────────────────────────────────────
@@ -60,6 +62,11 @@ class AppState:
         self.update_mgr: UpdateManager = create_update_manager()
         self.backup_mgr: BackupManager = create_backup_manager()
         self.metrics_mgr: MetricsAggregator = create_metrics_aggregator()
+        self.agent: UpkeepAgent = UpkeepAgent(
+            update_mgr=self.update_mgr,
+            backup_mgr=self.backup_mgr,
+            metrics_mgr=self.metrics_mgr,
+        )
         self._start_time: float = time.monotonic()
         self._shutdown_requested: bool = False
 
@@ -382,6 +389,47 @@ async def governor_stats(request: Request) -> ApiResponse:
             "on_battery": state.is_on_battery,
         },
     })
+
+
+# ═══════════════════════════════════════════════════════════
+# Agent Endpoints
+# ═══════════════════════════════════════════════════════════
+
+
+@app.get("/agent/manifest")
+async def upkeep_agent_manifest(request: Request) -> ApiResponse:
+    state = _get_state(request)
+    return ok(state.agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def upkeep_agent_delegate(request: Request, body: dict) -> ApiResponse:
+    state = _get_state(request)
+    req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await state.agent.handle_delegation(req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def upkeep_agent_negotiate(request: Request, body: dict) -> ApiResponse:
+    state = _get_state(request)
+    req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await state.agent.handle_negotiation(req)
+    return ok(response)
 
 
 # ── Entry Point ────────────────────────────────────────────

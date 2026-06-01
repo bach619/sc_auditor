@@ -21,9 +21,11 @@ from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 
 from shared.observability import setup_observability
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.agent import SourceAgent
 from src.detector import SourceDetector
 from src.models import (
     ApiResponse,
@@ -59,6 +61,10 @@ detector = SourceDetector()
 _monitor_task: asyncio.Task | None = None
 _monitor_start: float = 0.0
 
+# ── Agent global ───────────────────────────────────────────
+
+_source_agent: SourceAgent | None = None
+
 
 # ── Lifespan ───────────────────────────────────────────────
 
@@ -66,9 +72,12 @@ _monitor_start: float = 0.0
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup / shutdown lifecycle."""
+    global _source_agent
     log.info("source.startup", service=SERVICE_NAME, version=SERVICE_VERSION)
     cached = detector.count_cached()
     log.info("source.cache_stats", cached_contracts=cached)
+    _source_agent = SourceAgent(detector)
+    log.info("source.agent_initialized", role=_source_agent.agent_role)
     yield
     log.info("source.shutdown", service=SERVICE_NAME)
     global _monitor_task
@@ -645,6 +654,52 @@ async def get_bytecode_stats() -> ApiResponse:
         "by_compiler": stats.get("by_compiler", {}),
         "cache_size_bytes": stats.get("cache_size_bytes", 0),
     })
+
+
+# ═══════════════════════════════════════════════════════════
+# Agent Endpoints
+# ═══════════════════════════════════════════════════════════
+
+@app.get("/agent/manifest")
+async def source_agent_manifest() -> ApiResponse:
+    agent = _source_agent
+    if not agent:
+        return ok({"error": "Agent not initialized"})
+    return ok(agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def source_agent_delegate(body: dict) -> ApiResponse:
+    agent = _source_agent
+    if not agent:
+        return ok({"error": "Agent not initialized"})
+    request = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await agent.handle_delegation(request)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def source_agent_negotiate(body: dict) -> ApiResponse:
+    agent = _source_agent
+    if not agent:
+        return ok({"error": "Agent not initialized"})
+    request = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await agent.handle_negotiation(request)
+    return ok(response)
 
 
 # ── Entry Point ────────────────────────────────────────────

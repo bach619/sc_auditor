@@ -13,6 +13,60 @@
 
 ---
 
+## 2026-06-01
+
+### `2026-06-01 14:00 | [REFACTOR] | File: sidebar, app.tsx, antonio.tsx + 5 agent files + registry | Agent: lore-master | [agent-orchestration] Redesign arsitektur — Antonio coordinator, setiap service punya agent sendiri`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/15-dashboard/frontend/src/layout/Sidebar.tsx | Agent: lore-master | [agent-orchestration] Simplifikasi sidebar: Dashboard, Antonio, Programs, Reports, Settings — hapus 9 items redundan`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/15-dashboard/frontend/src/App.tsx | Agent: lore-master | [agent-orchestration] Route simplifikasi — 5 rute utama + 9 alias redirect ke /agent`
+
+### `2026-06-01 14:00 | [CREATE] | File: services/15-dashboard/frontend/src/pages/Antonio.tsx | Agent: lore-master | [agent-orchestration] Halaman Antonio central hub — command bar, service agents grid, team, skills, memory, sessions`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/shared/agent_protocol/registry.py | Agent: lore-master | [agent-orchestration] Fix 3 port mismatch (02, 04, 10) + tambah 6 service baru ke _known_services (03, 07, 11, 12, 13, 16)`
+
+### `2026-06-01 14:00 | [CREATE] | File: services/03-source/src/agent.py | Agent: lore-master | [agent-orchestration] SourceAgent(BaseAgent) — FETCH_SOURCE capability + agent endpoints`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/03-source/app.py | Agent: lore-master | [agent-orchestration] Tambah init SourceAgent di lifespan + /agent/manifest, /agent/delegate, /agent/negotiate`
+
+### `2026-06-01 14:00 | [CREATE] | File: services/07-classifier/src/agent.py | Agent: lore-master | [agent-orchestration] ClassifierAgent(BaseAgent) — CLASSIFY_FINDINGS capability`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/07-classifier/app.py | Agent: lore-master | [agent-orchestration] Tambah ClassifierAgent di AppState + 3 agent endpoints`
+
+### `2026-06-01 14:00 | [CREATE] | File: services/12-webhook/src/agent.py | Agent: lore-master | [agent-orchestration] WebhookAgent(BaseAgent) — MANAGE_WEBHOOK capability`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/12-webhook/app.py | Agent: lore-master | [agent-orchestration] Tambah WebhookAgent di AppState + 3 agent endpoints`
+
+### `2026-06-01 14:00 | [CREATE] | File: services/13-upkeep/src/agent.py | Agent: lore-master | [agent-orchestration] UpkeepAgent(BaseAgent) — SCHEDULE_TASKS capability`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/13-upkeep/app.py | Agent: lore-master | [agent-orchestration] Tambah UpkeepAgent di AppState + 3 agent endpoints`
+
+### `2026-06-01 14:00 | [CREATE] | File: services/16-submission/src/agent.py | Agent: lore-master | [agent-orchestration] SubmissionAgent(BaseAgent) — SUBMIT_FINDING capability`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/16-submission/app.py | Agent: lore-master | [agent-orchestration] Tambah SubmissionAgent di AppState + 3 agent endpoints`
+
+### `2026-06-01 14:00 | [MODIFY] | File: services/shared/agent_protocol/models.py | Agent: lore-master | [agent-orchestration] Tambah 3 enum AgentCapability: MANAGE_WEBHOOK, SCHEDULE_TASKS, SUBMIT_FINDING`
+
+### `2026-06-01 12:00 | [CREATE] | File: proxy.py, app.py, api.ts, Frontend pages (6) | Agent: lore-master | [dashboard-full-coverage] Tambah 6 halaman dashboard + proxy submission + routes — semua 20 service tercover`
+
+### `2026-06-01 12:00 | [CREATE] | File: services/15-dashboard/frontend/src/pages/Source.tsx | Agent: lore-master | [dashboard-full-coverage] Halaman Source Code Viewer — lookup source by audit ID (service 03)`
+
+### `2026-06-01 12:00 | [CREATE] | File: services/15-dashboard/frontend/src/pages/Classifier.tsx | Agent: lore-master | [dashboard-full-coverage] Halaman Classifier — metrics, feedback, per-tool analysis (service 07)`
+
+### `2026-06-01 12:00 | [CREATE] | File: services/15-dashboard/frontend/src/pages/Notifications.tsx | Agent: lore-master | [dashboard-full-coverage] Halaman Notifications — channel status, test, delivery logs (service 10)`
+
+### `2026-06-01 12:00 | [CREATE] | File: services/15-dashboard/frontend/src/pages/Webhooks.tsx | Agent: lore-master | [dashboard-full-coverage] Halaman Webhooks — event logs, payload viewer (service 12)`
+
+### `2026-06-01 12:00 | [CREATE] | File: services/15-dashboard/frontend/src/pages/Upkeep.tsx | Agent: lore-master | [dashboard-full-coverage] Halaman Upkeep — scheduler jobs, execution logs (service 13)`
+
+### `2026-06-01 12:00 | [CREATE] | File: services/15-dashboard/frontend/src/pages/Submission.tsx | Agent: lore-master | [dashboard-full-coverage] Halaman Submission — create, draft generator, kategori stats, detail (service 16)`
+
+### `2026-06-01 12:00 | [MODIFY] | File: services/15-dashboard/src/proxy.py | Agent: lore-master | [dashboard-full-coverage] Tambah ServiceURLs.submission + 7 proxy methods untuk service 16`
+
+### `2026-06-01 12:00 | [MODIFY] | File: services/15-dashboard/app.py | Agent: lore-master | [dashboard-full-coverage] Tambah 8 API routes untuk submission service (CRUD + draft + respond + stats)`
+
+### `2026-06-01 12:00 | [MODIFY] | File: services/15-dashboard/frontend/src/lib/api.ts | Agent: lore-master | [dashboard-full-coverage] Tambah 7 API client methods untuk submission service`
+
 ## 2026-05-26
 
 ### `2026-05-26 08:00 | [CREATE] | File: docs/technical_document.md | Agent: lore-master | [documentation] Buat technical document lengkap — arsitektur 20 service, pipeline audit, Antonio AI Agent (ReAct+Skills+Memory+Team), API reference, dan blueprint CLI chat-controlled`

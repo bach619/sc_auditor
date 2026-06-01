@@ -17,6 +17,7 @@ from typing import Any, AsyncGenerator
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.agent import WebhookAgent
 from src.dispatcher import WebhookDispatcher, create_dispatcher
 from src.models import (
     ApiResponse,
@@ -29,6 +30,7 @@ from src.models import (
     WebhookTrigger,
 )
 from shared.observability import setup_observability
+from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -51,6 +53,7 @@ class AppState:
 
     def __init__(self) -> None:
         self.dispatcher: WebhookDispatcher = create_dispatcher()
+        self.agent: WebhookAgent = WebhookAgent(self.dispatcher)
 
     async def close(self) -> None:
         """Release HTTP client held by the dispatcher."""
@@ -265,6 +268,47 @@ async def list_endpoints(request: Request) -> ApiResponse:
             "total": len(endpoints),
         }
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Agent Endpoints
+# ═══════════════════════════════════════════════════════════════
+
+
+@app.get("/agent/manifest")
+async def webhook_agent_manifest(request: Request) -> ApiResponse:
+    state = _get_state(request)
+    return ok(state.agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def webhook_agent_delegate(request: Request, body: dict) -> ApiResponse:
+    state = _get_state(request)
+    req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await state.agent.handle_delegation(req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def webhook_agent_negotiate(request: Request, body: dict) -> ApiResponse:
+    state = _get_state(request)
+    req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await state.agent.handle_negotiation(req)
+    return ok(response)
 
 
 # ---------------------------------------------------------------------------

@@ -54,12 +54,20 @@ class AgentRegistry:
         self._refresh_task: asyncio.Task | None = None
         self._logger = _structlog.get_logger(__name__)
         self._known_services: dict[str, str] = {
+            # Core analysis agents
+            "02-immunefi": "http://02-immunefi:8000",
+            "03-source": "http://03-source:8000",
+            "04-scanner": "http://04-scanner:8000",
             "06-ai": "http://06-ai:8000",
-            "04-scanner": "http://04-scanner:8003",
-            "02-immunefi": "http://02-immunefi:8001",
+            "07-classifier": "http://07-classifier:8000",
             "08-exploit": "http://08-exploit:8006",
             "09-reporter": "http://09-reporter:8007",
-            "10-notifier": "http://10-notifier:8008",
+            "10-notifier": "http://10-notifier:8000",
+            # Orchestration agents
+            "11-orchestrator": "http://11-orchestrator:8000",
+            "12-webhook": "http://12-webhook:8000",
+            "13-upkeep": "http://13-upkeep:8000",
+            "16-submission": "http://16-submission:8000",
         }
 
     async def discover_all(self) -> list[AgentManifest]:

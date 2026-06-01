@@ -1,15 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FolderOpen, Scan, Bomb, FileText, Bot, Brain, Settings, Zap } from 'lucide-react'
+import { LayoutDashboard, Bot, FolderOpen, FileText, Settings, Zap } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/agent', label: 'Antonio', icon: Bot },
   { to: '/programs', label: 'Programs', icon: FolderOpen },
-  { to: '/scanning', label: 'Scanning', icon: Scan },
-  { to: '/exploit', label: 'Exploit', icon: Bomb },
   { to: '/reports', label: 'Reports', icon: FileText },
-  { to: '/agent', label: 'Agent', icon: Bot },
-  { to: '/ai', label: 'AI Agent', icon: Brain },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

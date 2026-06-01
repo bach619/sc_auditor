@@ -206,6 +206,30 @@ export const api = {
   getLearningRecommendations: (taskType?: string) =>
     request<ApiResponse>(`/api/agent/learning/recommendations${taskType ? `?task_type=${taskType}` : ''}`),
 
+  // ── Submission (Service 16) ─────────────────────────────
+  getSubmissions: (params?: { category?: string; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.category) qs.set('category', params.category);
+    if (params?.status) qs.set('status', params.status);
+    const q = qs.toString();
+    return request<ApiResponse>(`/api/submission${q ? '?' + q : ''}`);
+  },
+  getSubmission: (findingId: string) => request<ApiResponse>(`/api/submission/${findingId}`),
+  createSubmission: (body: {
+    finding_id: string; program_slug: string; bug_category: string;
+    title: string; description: string; severity: string;
+    poc_solidity?: string; tx_hash?: string; exploit_sequence?: string[];
+    category_evidence?: Record<string, any>;
+  }) => request<ApiResponse>('/api/submission', { method: 'POST', body: JSON.stringify(body) }),
+  generateSubmissionDraft: (findingId: string, body: { immunefi_message: string; bug_category?: string; tone?: string }) =>
+    request<ApiResponse>(`/api/submission/${findingId}/draft`, { method: 'POST', body: JSON.stringify(body) }),
+  respondToImmunefi: (findingId: string, body: { message: string; attachments?: string[] }) =>
+    request<ApiResponse>(`/api/submission/${findingId}/respond`, { method: 'POST', body: JSON.stringify(body) }),
+  getSubmissionEvidence: (findingId: string) =>
+    request<ApiResponse>(`/api/submission/${findingId}/evidence`),
+  getSubmissionStats: () => request<ApiResponse>('/api/submission/stats'),
+  getSubmissionCategoryStats: () => request<ApiResponse>('/api/submission/stats/categories'),
+
   // ── Cases (Agenda 05: Each Bug Is Cases) ──────────────
   getCases: (params?: { status?: string; search?: string; severity?: string; confidence?: string; sort?: string; order?: string; limit?: number; offset?: number }) => {
     const qs = new URLSearchParams();

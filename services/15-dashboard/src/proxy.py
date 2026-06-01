@@ -74,6 +74,9 @@ class ServiceURLs:
     scanner_halmos: str = field(
         default_factory=lambda: _env_or("SCANNER_HALMOS_URL", "http://localhost:8017")
     )
+    submission: str = field(
+        default_factory=lambda: _env_or("SUBMISSION_URL", "http://localhost:8018")
+    )
 
 
 # ── Retry decorator ─────────────────────────────────────────────
@@ -510,6 +513,52 @@ class ServiceProxy:
 
     async def get_upkeep_logs(self, limit: int = 50) -> Dict[str, Any]:
         return await self._get(f"{self.urls.upkeep}/logs", params={"limit": limit})
+
+
+    # ═══════════════════════════════════════════════════════════
+    # Submission Service (16)
+    # ═══════════════════════════════════════════════════════════
+
+    async def get_submissions(
+        self, category: Optional[str] = None, status: Optional[str] = None
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {}
+        if category:
+            params["category"] = category
+        if status:
+            params["status"] = status
+        return await self._get(f"{self.urls.submission}/submissions", params=params)
+
+    async def get_submission(self, finding_id: str) -> Dict[str, Any]:
+        return await self._get(f"{self.urls.submission}/submissions/{finding_id}")
+
+    async def create_submission(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        return await self._post(f"{self.urls.submission}/submissions", json=body)
+
+    async def generate_submission_draft(
+        self, finding_id: str, body: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        return await self._post(
+            f"{self.urls.submission}/submissions/{finding_id}/draft", json=body
+        )
+
+    async def respond_to_immunefi(
+        self, finding_id: str, body: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        return await self._post(
+            f"{self.urls.submission}/submissions/{finding_id}/respond", json=body
+        )
+
+    async def get_submission_evidence(self, finding_id: str) -> Dict[str, Any]:
+        return await self._get(
+            f"{self.urls.submission}/submissions/{finding_id}/evidence"
+        )
+
+    async def get_submission_stats(self) -> Dict[str, Any]:
+        return await self._get(f"{self.urls.submission}/stats")
+
+    async def get_submission_category_stats(self) -> Dict[str, Any]:
+        return await self._get(f"{self.urls.submission}/stats/categories")
 
 
 # Module-level singleton

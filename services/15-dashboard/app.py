@@ -765,6 +765,99 @@ async def api_upkeep_logs(limit: int = Query(50, ge=1, le=500)) -> JSONResponse:
 
 
 # ═══════════════════════════════════════════════════════════════
+# Submission Service (16)
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/api/submission")
+async def api_list_submissions(
+    category: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+) -> JSONResponse:
+    """List submissions (proxies to Submission Service)."""
+    try:
+        result = await proxy.get_submissions(category=category, status=status)
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("List submissions failed", error=str(e))
+        return _err(f"Failed to fetch submissions: {e}", status_code=502)
+
+
+@app.get("/api/submission/{finding_id}")
+async def api_get_submission(finding_id: str) -> JSONResponse:
+    """Get a single submission by finding ID."""
+    try:
+        result = await proxy.get_submission(finding_id)
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        return _err(f"Submission not found: {finding_id}", status_code=404)
+
+
+@app.post("/api/submission")
+async def api_create_submission(body: dict) -> JSONResponse:
+    """Create a new submission."""
+    try:
+        result = await proxy.create_submission(body)
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Create submission failed", error=str(e))
+        return _err(f"Failed to create submission: {e}", status_code=502)
+
+
+@app.post("/api/submission/{finding_id}/draft")
+async def api_generate_submission_draft(finding_id: str, body: dict) -> JSONResponse:
+    """Generate a submission draft."""
+    try:
+        result = await proxy.generate_submission_draft(finding_id, body)
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Generate draft failed", finding_id=finding_id, error=str(e))
+        return _err(f"Failed to generate draft: {e}", status_code=502)
+
+
+@app.post("/api/submission/{finding_id}/respond")
+async def api_respond_to_immunefi(finding_id: str, body: dict) -> JSONResponse:
+    """Send a response to Immunefi for a submission."""
+    try:
+        result = await proxy.respond_to_immunefi(finding_id, body)
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Respond to Immunefi failed", finding_id=finding_id, error=str(e))
+        return _err(f"Failed to respond: {e}", status_code=502)
+
+
+@app.get("/api/submission/{finding_id}/evidence")
+async def api_get_submission_evidence(finding_id: str) -> JSONResponse:
+    """Get evidence collected for a submission."""
+    try:
+        result = await proxy.get_submission_evidence(finding_id)
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        return _err(f"Evidence fetch failed: {e}", status_code=502)
+
+
+@app.get("/api/submission/stats")
+async def api_submission_stats() -> JSONResponse:
+    """Get submission statistics."""
+    try:
+        result = await proxy.get_submission_stats()
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Submission stats failed", error=str(e))
+        return _err(f"Failed to fetch stats: {e}", status_code=502)
+
+
+@app.get("/api/submission/stats/categories")
+async def api_submission_category_stats() -> JSONResponse:
+    """Get per-category submission statistics."""
+    try:
+        result = await proxy.get_submission_category_stats()
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Category stats failed", error=str(e))
+        return _err(f"Failed to fetch category stats: {e}", status_code=502)
+
+
+# ═══════════════════════════════════════════════════════════════
 # Case Management — Agenda 05: Each Bug Is Cases
 # ═══════════════════════════════════════════════════════════════
 
