@@ -46,6 +46,11 @@ from vyper_lib.models import (
 from shared.observability import setup_observability
 from vyper_lib.solc_manager import SolcManager, create_solc_manager
 from vyper_lib.deps import DependencyResolver, create_dependency_resolver
+from src.agent import ForgeAgent
+from shared.agent_protocol.models import (
+    DelegationRequest,
+    NegotiationRequest,
+)
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -85,6 +90,8 @@ class AppState:
         self.solc_mgr: SolcManager = create_solc_manager()
         self.forge_runner: ForgeRunner = create_forge_runner()
         self.dep_resolver: DependencyResolver = create_dependency_resolver()
+        # Agent
+        self.agent: ForgeAgent | None = None
         # Intelligence engine
         self.classifier: CompilerClassifier = create_classifier()
         self.scorer: CompilerScorer = create_scorer()
@@ -106,6 +113,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Init Agent
+    state.agent = ForgeAgent(runner=state.forge_runner)
+    log.info("forge.agent_initialized", agent_role=state.agent.agent_role)
 
     solc_versions = state.solc_mgr.list_versions()
     log.info(
@@ -381,6 +392,56 @@ async def intel_ask(body: IntelAskRequest, request: Request) -> ApiResponse:
         errors=enriched,
     )
     return ok(result)
+
+
+# ── Agent Protocol Endpoints ────────────────────────────────
+
+
+@app.get("/agent/manifest")
+async def forge_agent_manifest(request: Request) -> ApiResponse:
+    """Publish agent manifest for Antonio discovery."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+    return ok(state.agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def forge_agent_delegate(body: dict, request: Request) -> ApiResponse:
+    """Receive a delegation from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+
+    delegation_req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await state.agent.handle_delegation(delegation_req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def forge_agent_negotiate(body: dict, request: Request) -> ApiResponse:
+    """Handle a negotiation request from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+
+    negotiation_req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await state.agent.handle_negotiation(negotiation_req)
+    return ok(response)
 
 
 # ── Entry Point ────────────────────────────────────────────

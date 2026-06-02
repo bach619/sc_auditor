@@ -1,6 +1,7 @@
-"""LLMClient — Unified client for OpenAI and Anthropic APIs.
+"""LLMClient — Unified client for OpenAI, Anthropic, OpenRouter, and HuggingFace APIs.
 
-Supports GPT-4o, GPT-4, and Claude 3.5 Sonnet with:
+Supports GPT-4o, GPT-4, Claude 3.5 Sonnet, 45+ OpenRouter models, and
+100+ HuggingFace open-source models with:
   - async/await via httpx.AsyncClient
   - Exponential backoff retry via tenacity
   - Structured JSON output parsing
@@ -31,6 +32,8 @@ log = structlog.get_logger()
 
 OPENAI_BASE_URL = "https://api.openai.com/v1"
 ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+HUGGINGFACE_BASE_URL = "https://api-inference.huggingface.co"
 DEFAULT_TIMEOUT = 60.0
 MAX_TOKENS = 4096
 TEMPERATURE = 0.1  # Low temperature for deterministic analysis
@@ -241,17 +244,25 @@ class CircuitBreaker:
 
 
 class LLMClient:
-    """Unified client for OpenAI and Anthropic LLM APIs.
+    """Unified client for OpenAI, Anthropic, OpenRouter, and HuggingFace LLM APIs.
 
-    Supports GPT-4o, GPT-4, and Claude 3.5 Sonnet with automatic
-    retry, circuit breaking, and structured response parsing.
+    Supports GPT-4o, GPT-4, Claude 3.5 Sonnet, hundreds of models
+    via OpenRouter, and 100+ open-source models via HuggingFace
+    Inference API with automatic retry, circuit breaking, and
+    structured response parsing.
 
     Attributes:
         openai_key: OpenAI API key (from Config Service via frontend Settings).
         anthropic_key: Anthropic API key (from Config Service via frontend Settings).
+        openrouter_key: OpenRouter API key (from Config Service via frontend Settings).
+        huggingface_key: HuggingFace API key (from Config Service via frontend Settings).
         openai_model: OpenAI model name (default: gpt-4o).
         anthropic_model: Anthropic model name (default: claude-3-5-sonnet-20241022).
-        preferred_provider: "openai" or "anthropic".
+        openrouter_model: OpenRouter model name (default: openrouter/free).
+        openrouter_base_url: OpenRouter base URL (default: https://openrouter.ai/api/v1).
+        huggingface_model: HuggingFace model ID (default: mistralai/Mistral-7B-Instruct-v0.3).
+        huggingface_base_url: HuggingFace API base URL.
+        preferred_provider: "openai", "anthropic", "openrouter", or "huggingface".
         http_client: Shared httpx.AsyncClient for connection pooling.
         circuit_breaker: CircuitBreaker for API failure protection.
     """
@@ -260,15 +271,27 @@ class LLMClient:
         self,
         openai_key: str | None = None,
         anthropic_key: str | None = None,
+        openrouter_key: str | None = None,
+        huggingface_key: str | None = None,
         openai_model: str = "gpt-4o",
         anthropic_model: str = "claude-3-5-sonnet-20241022",
+        openrouter_model: str = "openrouter/free",
+        openrouter_base_url: str = OPENROUTER_BASE_URL,
+        huggingface_model: str = "mistralai/Mistral-7B-Instruct-v0.3",
+        huggingface_base_url: str = HUGGINGFACE_BASE_URL,
         preferred_provider: Provider = "openai",
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self.openai_key = openai_key or ""
         self.anthropic_key = anthropic_key or ""
+        self.openrouter_key = openrouter_key or ""
+        self.huggingface_key = huggingface_key or ""
         self.openai_model = openai_model
         self.anthropic_model = anthropic_model
+        self.openrouter_model = openrouter_model
+        self.openrouter_base_url = openrouter_base_url
+        self.huggingface_model = huggingface_model
+        self.huggingface_base_url = huggingface_base_url
         self.preferred_provider = preferred_provider
 
         self._http_client = http_client
@@ -280,8 +303,12 @@ class LLMClient:
             provider=self.preferred_provider,
             openai_model=self.openai_model,
             anthropic_model=self.anthropic_model,
+            openrouter_model=self.openrouter_model,
+            huggingface_model=self.huggingface_model,
             openai_configured=bool(self.openai_key),
             anthropic_configured=bool(self.anthropic_key),
+            openrouter_configured=bool(self.openrouter_key),
+            huggingface_configured=bool(self.huggingface_key),
         )
 
     async def __aenter__(self) -> LLMClient:
@@ -328,7 +355,7 @@ class LLMClient:
             CircuitBreakerOpenError: If the circuit breaker is open.
             RuntimeError: If no API key is configured.
         """
-        if not self.openai_key and not self.anthropic_key:
+        if not self.openai_key and not self.anthropic_key and not self.openrouter_key and not self.huggingface_key:
             raise RuntimeError(
                 "No API keys configured. Set them via Dashboard → Settings page."
             )
@@ -356,6 +383,20 @@ class LLMClient:
             if provider == "openai":
                 raw = await self._circuit_call(
                     self._call_openai, model=model, messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_prompt},
+                    ]
+                )
+            elif provider == "openrouter":
+                raw = await self._circuit_call(
+                    self._call_openrouter, model=model, messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_prompt},
+                    ]
+                )
+            elif provider == "huggingface":
+                raw = await self._circuit_call(
+                    self._call_huggingface, model=model, messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_prompt},
                     ]
@@ -408,16 +449,29 @@ class LLMClient:
     def _select_provider(self) -> tuple[Provider, str]:
         """Select the active provider and model based on availability.
 
+        Priority: preferred provider → fallback chain.
+
         Returns:
             Tuple of (provider_name, model_name).
         """
         if self.preferred_provider == "openai" and self.openai_key:
             return ("openai", self.openai_model)
-        if self.anthropic_key:
+        if self.preferred_provider == "openrouter" and self.openrouter_key:
+            return ("openrouter", self.openrouter_model)
+        if self.preferred_provider == "huggingface" and self.huggingface_key:
+            return ("huggingface", self.huggingface_model)
+        if self.preferred_provider == "anthropic" and self.anthropic_key:
             return ("anthropic", self.anthropic_model)
+        # Fallback chain
+        if self.openrouter_key:
+            return ("openrouter", self.openrouter_model)
+        if self.huggingface_key:
+            return ("huggingface", self.huggingface_model)
         if self.openai_key:
             return ("openai", self.openai_model)
-        return ("openai", self.openai_model)
+        if self.anthropic_key:
+            return ("anthropic", self.anthropic_model)
+        return ("openrouter", self.openrouter_model)
 
     # ── Internal: Prompt Building ──────────────────────────
 
@@ -608,4 +662,143 @@ class LLMClient:
 
         data = resp.json()
         content = data["content"][0]["text"]
+        return content
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        retry=retry_if_exception_type(
+            (httpx.TimeoutException, httpx.HTTPStatusError, httpx.NetworkError)
+        ),
+        reraise=True,
+    )
+    async def _call_openrouter(
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+    ) -> str:
+        """Call the OpenRouter chat completions API.
+
+        OpenRouter uses an OpenAI-compatible API format, so the request
+        body is identical to OpenAI's /v1/chat/completions. The response
+        is also the same format, making parsing identical.
+
+        Additional OpenRouter headers are sent for analytics/identification:
+          - HTTP-Referer: Your site URL (optional, for rankings)
+          - X-Title: Your app name (optional, for rankings)
+
+        Args:
+            model: Model name in OpenRouter format (e.g. "openai/gpt-4o").
+            messages: Chat messages in OpenAI format.
+
+        Returns:
+            Response content text.
+
+        Raises:
+            httpx.TimeoutException: On timeout.
+            httpx.HTTPStatusError: On non-2xx status.
+        """
+        if self._http_client is None:
+            raise RuntimeError("HTTP client not initialized. Use async context manager.")
+
+        headers = {
+            "Authorization": f"Bearer {self.openrouter_key}",
+            "Content-Type": "application/json",
+        }
+
+        body = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": MAX_TOKENS,
+            "temperature": TEMPERATURE,
+        }
+
+        resp = await self._http_client.post(
+            f"{self.openrouter_base_url}/chat/completions",
+            headers=headers,
+            json=body,
+        )
+
+        if resp.status_code == 429:
+            log.warning("openrouter_rate_limited", retry_after=resp.headers.get("retry-after"))
+            resp.raise_for_status()
+
+        if resp.status_code == 401:
+            log.error("openrouter_auth_failed")
+            raise RuntimeError("OpenRouter authentication failed. Check your API key.")
+
+        resp.raise_for_status()
+
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+        return content
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        retry=retry_if_exception_type(
+            (httpx.TimeoutException, httpx.HTTPStatusError, httpx.NetworkError)
+        ),
+        reraise=True,
+    )
+    async def _call_huggingface(
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+    ) -> str:
+        """Call the HuggingFace Inference API chat completions endpoint.
+
+        Uses the OpenAI-compatible /v1/chat/completions endpoint available
+        for models deployed with Text Generation Inference (TGI). The request
+        body and response format are identical to OpenAI.
+
+        Args:
+            model: HuggingFace model ID (e.g. "mistralai/Mistral-7B-Instruct-v0.3").
+            messages: Chat messages in OpenAI format.
+
+        Returns:
+            Response content text.
+
+        Raises:
+            httpx.TimeoutException: On timeout.
+            httpx.HTTPStatusError: On non-2xx status.
+        """
+        if self._http_client is None:
+            raise RuntimeError("HTTP client not initialized. Use async context manager.")
+
+        headers = {
+            "Authorization": f"Bearer {self.huggingface_key}",
+            "Content-Type": "application/json",
+        }
+
+        body = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": MAX_TOKENS,
+            "temperature": TEMPERATURE,
+        }
+
+        resp = await self._http_client.post(
+            f"{self.huggingface_base_url}/models/{model}/v1/chat/completions",
+            headers=headers,
+            json=body,
+        )
+
+        if resp.status_code == 429:
+            log.warning("huggingface_rate_limited", retry_after=resp.headers.get("retry-after"))
+            resp.raise_for_status()
+
+        if resp.status_code == 401:
+            log.error("huggingface_auth_failed")
+            raise RuntimeError("HuggingFace authentication failed. Check your API token.")
+
+        if resp.status_code == 503:
+            log.warning("huggingface_model_loading", model=model)
+            # Model might be loading — tenacity will retry
+            resp.raise_for_status()
+
+        resp.raise_for_status()
+
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
         return content

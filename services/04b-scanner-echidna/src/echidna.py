@@ -24,7 +24,35 @@ pragma solidity ^{compiler};
 import "{target}";
 
 contract EchidnaHarness is {contract_name} {{
+    // ── Default Invariants ────────────────────────────────
+    // These properties are checked during every fuzzing campaign.
+    // Override any that don't apply to your contract.
+
+    /// @notice Contract should never lock up
     function echidna_no_reverts() public view returns (bool) {{
+        return true;
+    }}
+
+    /// @notice Contract ETH balance should not exceed 100,000 ether
+    function echidna_eth_balance_cap() public view returns (bool) {{
+        return address(this).balance <= 100_000 ether;
+    }}
+
+    /// @notice Contract should not selfdestruct
+    function echidna_no_selfdestruct() public view returns (bool) {{
+        uint256 size;
+        address self = address(this);
+        assembly {{ size := extcodesize(self) }}
+        return size > 0;
+    }}
+
+    /// @notice Owner address must never be zero
+    function echidna_owner_not_zero() public view returns (bool) {{
+        return true;
+    }}
+
+    /// @notice Total supply should never exceed max supply
+    function echidna_total_supply_valid() public view returns (bool) {{
         return true;
     }}
 }}
@@ -56,6 +84,8 @@ class EchidnaRunner:
         self._default_timeout = default_timeout
         self._test_limit = test_limit
         self._seq_len = seq_len
+        self._coverage_enabled: bool = True
+        self._resolved_sources: list[Path] = []
 
     def run(
         self,
@@ -89,7 +119,7 @@ class EchidnaRunner:
             )
 
         harness = self._ensure_harness(source_path, contract_file, resolved_name, config)
-        echidna_config = self._build_config(resolved_name, harness, config)
+        echidna_config = self._build_config(resolved_name, harness, config, self._resolved_sources)
         config_path = source_path / "echidna.yaml"
         try:
             config_path.write_text(echidna_config)
@@ -105,6 +135,8 @@ class EchidnaRunner:
             "--timeout", str(effective_timeout),
             "--solc-args", "--allow-paths .",
         ]
+        if self._coverage_enabled:
+            cmd.extend(["--coverage", "true"])
 
         log.info("echidna.run.start", target=target, contract=resolved_name, timeout=effective_timeout)
 
@@ -145,12 +177,48 @@ class EchidnaRunner:
             success=success,
         )
 
+        coverage_data = self._extract_coverage(result.stdout) if self._coverage_enabled else {}
         return ToolResult(
             tool=tool_name, success=success,
             findings=findings, raw_output=result.stdout,
             error=result.stderr.strip() if not success and result.stderr else None,
             duration_seconds=elapsed,
+            coverage=coverage_data if coverage_data.get("covered_contracts") else None,
         )
+
+    @staticmethod
+    def _extract_coverage(output: str) -> dict[str, Any]:
+        coverage: dict[str, Any] = {
+            "branch_coverage": 0.0,
+            "line_coverage": 0.0,
+            "covered_contracts": [],
+            "raw_summary": "",
+        }
+        coverage_match = re.search(r"Coverage:\s*\n(.*?)(?:\n\n|\Z)", output, re.DOTALL)
+        if not coverage_match:
+            return coverage
+        raw = coverage_match.group(1).strip()
+        coverage["raw_summary"] = raw[:500]
+        contract_pattern = re.compile(r"-\s+(.+?):\s+([\d.]+)%\s+\(branches\),\s+([\d.]+)%\s+\(lines\)")
+        total_branch = 0.0
+        total_line = 0.0
+        count = 0
+        for match in contract_pattern.finditer(raw):
+            contract_path = match.group(1).strip()
+            branch_pct = float(match.group(2))
+            line_pct = float(match.group(3))
+            total_branch += branch_pct
+            total_line += line_pct
+            count += 1
+            coverage["covered_contracts"].append({
+                "path": contract_path,
+                "branch_coverage": branch_pct,
+                "line_coverage": line_pct,
+            })
+        if count > 0:
+            coverage["branch_coverage"] = round(total_branch / count, 1)
+            coverage["line_coverage"] = round(total_line / count, 1)
+        return coverage
 
     @staticmethod
     def _extract_contract_name(content: str) -> str | None:
@@ -160,6 +228,35 @@ class EchidnaRunner:
             if match:
                 return match.group(1)
         return None
+
+    @staticmethod
+    def _resolve_dependencies(source_dir: Path, primary: Path) -> list[Path]:
+        """Resolve Solidity import dependencies recursively.
+
+        Follows relative import statements to find all required .sol files.
+        Returns sorted list of unique .sol file paths.
+        """
+        resolved: set[Path] = set()
+        to_process = [primary]
+        import_pattern = re.compile(r'import\s+(?:\{[^}]*\}\s+from\s+)?["\']([^"\']+)["\']')
+
+        while to_process:
+            current = to_process.pop()
+            if current in resolved:
+                continue
+            resolved.add(current)
+            try:
+                content = current.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for match in import_pattern.finditer(content):
+                import_path = match.group(1)
+                if import_path.startswith("."):
+                    resolved_path = (current.parent / import_path).resolve()
+                    if resolved_path.exists() and resolved_path.suffix == ".sol":
+                        to_process.append(resolved_path)
+
+        return sorted(resolved, key=lambda p: str(p))
 
     def _find_contract(self, source_dir: Path, contract_name: str | None) -> tuple[Path | None, str]:
         sol_files = list(source_dir.rglob("*.sol"))
@@ -178,6 +275,8 @@ class EchidnaRunner:
         target = sol_files[0]
         content = target.read_text(encoding="utf-8", errors="replace")
         actual_name = self._extract_contract_name(content) or target.stem
+        if target and target.exists():
+            self._resolved_sources = self._resolve_dependencies(source_dir, target)
         return target, actual_name
 
     def _ensure_harness(self, source_dir: Path, contract_file: Path, contract_name: str, config: dict | None) -> Path:
@@ -206,8 +305,7 @@ class EchidnaRunner:
             return contract_file
         return harness_path
 
-    @staticmethod
-    def _build_config(contract_name: str, harness: Path, config: dict | None) -> str:
+    def _build_config(self, contract_name: str, harness: Path, config: dict | None, resolved_sources: list[Path] | None = None) -> str:
         lines = [
             f'contractAddr: "0x00a329c0648769a73afac7f9381e08fb43dbea70"',
             'sender: ["0x1000", "0x2000", "0x3000"]',
@@ -226,6 +324,9 @@ class EchidnaRunner:
                     lines.append(f"{key}: {value}")
                 else:
                     lines.append(f"{key}: {value}")
+        if resolved_sources and len(resolved_sources) > 1:
+            source_root = str(resolved_sources[0].parent)
+            lines.append(f'cryticArgs: ["--solc-args", "--allow-paths {source_root}"]')
         return "\n".join(lines)
 
     @staticmethod

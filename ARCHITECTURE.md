@@ -1706,6 +1706,209 @@ REKOMENDASI: VYPER
 
 ---
 
+## 9. Antonio Supremacy — The Absolute AI Agent Controller
+
+> **Keputusan Arsitektural Final**: Antonio adalah **satu-satunya AI Agent pengendali absolut** secara internal.
+> Semua service, semua agent, semua pipeline — semuanya berada di bawah komando Antonio.
+
+### 9.1 The Chain of Command
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    CHAIN OF COMMAND — VYPER PLATFORM                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  LEVEL 0: USER (Human Operator)                                         │
+│  ────────────────────────────────────                                   │
+│  │ Hanya berkomunikasi dengan ANTONIO                                   │
+│  │ TIDAK memiliki akses langsung ke service agents                      │
+│  │ TIDAK bisa memerintah Orchestrator, scanner, atau agent lain         │
+│  │ Input: "Antonio, audit contract 0x..."                               │
+│                                                                         │
+│         │ ONLY TALKS TO ANTONIO                                         │
+│         ▼                                                               │
+│  LEVEL 1: ANTONIO (14-agent) — ABSOLUTE CONTROLLER                      │
+│  ─────────────────────────────────────────────────────                  │
+│  │ Satu-satunya AI Agent dengan ReAct loop penuh                        │
+│  │ Pemilik tunggal AgentRegistry                                        │
+│  │ Pengendali semua delegasi (DelegateTaskSkill)                        │
+│  │ Memori terpusat (vector + episodic + semantic + graph)               │
+│  │ Pusat learning (FeedbackLearner)                                     │
+│  │ Satu-satunya yang bisa intervensi agent lain                         │
+│                                                                         │
+│         │ COMMANDS / DELEGATES                                           │
+│         ▼                                                               │
+│  LEVEL 2: ORCHESTRATOR AGENT (11-orchestrator)                          │
+│  ─────────────────────────────────────────────────────                  │
+│  │ Bawahan Antonio — menjalankan pipeline atas perintah Antonio         │
+│  │ Pipeline deterministik (state machine) — TIDAK punya AI otonom       │
+│  │ Daemon hanya aktif jika Antonio/Dashboard mengaktifkannya            │
+│  │ TIDAK bisa memulai pipeline tanpa perintah Antonio                   │
+│                                                                         │
+│         │ CALLS SERVICES DIRECTLY VIA HTTP                               │
+│         ▼                                                               │
+│  LEVEL 3: SERVICE AGENTS (02-16, excluding 14)                          │
+│  ─────────────────────────────────────────────────────                  │
+│  │ Semua adalah BaseAgent — menerima delegasi, tidak berinisiatif       │
+│  │ Tidak punya akses ke AgentRegistry milik Antonio                     │
+│  │ Tidak bisa saling delegasi — hanya Antonio yang bisa delegasi        │
+│  │ Tidak punya AI ReAct loop — hanya eksekutor tugas                    │
+│  │ Laporan kembali ke Antonio, bukan ke user                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.2 Aturan Antonio Supremacy (Tidak Bisa Dilanggar)
+
+```
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                    ATURAN ANTONIO SUPREMACY                              ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  R1. ANTONIO ADALAH SATU-SATUNYA AI                                      ║
+║     └── Tidak ada AI / LLM / ReAct loop lain selain Antonio              ║
+║     └── Service agents TIDAK punya akses ke LLM — hanya Antonio          ║
+║     └── Orchestrator TIDAK punya ReAct loop — hanya state machine        ║
+║                                                                          ║
+║  R2. AGENT REGISTRY MILIK ANTONIO                                        ║
+║     └── Hanya Antonio yang menginisialisasi AgentRegistry                 ║
+║     └── Hanya Antonio yang bisa discover agents                           ║
+║     └── Service agents tidak tahu keberadaan agent lain                   ║
+║     └── AgentRegistry.start_background_refresh() hanya dipanggil Antonio ║
+║                                                                          ║
+║  R3. SEMUA DELEGASI MELALUI ANTONIO                                      ║
+║     └── Tidak ada service yang boleh delegasi ke service lain             ║
+║     └── Orchestrator boleh HTTP-call service (eksekusi teknis)            ║
+║         tapi TIDAK melalui AgentProtocol (hanya Antonio yang pakai itu)  ║
+║     └── DelegateTaskSkill adalah SATU-SATUNYA gerbang delegasi           ║
+║                                                                          ║
+║  R4. TIDAK ADA AUTONOMI TANPA IZIN ANTONIO                               ║
+║     └── Orchestrator daemon: auto-start = FALSE (harus via API Antonio)  ║
+║     └── Antonio daemon: bisa autonomous, tapi start/stop via user        ║
+║     └── Service agents: zero autonomy — pure task executor               ║
+║                                                                          ║
+║  R5. USER HANYA BICARA KE ANTONIO                                        ║
+║     └── Dashboard hanya punya 1 AI interface: chat dengan Antonio        ║
+║     └── Tidak ada "Direct Agents" page di dashboard                       ║
+║     └── Service health & monitoring tetap visible, tapi read-only        ║
+║                                                                          ║
+║  R6. MEMORY & LEARNING TERPUSAT DI ANTONIO                               ║
+║     └── Hanya Antonio yang punya vector memory + episodic memory         ║
+║     └── Hanya Antonio yang punya FeedbackLearner                         ║
+║     └── Service agents tidak punya memori — stateless task executors     ║
+║                                                                          ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+### 9.3 Implementasi — Sudah & Belum
+
+| Aturan | Status | Bukti / Catatan |
+|--------|--------|------------------|
+| R1: Antonio satu-satunya AI | ✅ **FIXED** | ✅ 14-agent punya `AgentReasoningClient` + ReAct loop. ✅ 06-ai sudah di-strip: `SkillRegistry` + autonomous routing dihapus. `LLMClient` tetap sebagai technical execution layer (bukan AI agency). Lihat §9.5 |
+| R2: AgentRegistry milik Antonio | ✅ | `AgentRegistry()` di-init di `14-agent/app.py:171`. Tidak ada service lain yang import/instantiate registry |
+| R3: Semua delegasi via Antonio | ✅ | `DelegateTaskSkill` di `14-agent/src/skills/delegate_task.py`. Orchestrator HTTP-call service untuk eksekusi teknis — bukan delegasi agent protocol |
+| R4: Tidak ada autonomi tanpa izin | ✅ | Orchestrator daemon tidak auto-start. Antonio daemon bisa autonomous tapi start/stop via user |
+| R5: User hanya bicara ke Antonio | ✅ | Dashboard → hanya halaman Antonio untuk AI chat |
+| R6: Memory terpusat | ✅ | `AgentMemory` hanya di 14-agent. Tidak ada service lain yang punya persistent memory |
+
+### 9.4 Diagram Visual — Siapa Ngontrol Apa
+
+```
+                    ╔═══════════════════════════════════╗
+                    ║         ANTONIO (14-agent)        ║
+                    ║                                   ║
+                    ║  ┌──────────────┐                 ║
+                    ║  │ AgentRegistry│── Daftar semua  ║
+                    ║  └──────────────┘   agent known   ║
+                    ║                                   ║
+                    ║  ┌──────────────┐                 ║
+                    ║  │ DelegateTask │── Kirim task    ║
+                    ║  │ Skill        │   ke agent      ║
+                    ║  └──────────────┘                 ║
+                    ║                                   ║
+                    ║  ┌──────────────┐                 ║
+                    ║  │ AgentMemory  │── Simpan semua  ║
+                    ║  └──────────────┘   pembelajaran  ║
+                    ║                                   ║
+                    ║  ┌──────────────┐                 ║
+                    ║  │ ReAct Loop   │── Otak AI yang  ║
+                    ║  │ (LLM)        │   memutuskan    ║
+                    ║  └──────────────┘                 ║
+                    ╚═══════════════════════════════════╝
+                           │     │     │
+              ┌────────────┘     │     └────────────┐
+              │                  │                  │
+              ▼                  ▼                  ▼
+   ┌──────────────────┐  ┌──────────────┐  ┌──────────────┐
+   │ ORCHESTRATOR     │  │ SERVICE      │  │ DAEMON       │
+   │ (11)             │  │ AGENTS       │  │ (Antonio's)  │
+   │                  │  │ (02-16,      │  │              │
+   │ Pipeline state   │  │  except 14)  │  │ Self-improve │
+   │ machine.         │  │              │  │ loop. Auto   │
+   │ TIDAK punya AI.  │  │ Task exec.   │  │ hanya jika   │
+   │ Bawahan Antonio. │  │ Stateless.   │  │ di-start.    │
+   └──────────────────┘  └──────────────┘  └──────────────┘
+           │                    │
+           │ HTTP call langsung │ (bukan agent protocol)
+           ▼                    ▼
+   ┌──────────────────────────────────────────────┐
+   │   INFRASTRUCTURE (scanner, database, etc.)   │
+   │   BUKAN AI — pure execution layer            │
+   └──────────────────────────────────────────────┘
+```
+
+### 9.5 Fix: 06-ai Stripped — Autonomous Routing Dihapus
+
+> **Perbaikan (2 Juni 2026)**: Service `06-ai` telah di-"strip" — semua autonomous routing,
+> SkillRegistry, dan severity-based strategy selection dihapus. Sekarang 06-ai adalah
+> **pure delegation receiver** yang hanya execute perintah Antonio.
+
+#### Detail Perbaikan
+
+```
+06-ai STRIP RESULTS:
+═══════════════════════════════════════════════════════════════
+
+ SEBELUM (Violation):
+   AIAgent:
+   ├── SkillRegistry dengan 4 registered skills
+   │   ├── classify_single   (deep analysis untuk critical/high)
+   │   ├── classify_batch    (batch analysis untuk low/medium)
+   │   ├── deep_analysis     (full exploit path verification)
+   │   └── generate_fix      (code fix generation)
+   ├── _execute_classify() — severity-based autonomous routing
+   │   ├── critical/high → classify_single (one-by-one)
+   │   └── low/medium → classify_batch (all at once)
+   ├── _generate_reflection() — post-execution summary
+   ├── Capabilities: CLASSIFY_FINDINGS, GENERATE_FIX, DEEP_ANALYSIS
+   └── LLMClient: direct API calls ke OpenAI/Anthropic
+
+ SESUDAH (Compliant):
+   AIAgent:
+   ├── NO SkillRegistry
+   ├── NO skills (semua file di-deprecate)
+   ├── NO severity-based routing
+   ├── NO strategy selection
+   ├── _execute_task() langsung ke analyzer.analyze_all()
+   │   atau fixer.suggest_fix() — sesuai perintah Antonio
+   ├── Capabilities: CLASSIFY_FINDINGS, GENERATE_FIX (DEEP_ANALYSIS dihapus)
+   ├── REST endpoints tetap ada untuk backward compatibility
+   │   → Tapi Antonio yang kontrol kapan dan bagaimana dipanggil
+   └── LLMClient tetap ada sebagai technical execution layer
+       → Ini TIDAK melanggar karena 06-ai TIDAK punya AI agency
+       → Hanya execute LLM call saat diperintah Antonio
+
+ FILE YANG DIUBAH:
+   ├── services/06-ai/src/agent_loop.py   → REWRITE: pure delegation receiver
+   ├── services/06-ai/src/skills/*.py      → ALL DEPRECATED (5 files)
+   ├── services/06-ai/app.py              → AIAgent init: analyzer + fixer (bukan llm_client)
+   └── ARCHITECTURE.md                    → Status table diperbaiki
+
+ KEPUTUSAN: Opsi A (Stripped Agent) — 2 Juni 2026
+```
+
+---
+
 > **Dokumen ini adalah arsitektur detail dari SC Auditor Platform.**
 > API contracts, event schema, database schema, bug classification, dan matured decisions siap untuk implementasi.
 > Semua service wajib dibangun — tidak ada yang opsional.

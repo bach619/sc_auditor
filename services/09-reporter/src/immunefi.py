@@ -79,7 +79,7 @@ class ImmunefiReportGenerator:
             The Markdown content as a string.
         """
         # Filter to TP-only findings, sorted by severity
-        tp_findings = self._filter_true_positives(findings)
+        tp_findings = self._filter_true_positives(findings, exploit_results)
 
         # Build exploit lookup map
         exploit_map: dict[str, ExploitResult] = {}
@@ -146,13 +146,19 @@ class ImmunefiReportGenerator:
         return report_path
 
     @staticmethod
-    def _filter_true_positives(findings: list[Finding]) -> list[Finding]:
+    def _filter_true_positives(
+        findings: list[Finding],
+        exploit_results: list[ExploitResult] | None = None,
+    ) -> list[Finding]:
         """Filter findings to only True Positives and sort by severity.
 
-        Sorting order: critical → high → medium → low → informational.
+        NOW WITH EXPLOIT-AS-TRUTH:
+        - Hanya finding yang terverifikasi exploit yang masuk ke laporan
+        - Jika exploit_results tidak disediakan, fallback ke classification biasa
 
         Args:
             findings: All classified findings.
+            exploit_results: Results from Exploit Service (optional).
 
         Returns:
             Filtered and sorted list of TP findings.
@@ -166,12 +172,32 @@ class ImmunefiReportGenerator:
             "info": 4,
         }
 
-        tp = [
-            f
-            for f in findings
-            if f.classification.lower()
-            in ("true_positive", "tp", "true positive")
-        ]
+        # Build set of finding IDs that have successful exploit
+        confirmed_ids: set[str] = set()
+        if exploit_results:
+            for er in exploit_results:
+                if er.success:
+                    confirmed_ids.add(er.finding_id)
+
+        tp = []
+        for f in findings:
+            is_tp = f.classification.lower() in ("true_positive", "tp", "true positive")
+
+            if is_tp:
+                # Exploit-as-Truth filter:
+                # If exploit results are available, only include confirmed ones
+                if exploit_results:
+                    if f.id in confirmed_ids:
+                        tp.append(f)
+                    else:
+                        log.info(
+                            "filter.excluded_no_exploit",
+                            finding_id=f.id,
+                            title=f.title,
+                        )
+                else:
+                    # Fallback: no exploit data, trust classification
+                    tp.append(f)
 
         tp.sort(key=lambda f: SEVERITY_ORDER.get(f.severity.lower(), 99))
         return tp

@@ -14,11 +14,13 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
+from shared.skills.skill_registry import SkillRegistry
 
 from .storage import SubmissionStorage
 from .evidence_collector import EvidenceCollector
 from .draft_generator import generate_draft
 from .intent_classifier import classify_intent
+from .skills import create_registry
 
 
 class SubmissionAgent(BaseAgent):
@@ -33,10 +35,12 @@ class SubmissionAgent(BaseAgent):
         self._storage = storage
         self._evidence = evidence
         self._ai_url = ai_url
+        self.skill_registry = create_registry()
         super().__init__(
             service_name="16-submission",
             agent_role="submission_assistant",
             version="0.1.0",
+            skill_registry=self.skill_registry,
         )
         self._max_concurrent = 3
 

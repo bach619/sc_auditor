@@ -51,6 +51,111 @@ const PROVIDERS = [
       { id: 'grok-4.20-expert', name: 'Grok-4.20 Expert' },
       { id: 'grok-4.20-base', name: 'Grok-4.20 Base' },
     ] },
+  { id: 'openrouter', name: 'OpenRouter', icon: '◆', color: '#8b5cf6',
+    docUrl: 'https://openrouter.ai/keys',
+    apiKeyField: 'provider_openrouter_api_key', baseUrlField: 'provider_openrouter_base_url',
+    variants: [
+      // ── Free Router (auto-select) ───────
+      { id: 'openrouter/free', name: '✨ Free Router (auto best)' },
+      // ── DeepSeek ────────────────────────
+      { id: 'deepseek/deepseek-v4-flash:free', name: 'DeepSeek V4 Flash (free)' },
+      // ── OpenAI OSS ──────────────────────
+      { id: 'openai/gpt-oss-120b:free', name: 'GPT-OSS 120B (free)' },
+      { id: 'openai/gpt-oss-20b:free', name: 'GPT-OSS 20B (free)' },
+      // ── Meta ────────────────────────────
+      { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (free)' },
+      { id: 'meta-llama/llama-3.2-3b-instruct:free', name: 'Llama 3.2 3B (free)' },
+      // ── Qwen ────────────────────────────
+      { id: 'qwen/qwen3-coder:free', name: 'Qwen3 Coder 480B (free)' },
+      { id: 'qwen/qwen3-next-80b-a3b-instruct:free', name: 'Qwen3 Next 80B (free)' },
+      // ── Google ──────────────────────────
+      { id: 'google/gemma-4-31b-it:free', name: 'Gemma 4 31B (free)' },
+      { id: 'google/gemma-4-26b-a4b-it:free', name: 'Gemma 4 26B (free)' },
+      { id: 'google/lyria-3-pro-preview', name: 'Lyria 3 Pro (free)' },
+      // ── NVIDIA ──────────────────────────
+      { id: 'nvidia/nemotron-3-super-120b-a12b:free', name: 'Nemotron 3 Super 120B (free)' },
+      { id: 'nvidia/nemotron-3-nano-30b-a3b:free', name: 'Nemotron 3 Nano 30B (free)' },
+      { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', name: 'Nemotron Nano Omni (free)' },
+      { id: 'nvidia/nemotron-nano-9b-v2:free', name: 'Nemotron Nano 9B (free)' },
+      { id: 'nvidia/nemotron-nano-12b-v2-vl:free', name: 'Nemotron Nano 12B VL (free)' },
+      // ── Nous ────────────────────────────
+      { id: 'nousresearch/hermes-3-llama-3.1-405b:free', name: 'Hermes 3 405B (free)' },
+      // ── Z.ai ────────────────────────────
+      { id: 'z-ai/glm-4.5-air:free', name: 'GLM 4.5 Air (free)' },
+      // ── MoonshotAI ──────────────────────
+      { id: 'moonshotai/kimi-k2.6:free', name: 'Kimi K2.6 (free)' },
+      // ── Poolside ────────────────────────
+      { id: 'poolside/laguna-m.1:free', name: 'Laguna M.1 (free)' },
+      { id: 'poolside/laguna-xs.2:free', name: 'Laguna XS.2 (free)' },
+      // ── Arcee ───────────────────────────
+      { id: 'arcee-ai/trinity-large-thinking:free', name: 'Trinity Large Thinking (free)' },
+      // ── Liquid ──────────────────────────
+      { id: 'liquid/lfm-2.5-1.2b-thinking:free', name: 'LFM 1.2B Thinking (free)' },
+      { id: 'liquid/lfm-2.5-1.2b-instruct:free', name: 'LFM 1.2B Instruct (free)' },
+      // ── MiniMax ─────────────────────────
+      { id: 'minimax/minimax-m2.5:free', name: 'MiniMax M2.5 (free)' },
+      // ── Community ───────────────────────
+      { id: 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free', name: 'Dolphin Mistral 24B (free)' },
+      // ── Cloaked Preview (free) ──────────
+      { id: 'openrouter/owl-alpha', name: 'Owl Alpha 1M (free preview)' },
+    ] },
+  { id: 'huggingface', name: 'HuggingFace', icon: '🤗', color: '#fbbf24',
+    docUrl: 'https://huggingface.co/settings/tokens',
+    apiKeyField: 'provider_huggingface_api_key', baseUrlField: 'provider_huggingface_base_url',
+    variants: [
+      // ── Mistral ──────────────────────────
+      { id: 'mistralai/Mistral-7B-Instruct-v0.3', name: 'Mistral 7B Instruct' },
+      { id: 'mistralai/Mixtral-8x7B-Instruct-v0.1', name: 'Mixtral 8x7B Instruct' },
+      { id: 'mistralai/Mixtral-8x22B-Instruct-v0.1', name: 'Mixtral 8x22B Instruct' },
+      { id: 'mistralai/Codestral-22B-v0.1', name: 'Codestral 22B' },
+      // ── Meta Llama ───────────────────────
+      { id: 'meta-llama/Llama-3.2-3B-Instruct', name: 'Llama 3.2 3B Instruct' },
+      { id: 'meta-llama/Llama-3.2-1B-Instruct', name: 'Llama 3.2 1B Instruct' },
+      { id: 'meta-llama/Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B Instruct' },
+      { id: 'meta-llama/Llama-3.1-70B-Instruct', name: 'Llama 3.1 70B Instruct' },
+      { id: 'meta-llama/Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B Instruct' },
+      // ── Qwen ─────────────────────────────
+      { id: 'Qwen/Qwen2.5-7B-Instruct', name: 'Qwen 2.5 7B Instruct' },
+      { id: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen 2.5 14B Instruct' },
+      { id: 'Qwen/Qwen2.5-32B-Instruct', name: 'Qwen 2.5 32B Instruct' },
+      { id: 'Qwen/Qwen2.5-72B-Instruct', name: 'Qwen 2.5 72B Instruct' },
+      { id: 'Qwen/Qwen2.5-Coder-7B-Instruct', name: 'Qwen 2.5 Coder 7B' },
+      { id: 'Qwen/Qwen2.5-Coder-14B-Instruct', name: 'Qwen 2.5 Coder 14B' },
+      { id: 'Qwen/Qwen2.5-Coder-32B-Instruct', name: 'Qwen 2.5 Coder 32B' },
+      { id: 'Qwen/QwQ-32B-Preview', name: 'QwQ 32B Preview' },
+      // ── Microsoft ────────────────────────
+      { id: 'microsoft/Phi-3-mini-4k-instruct', name: 'Phi-3 Mini 4K' },
+      { id: 'microsoft/Phi-3-small-8k-instruct', name: 'Phi-3 Small 8K' },
+      { id: 'microsoft/Phi-3-medium-4k-instruct', name: 'Phi-3 Medium 4K' },
+      { id: 'microsoft/Phi-3.5-mini-instruct', name: 'Phi-3.5 Mini' },
+      // ── Google Gemma ─────────────────────
+      { id: 'google/gemma-2-2b-it', name: 'Gemma 2 2B IT' },
+      { id: 'google/gemma-2-9b-it', name: 'Gemma 2 9B IT' },
+      { id: 'google/gemma-2-27b-it', name: 'Gemma 2 27B IT' },
+      // ── DeepSeek ─────────────────────────
+      { id: 'deepseek-ai/deepseek-coder-6.7b-instruct', name: 'DeepSeek Coder 6.7B' },
+      { id: 'deepseek-ai/deepseek-coder-33b-instruct', name: 'DeepSeek Coder 33B' },
+      // ── Cohere ───────────────────────────
+      { id: 'CohereForAI/c4ai-command-r-v01', name: 'Command-R' },
+      { id: 'CohereForAI/c4ai-command-r-plus', name: 'Command-R+' },
+      // ── NousResearch ─────────────────────
+      { id: 'NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO', name: 'Nous Hermes 2 Mixtral' },
+      { id: 'NousResearch/Nous-Hermes-2-Yi-34B', name: 'Nous Hermes 2 Yi 34B' },
+      // ── Community ────────────────────────
+      { id: 'HuggingFaceH4/zephyr-7b-beta', name: 'Zephyr 7B Beta' },
+      { id: 'HuggingFaceH4/zephyr-orpo-1418-A35b-v0.1', name: 'Zephyr ORPO 1418' },
+      { id: 'teknium/OpenHermes-2.5-Mistral-7B', name: 'OpenHermes 2.5 Mistral 7B' },
+      { id: 'openchat/openchat-3.5-0106', name: 'OpenChat 3.5' },
+      { id: 'cognitivecomputations/dolphin-2.6-mixtral-8x7b', name: 'Dolphin 2.6 Mixtral' },
+      { id: 'Intel/neural-chat-7b-v3-1', name: 'Intel Neural Chat 7B' },
+      // ── Coding Focus ─────────────────────
+      { id: 'codellama/CodeLlama-7b-Instruct-hf', name: 'CodeLlama 7B Instruct' },
+      { id: 'codellama/CodeLlama-13b-Instruct-hf', name: 'CodeLlama 13B Instruct' },
+      { id: 'codellama/CodeLlama-34b-Instruct-hf', name: 'CodeLlama 34B Instruct' },
+      { id: 'bigcode/starcoder2-15b-instruct-v0.1', name: 'StarCoder2 15B Instruct' },
+      // ── Nvidia ───────────────────────────
+      { id: 'nvidia/Llama-3.1-Nemotron-70B-Instruct-HF', name: 'Nemotron 70B Instruct' },
+    ] },
 ]
 
 const USE_CASES = [
@@ -140,7 +245,7 @@ export default function Settings() {
 
   return (
     <div className="space-y-8 max-w-4xl">
-      <PageHeader title="Settings" description="AI model configuration and provider API keys" />
+      <PageHeader title="Settings" description="AI model configuration, provider API keys, and OpenRouter multi-model support" />
 
       {/* Status */}
       {status && (

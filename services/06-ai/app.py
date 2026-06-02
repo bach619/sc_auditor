@@ -95,16 +95,24 @@ async def _load_ai_config(client: httpx.AsyncClient) -> dict[str, Any]:
         client: HTTP client for Config Service requests.
 
     Returns:
-        Dictionary with keys: openai_model, anthropic_model, max_concurrent_ai,
-        openai_api_key, anthropic_api_key.
+        Dictionary with keys: openai_model, anthropic_model, openrouter_model,
+        openrouter_base_url, huggingface_model, max_concurrent_ai,
+        preferred_provider, openai_api_key, anthropic_api_key,
+        openrouter_api_key, huggingface_api_key.
     """
     defaults = {
         "openai_model": "gpt-4o",
         "anthropic_model": "claude-3-5-sonnet-20241022",
+        "openrouter_model": "openrouter/free",
+        "openrouter_base_url": "https://openrouter.ai/api/v1",
+        "huggingface_model": "mistralai/Mistral-7B-Instruct-v0.3",
+        "huggingface_base_url": "https://api-inference.huggingface.co",
         "max_concurrent_ai": 3,
         "preferred_provider": "openai",
         "openai_api_key": "",
         "anthropic_api_key": "",
+        "openrouter_api_key": "",
+        "huggingface_api_key": "",
     }
 
     try:
@@ -145,9 +153,47 @@ async def _load_ai_config(client: httpx.AsyncClient) -> dict[str, Any]:
             if data.get("data") and "provider_anthropic_api_key" in data["data"]:
                 defaults["anthropic_api_key"] = data["data"]["provider_anthropic_api_key"]
 
+        # OpenRouter config
+        resp = await client.get(f"{CONFIG_URL}/config/provider_openrouter_api_key")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("data") and "provider_openrouter_api_key" in data["data"]:
+                defaults["openrouter_api_key"] = data["data"]["provider_openrouter_api_key"]
+
+        resp = await client.get(f"{CONFIG_URL}/config/openrouter_model")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("data") and "openrouter_model" in data["data"]:
+                defaults["openrouter_model"] = data["data"]["openrouter_model"]
+
+        resp = await client.get(f"{CONFIG_URL}/config/provider_openrouter_base_url")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("data") and "provider_openrouter_base_url" in data["data"]:
+                defaults["openrouter_base_url"] = data["data"]["provider_openrouter_base_url"]
+
+        # HuggingFace config
+        resp = await client.get(f"{CONFIG_URL}/config/provider_huggingface_api_key")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("data") and "provider_huggingface_api_key" in data["data"]:
+                defaults["huggingface_api_key"] = data["data"]["provider_huggingface_api_key"]
+
+        resp = await client.get(f"{CONFIG_URL}/config/huggingface_model")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("data") and "huggingface_model" in data["data"]:
+                defaults["huggingface_model"] = data["data"]["huggingface_model"]
+
+        resp = await client.get(f"{CONFIG_URL}/config/provider_huggingface_base_url")
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("data") and "provider_huggingface_base_url" in data["data"]:
+                defaults["huggingface_base_url"] = data["data"]["provider_huggingface_base_url"]
+
         log.info("config_loaded_from_service", config={
             k: v for k, v in defaults.items()
-            if k not in ("openai_api_key", "anthropic_api_key")
+            if k not in ("openai_api_key", "anthropic_api_key", "openrouter_api_key", "huggingface_api_key")
         })
     except Exception as exc:
         log.warning("config_service_unreachable_using_defaults", error=str(exc))
@@ -177,8 +223,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     llm = LLMClient(
         openai_key=config["openai_api_key"],
         anthropic_key=config["anthropic_api_key"],
+        openrouter_key=config["openrouter_api_key"],
+        huggingface_key=config["huggingface_api_key"],
         openai_model=config["openai_model"],
         anthropic_model=config["anthropic_model"],
+        openrouter_model=config["openrouter_model"],
+        openrouter_base_url=config["openrouter_base_url"],
+        huggingface_model=config["huggingface_model"],
+        huggingface_base_url=config["huggingface_base_url"],
         preferred_provider=config["preferred_provider"],
     )
     state.llm = llm
@@ -189,14 +241,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         max_concurrent=config["max_concurrent_ai"],
     )
 
-    # Create AI Agent layer (wraps analyzer with agent capabilities)
+    # Create the FixSuggester (before AIAgent, which depends on it)
+    state.fixer = FixSuggester(llm=llm)
+
+    # Create AI Agent layer — pure delegation receiver (NO autonomous routing)
     state.ai_agent = AIAgent(
         analyzer=state.analyzer,
-        llm_client=state.llm,
+        fixer=state.fixer,
     )
-
-    # Create the FixSuggester
-    state.fixer = FixSuggester(llm=llm)
 
     log.info(
         "ai_service_started",
@@ -205,9 +257,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         provider=config["preferred_provider"],
         model_openai=config["openai_model"],
         model_anthropic=config["anthropic_model"],
+        model_openrouter=config["openrouter_model"],
+        model_huggingface=config["huggingface_model"],
         max_concurrent=config["max_concurrent_ai"],
         openai_configured=bool(config["openai_api_key"]),
         anthropic_configured=bool(config["anthropic_api_key"]),
+        openrouter_configured=bool(config["openrouter_api_key"]),
+        huggingface_configured=bool(config["huggingface_api_key"]),
     )
 
     yield  # ── Application runs here ──
@@ -225,8 +281,10 @@ app = FastAPI(
     title="Vyper AI Service",
     description=(
         "LLM-powered vulnerability analysis for smart contract audits. "
-        "Uses OpenAI GPT-4o or Anthropic Claude to classify scanner findings "
-        "as True/False Positives, assess severity, and suggest code fixes."
+        "Uses OpenAI GPT-4o, Anthropic Claude, 45+ OpenRouter models, "
+        "or 100+ HuggingFace open-source models to classify scanner "
+        "findings as True/False Positives, assess severity, and "
+        "suggest code fixes."
     ),
     version=SERVICE_VERSION,
     lifespan=lifespan,

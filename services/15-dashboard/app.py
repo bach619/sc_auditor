@@ -499,6 +499,26 @@ async def api_get_program(slug: str) -> JSONResponse:
         return _err(f"Program not found: {slug}", status_code=404)
 
 
+# ── Contracts (Scope) ───────────────────────────────────────────
+
+@app.get("/api/contracts/scope")
+async def api_contracts_scope(
+    chain: str | None = Query(None),
+    min_bounty: float = Query(0, ge=0),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+) -> JSONResponse:
+    """List all in-scope smart contracts ready for audit."""
+    try:
+        result = await proxy.get_scope_contracts(
+            chain=chain, min_bounty=min_bounty, offset=offset, limit=limit,
+        )
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Get scope contracts failed", error=str(e))
+        return _err(f"Failed: {e}", status_code=502)
+
+
 # ── Notifications ───────────────────────────────────────────────
 
 @app.post("/api/notifications/test")
@@ -604,6 +624,20 @@ async def api_agent_skills() -> JSONResponse:
     except Exception as e:
         logger.error("Get agent skills failed", error=str(e))
         return _err(f"Failed: {e}", status_code=502)
+
+
+@app.post("/api/agent/chat")
+async def api_agent_chat(body: dict) -> JSONResponse:
+    """Chat dengan Antonio via natural language."""
+    try:
+        result = await proxy.send_chat_message(
+            message=body.get("message", ""),
+            session_id=body.get("session_id"),
+        )
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Agent chat failed", error=str(e))
+        return _err(f"Chat failed: {e}", status_code=502)
 
 
 # ── Daemon (from Dashboard API, additional) ─────────────────────

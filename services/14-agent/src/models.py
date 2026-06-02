@@ -27,6 +27,7 @@ class AgentRole(str, Enum):
 class TaskType(str, Enum):
     """Jenis task yang bisa dikerjakan agent."""
 
+    CHAT = "chat"                    # Natural language chat — general ReAct
     FULL_AUDIT = "full_audit"
     SOURCE_SCAN = "source_scan"
     FINDING_ANALYSIS = "finding_analysis"
@@ -174,6 +175,36 @@ class AgentResponse(BaseModel):
     status: AgentState
     steps: list[AgentStep] = Field(default_factory=list)
     output: dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None
+
+
+# ── Chat ────────────────────────────────────────────────────
+
+
+class ChatMessage(BaseModel):
+    """Satu pesan dalam percakapan chat."""
+
+    role: Literal["user", "assistant"] = "user"
+    content: str
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+
+
+class ChatRequest(BaseModel):
+    """Request untuk chat dengan Antonio."""
+
+    message: str = Field(..., min_length=1, description="Pesan natural language dari user")
+    session_id: str | None = Field(None, description="Resume session yang sudah ada")
+
+
+class ChatResponse(BaseModel):
+    """Response dari chat Antonio."""
+
+    session_id: str
+    response: str                          # Natural language response
+    steps_taken: int = 0                   # Jumlah ReAct steps
+    status: AgentState = AgentState.COMPLETED
     error: str | None = None
 
 

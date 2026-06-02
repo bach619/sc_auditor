@@ -91,9 +91,13 @@ class EtherscanChainProvider:
 
     @property
     def api_key(self) -> str:
-        """Read API key from environment variable."""
+        """Read API key from environment variable, fallback ke embedded key."""
         import os
-        return os.getenv(self._api_key_env, "")
+        env_key = os.getenv(self._api_key_env, "")
+        if env_key:
+            return env_key
+        # Embedded default key (Etherscan API — rate limit shared across chains)
+        return "F3VMTJ9CKTA9NR76T5VCY1VC2YBNSTAADI"
 
     @retry(
         stop=stop_after_attempt(3),

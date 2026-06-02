@@ -102,7 +102,14 @@ class HealthMonitor:
 
     async def start(self) -> None:
         """Start background polling."""
-        self._client = httpx.AsyncClient(timeout=5.0)
+        self._client = httpx.AsyncClient(
+            timeout=5.0,
+            limits=httpx.Limits(
+                max_connections=50,            # 18+ services per poll cycle
+                max_keepalive_connections=20,
+                keepalive_expiry=30.0,
+            ),
+        )
         # Run an immediate check, then poll on interval
         await self._poll()
         self._task = asyncio.create_task(self._run())

@@ -186,7 +186,7 @@ class AgentDaemon:
         """Check health of dependent services."""
         services = {
             "config": "http://01-config:8000/health",
-            "orchestrator": "http://11-orchestrator:8009/health",
+            "orchestrator": "http://11-orchestrator:8000/health",
             "immunefi": "http://02-immunefi:8001/health",
         }
 
@@ -210,7 +210,7 @@ class AgentDaemon:
         """Sync Immunefi programs periodically."""
         try:
             resp = await self.http_client.post(
-                "http://11-orchestrator:8009/audit",
+                "http://11-orchestrator:8000/audit",
                 json={
                     "task_type": "program_sync",
                     "input_data": {"auto": True},

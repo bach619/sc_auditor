@@ -158,6 +158,7 @@ class CompositeScorer:
         finding: Any,
         contract_type: ContractType = ContractType.UNKNOWN,
         contract_address: str | None = None,
+        ai_confidence: float | None = None,
     ) -> RiskScore:
         """Compute composite risk score for a single finding.
 
@@ -166,6 +167,7 @@ class CompositeScorer:
                      'title', 'severity', and 'tool' attributes.
             contract_type: Classified contract type.
             contract_address: Optional contract address for FP/DB lookup.
+            ai_confidence: Optional AI verification confidence (0.0–1.0).
 
         Returns:
             A RiskScore dataclass with all computed scores.
@@ -201,6 +203,16 @@ class CompositeScorer:
                 # Check if should suppress
                 if contract_address and self._fp_db.should_suppress(detector, contract_address):
                     historical_confidence = max(historical_confidence * 0.5, 0.1)
+
+        # 5b. AI confidence factor (L5 integration)
+        # If AI has verified this finding, use it to calibrate confidence
+        if ai_confidence is not None:
+            # Blend historical and AI confidence (AI weights more if confident)
+            ai_weight = min(0.7, ai_confidence * 0.8)
+            historical_confidence = (
+                historical_confidence * (1.0 - ai_weight)
+                + ai_confidence * ai_weight
+            )
 
         # 6. Compute raw score
         raw_score = base_score
@@ -250,16 +262,28 @@ class CompositeScorer:
         findings: list[Any],
         contract_type: ContractType = ContractType.UNKNOWN,
         contract_address: str | None = None,
+        ai_confidences: dict[str, float] | None = None,
     ) -> list[RiskScore]:
         """Score multiple findings in batch.
+
+        Args:
+            findings: List of finding objects with 'title' and 'severity'.
+            contract_type: Classified contract type.
+            contract_address: Optional contract address for FP DB lookup.
+            ai_confidences: Optional dict mapping finding title → AI confidence.
 
         Returns:
             List of RiskScore objects sorted by normalized_score descending.
         """
-        scores = [
-            self.score_finding(f, contract_type, contract_address)
-            for f in findings
-        ]
+        scores = []
+        for f in findings:
+            title = getattr(f, "title", str(f.get("title", "")))
+            ai_conf = None
+            if ai_confidences and title in ai_confidences:
+                ai_conf = ai_confidences[title]
+            scores.append(
+                self.score_finding(f, contract_type, contract_address, ai_confidence=ai_conf)
+            )
         scores.sort(key=lambda s: s.normalized_score, reverse=True)
         return scores
 

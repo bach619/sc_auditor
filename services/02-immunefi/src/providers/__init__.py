@@ -142,6 +142,9 @@ def get_provider_statuses() -> list[dict]:
 from .immunefi_official import ImmunefiOfficialProvider  # noqa: E402, F401
 from .immunefi_mirror import ImmunefiMirrorProvider  # noqa: E402, F401
 
+# Immunefi Web Scraper (live site)
+from .immunefi_web_scraper import ImmunefiWebScraper  # noqa: E402, F401
+
 # External providers
 from .hackerone import HackerOneProvider  # noqa: E402, F401
 from .cantina import CantinaProvider  # noqa: E402, F401

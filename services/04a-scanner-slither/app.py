@@ -1,11 +1,22 @@
 """Vyper Scanner Slither Service — Standalone Slither static analysis microservice.
 
 Runs Slither static analysis on Solidity source code, augmented with
-L2-L4 intelligence: contract classification, smart detector selection,
-composite scoring, FP/TP database, auto-fix generation, exploit path
-prediction, and natural language query.
+full intelligence stack:
+
+  L2 — Contract Classifier + Smart Detector Selection
+  L3 — FP/TP Database (self-learning from feedback)
+  L4 — Composite Risk Scoring, Exploit Path Prediction, Auto-Fix, NLP
+  L5 — AI Verification (06-AI integration for TP/FP classification)
+  L6 — FP Pattern Matching (known false-positive signatures)
+  L7 — Quality Pipeline (end-to-end post-processing)
 
 Port: 8014
+
+Quality Pipeline Endpoints:
+  POST /pipeline/run          → Full quality pipeline execution
+  POST /pipeline/ai-verify    → AI verification via 06-AI
+  POST /pipeline/fp-patterns  → FP pattern matching
+  GET  /pipeline/stats        → Pipeline statistics
 """
 
 from __future__ import annotations
@@ -19,6 +30,7 @@ import sys
 import time
 import uuid
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
@@ -27,19 +39,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from src.intelligence import (
+    AIVerifier,
     CompositeScorer,
     ContractClassifier,
     ContractType,
     ExploitPathPredictor,
     FalsePositiveDB,
+    FpPatternMatcher,
     FixGenerator,
     NaturalLanguageQuery,
+    ProcessedFinding,
+    QualityPipeline,
+    QualityReport,
     RiskScore,
+    create_ai_verifier,
     create_classifier,
     create_fixer,
     create_fp_db,
+    create_fp_pattern_matcher,
     create_nlp,
     create_path_predictor,
+    create_pipeline,
     create_scorer,
 )
 from src.slither import SlitherRunner, create_slither_runner
@@ -64,11 +84,16 @@ from src.detector_loader import (
     DetectorLoadError,
     DetectorSandbox,
 )
+from src.agent import SlitherAgent
+from shared.agent_protocol.models import (
+    DelegationRequest,
+    NegotiationRequest,
+)
 
 # ── Constants ──────────────────────────────────────────────
 
 SERVICE_NAME = "scanner-slither"
-SERVICE_VERSION = "0.2.0"  # bumped for intelligence engine
+SERVICE_VERSION = "0.3.0"  # bumped for quality pipeline + AI verification + FP patterns
 DATA_DIR = Path("/data/scanner-slither")
 RESULTS_DIR = DATA_DIR / "results"
 SOURCES_DIR = DATA_DIR / "sources"
@@ -189,6 +214,8 @@ class AppState:
         self.solc_mgr: SolcManager = create_solc_manager()
         self.slither_runner: SlitherRunner = create_slither_runner()
         self.dep_resolver: DependencyResolver = create_dependency_resolver()
+        # Agent
+        self.agent: SlitherAgent | None = None
 
         # Intelligence engine
         self.classifier: ContractClassifier = create_classifier()
@@ -207,6 +234,19 @@ class AppState:
             detectors_dir=str(DATA_DIR / "detectors")
         )
         self.detector_runner = CustomDetectorRunner(self.detector_registry)
+
+        # Quality pipeline (L5-L7)
+        self.fp_pattern_matcher: FpPatternMatcher = create_fp_pattern_matcher()
+        self.ai_verifier: AIVerifier = create_ai_verifier()
+        self.pipeline: QualityPipeline = create_pipeline(
+            fp_matcher=self.fp_pattern_matcher,
+            ai_verifier=self.ai_verifier,
+            scorer=self.scorer,
+            fixer=self.fixer,
+            path_predictor=self.path_predictor,
+            fp_db=self.fp_db,
+            classifier=self.classifier,
+        )
 
 
 def _get_state(request: Request) -> AppState:
@@ -232,6 +272,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     detector_count = state.detector_registry.load_all()
     if detector_count:
         log.info("custom_detectors.loaded", count=detector_count)
+
+    # Init Agent with pipeline
+    state.agent = SlitherAgent(
+        runner=state.slither_runner,
+        pipeline=state.pipeline,
+        classifier=state.classifier,
+    )
+    log.info("slither.agent_initialized",
+        agent_role=state.agent.agent_role,
+        pipeline_ready=True,
+        fp_patterns=len(state.fp_pattern_matcher._patterns),
+    )
 
     solc_versions = state.solc_mgr.list_versions()
     log.info(
@@ -709,11 +761,236 @@ async def intel_stats(request: Request) -> ApiResponse:
         raise err(f"Stats failed: {exc}", status_code=500)
 
 
+# ── Pipeline Endpoints (L5-L7) ─────────────────────────────
+
+
+class PipelineRequest(BaseModel):
+    """Request body for POST /pipeline/run."""
+    findings: list[dict[str, Any]]
+    source_code: dict[str, str] = {}
+    contract_type: str = "unknown"
+    contract_address: str = ""
+    contract_name: str = ""
+    compiler: str = ""
+    audit_id: str = "default"
+    enable_ai_verify: bool = True
+    enable_fp_patterns: bool = True
+    enable_scoring: bool = True
+    enable_enrich: bool = True
+    min_quality_score: float = 10.0
+
+
+class PipelineResponse(BaseModel):
+    report: dict[str, Any]
+    relevant_count: int
+    dropped_count: int
+    drop_rate: float
+    duration_ms: float
+
+
+class AiVerifyRequest(BaseModel):
+    findings: list[dict[str, Any]]
+    source_code: dict[str, str]
+    contract_name: str = ""
+    compiler: str = ""
+    audit_id: str = "default"
+
+
+class AiVerifyResponse(BaseModel):
+    results: list[dict[str, Any]]
+    summary: dict[str, Any]
+
+
+class FpPatternsRequest(BaseModel):
+    findings: list[dict[str, Any]]
+    source_code: dict[str, str] = {}
+    include_details: bool = True
+
+
+class FpPatternsResponse(BaseModel):
+    results: list[dict[str, Any]]
+    total_matched: int
+    total_findings: int
+
+
+@dataclass
+class PipelineStats:
+    pipeline: dict[str, Any]
+    ai_verifier: dict[str, Any]
+    fp_patterns: dict[str, Any]
+
+
+@app.post("/pipeline/run")
+async def run_pipeline(body: PipelineRequest, request: Request) -> ApiResponse:
+    """Run the full quality pipeline on findings.
+
+    Processes findings through:
+      1. FP Pattern Matching (L6)
+      2. AI Verification via 06-AI (L5)
+      3. Composite Risk Scoring (L4)
+      4. Ranking & Enrichment
+
+    Returns a QualityReport with filtered, scored, enriched findings.
+    """
+    state = _get_state(request)
+
+    if not body.findings:
+        raise err("At least one finding is required")
+
+    start = time.monotonic()
+
+    try:
+        contract_type = ContractType.UNKNOWN
+        try:
+            contract_type = ContractType(body.contract_type) if body.contract_type else ContractType.UNKNOWN
+        except ValueError:
+            pass
+
+        # Configure pipeline stages
+        enabled = set()
+        if body.enable_fp_patterns:
+            enabled.add(PipelineStage.FP_PATTERN)
+            enabled.add(PipelineStage.NOISE_FILTER)
+        if body.enable_scoring:
+            enabled.add(PipelineStage.SCORE)
+            enabled.add(PipelineStage.RANK)
+        if body.enable_enrich:
+            enabled.add(PipelineStage.ENRICH)
+        if body.enable_ai_verify:
+            enabled.add(PipelineStage.AI_VERIFY)
+
+        state.pipeline._enable_stages = enabled
+        state.pipeline._min_quality_score = body.min_quality_score
+
+        report = await state.pipeline.run(
+            findings=body.findings,
+            source_code=body.source_code,
+            contract_type=contract_type,
+            contract_address=body.contract_address,
+            contract_name=body.contract_name,
+            compiler=body.compiler,
+            audit_id=body.audit_id,
+        )
+
+        elapsed = time.monotonic() - start
+
+        response_data = PipelineResponse(
+            report=report.to_dict(),
+            relevant_count=report.total_relevant,
+            dropped_count=report.total_dropped,
+            drop_rate=report.drop_rate,
+            duration_ms=round(elapsed * 1000, 1),
+        )
+
+        log.info(
+            "pipeline.run.complete",
+            audit_id=body.audit_id,
+            relevant=report.total_relevant,
+            dropped=report.total_dropped,
+            drop_rate=report.drop_rate,
+            duration_ms=round(elapsed * 1000, 1),
+        )
+
+        return ok(response_data)
+
+    except Exception as exc:
+        log.exception("pipeline.run.failed", error=str(exc))
+        raise err(f"Pipeline failed: {exc}", status_code=500)
+
+
+@app.post("/pipeline/ai-verify")
+async def ai_verify_findings(body: AiVerifyRequest, request: Request) -> ApiResponse:
+    """Verify findings using 06-AI service.
+
+    Each finding is sent to the LLM for context-aware TP/FP classification.
+    Returns verdict, confidence, severity assessment, and reasoning.
+    """
+    state = _get_state(request)
+
+    if not body.findings:
+        raise err("At least one finding is required")
+
+    try:
+        results = await state.ai_verifier.verify_findings(
+            findings=body.findings,
+            source_code=body.source_code,
+            audit_id=body.audit_id,
+            contract_name=body.contract_name,
+            compiler=body.compiler,
+        )
+
+        tp_count = sum(1 for r in results if r.is_true_positive)
+        fp_count = len(results) - tp_count
+
+        return ok(AiVerifyResponse(
+            results=[r.to_dict() for r in results],
+            summary={
+                "total": len(results),
+                "true_positives": tp_count,
+                "false_positives": fp_count,
+                "avg_confidence": round(
+                    sum(r.ai_confidence for r in results) / max(len(results), 1), 3
+                ),
+            },
+        ))
+    except Exception as exc:
+        log.exception("ai_verify.failed", error=str(exc))
+        raise err(f"AI verification failed: {exc}", status_code=500)
+
+
+@app.post("/pipeline/fp-patterns")
+async def check_fp_patterns(body: FpPatternsRequest, request: Request) -> ApiResponse:
+    """Match findings against known false-positive patterns.
+
+    Checks each finding against the FP pattern database and returns
+    matches with pattern name, confidence penalty, and severity reduction.
+    """
+    state = _get_state(request)
+
+    if not body.findings:
+        raise err("At least one finding is required")
+
+    combined_source = "\n".join(body.source_code.values()) if body.source_code else ""
+
+    results = []
+    for f in body.findings:
+        match = state.fp_pattern_matcher.evaluate_finding(f, combined_source)
+        results.append({
+            "finding_title": f.get("title", ""),
+            "finding_severity": f.get("severity", ""),
+            "match": match.to_dict() if match.is_fp else None,
+        })
+
+    total_matched = sum(1 for r in results if r["match"] is not None)
+
+    return ok(FpPatternsResponse(
+        results=results,
+        total_matched=total_matched,
+        total_findings=len(results),
+    ))
+
+
+@app.get("/pipeline/stats")
+async def pipeline_stats(request: Request) -> ApiResponse:
+    """Get quality pipeline statistics and health."""
+    state = _get_state(request)
+
+    return ok(PipelineStats(
+        pipeline={
+            "stages_available": [s.value for s in PipelineStage],
+            "min_quality_score": state.pipeline._min_quality_score,
+            "fp_patterns_count": len(state.fp_pattern_matcher._patterns),
+        },
+        ai_verifier=state.ai_verifier.get_cache_stats(),
+        fp_patterns=state.fp_pattern_matcher.get_pattern_stats(),
+    ))
+
+
 # ── Custom Detector Endpoints ─────────────────────────────
 
 
 @app.get("/detectors")
-async def list_detectors(request: Request) -> ApiResponse:
+async def list_custom_detectors(request: Request) -> ApiResponse:
     """List all registered custom detectors."""
     state = _get_state(request)
     return ok({
@@ -876,6 +1153,56 @@ def _score_to_dict(score: RiskScore) -> dict[str, Any]:
         "recommendation": score.recommendation,
         "priority": score.priority,
     }
+
+
+# ── Agent Protocol Endpoints ────────────────────────────────
+
+
+@app.get("/agent/manifest")
+async def slither_agent_manifest(request: Request) -> ApiResponse:
+    """Publish agent manifest for Antonio discovery."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+    return ok(state.agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def slither_agent_delegate(body: dict, request: Request) -> ApiResponse:
+    """Receive a delegation from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+
+    delegation_req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await state.agent.handle_delegation(delegation_req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def slither_agent_negotiate(body: dict, request: Request) -> ApiResponse:
+    """Handle a negotiation request from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+
+    negotiation_req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await state.agent.handle_negotiation(negotiation_req)
+    return ok(response)
 
 
 # ── Entry Point ────────────────────────────────────────────

@@ -23,10 +23,17 @@ RUN pip install --no-cache-dir solc-select
 # Install Echidna fuzzer
 RUN ECHIDNA_VER=$(curl -fsSL https://api.github.com/repos/crytic/echidna/releases/latest | \
     python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'].lstrip('v'))" 2>/dev/null || echo "2.3.2") && \
-    curl -fsSL "https://github.com/crytic/echidna/releases/download/v${ECHIDNA_VER}/echidna-${ECHIDNA_VER}-x86_64-linux.tar.gz" -o /tmp/echidna.tar.gz && \
+    ARCH=$(uname -m) && \
+    case "$ARCH" in \
+        x86_64)  ECHIDNA_ARCH="x86_64-linux" ;; \
+        aarch64|arm64) ECHIDNA_ARCH="aarch64-linux" ;; \
+        *)       echo "Unsupported architecture: $ARCH"; exit 1 ;; \
+    esac && \
+    echo "Downloading Echidna ${ECHIDNA_VER} for ${ECHIDNA_ARCH}" && \
+    curl -fsSL "https://github.com/crytic/echidna/releases/download/v${ECHIDNA_VER}/echidna-${ECHIDNA_VER}-${ECHIDNA_ARCH}.tar.gz" -o /tmp/echidna.tar.gz && \
     tar -xzf /tmp/echidna.tar.gz -C /tmp/ && \
     install -m 755 /tmp/echidna /usr/local/bin/echidna && \
-    echo "Echidna installed: $(echidna --version 2>/dev/null || echo 'failed')"
+    echo "Echidna installed ($ARCH): $(echidna --version 2>/dev/null || echo 'failed')"
 
 # Copy shared library
 COPY services/shared/ ./shared/

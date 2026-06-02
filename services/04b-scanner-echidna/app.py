@@ -37,6 +37,8 @@ from src.intelligence import (
     create_nlp,
     create_path_predictor,
     create_scorer,
+    FpTpDatabase,
+    create_fp_tp_db,
 )
 from vyper_lib.models import (
     ApiResponse,
@@ -52,6 +54,12 @@ from vyper_lib.models import (
 from shared.observability import setup_observability
 from vyper_lib.solc_manager import SolcManager, create_solc_manager
 from vyper_lib.deps import DependencyResolver, create_dependency_resolver
+from src.agent import EchidnaAgent
+from src.queue_manager import ScanQueue
+from shared.agent_protocol.models import (
+    DelegationRequest,
+    NegotiationRequest,
+)
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -123,6 +131,10 @@ class AppState:
         self.solc_mgr: SolcManager = create_solc_manager()
         self.echidna_runner: EchidnaRunner = create_echidna_runner()
         self.dep_resolver: DependencyResolver = create_dependency_resolver()
+        # Agent
+        self.agent: EchidnaAgent | None = None
+        # Queue
+        self.scan_queue: ScanQueue = ScanQueue(max_concurrent=1)
         # Intelligence
         self.classifier: EchidnaClassifier = create_classifier()
         self.scorer: EchidnaScorer = create_scorer()
@@ -132,6 +144,7 @@ class AppState:
             classifier=self.classifier,
             fixer=self.fixer,
         )
+        self.fp_tp_db: FpTpDatabase = create_fp_tp_db()
 
 
 def _get_state(request: Request) -> AppState:
@@ -148,6 +161,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Init Agent
+    state.agent = EchidnaAgent(runner=state.echidna_runner)
+    log.info("echidna.agent_initialized", agent_role=state.agent.agent_role)
 
     solc_versions = state.solc_mgr.list_versions()
     log.info(
@@ -257,17 +274,23 @@ async def run_scan(body: ScanRequest, request: Request) -> ApiResponse:
         except Exception as exc:
             log.warning("echidna.deps_failed", error=str(exc))
 
-        result = await asyncio.to_thread(
-            state.echidna_runner.run,
-            audit_dir,
-            contract_name=body.contract_name,
-            timeout=body.timeout,
+        async def _run_scan_inner() -> ToolResult:
+            return await asyncio.to_thread(
+                state.echidna_runner.run,
+                audit_dir,
+                contract_name=body.contract_name,
+                timeout=body.timeout,
+            )
+
+        result = await state.scan_queue.enqueue(
+            audit_id,
+            _run_scan_inner,
         )
 
         elapsed = time.monotonic() - start
 
         # ── Intelligence enrichment ────────────────────────
-        if result.success and result.findings:
+        if result.findings:
             try:
                 finding_dicts = [f.model_dump() for f in result.findings]
                 enriched = state.classifier.classify_batch(finding_dicts)
@@ -320,6 +343,23 @@ async def run_scan(body: ScanRequest, request: Request) -> ApiResponse:
             shutil.rmtree(audit_dir, ignore_errors=True)
         except OSError:
             pass
+
+
+@app.get("/scan/queue/{audit_id}")
+async def scan_queue_status(audit_id: str, request: Request) -> ApiResponse:
+    """Get status of a queued scan."""
+    state = _get_state(request)
+    status = state.scan_queue.get_status(audit_id)
+    if status is None:
+        raise err("Audit ID not found in queue", 404)
+    return ok(status)
+
+
+@app.get("/scan/queue")
+async def scan_queue_summary(request: Request) -> ApiResponse:
+    """Get summary of all queue items."""
+    state = _get_state(request)
+    return ok(state.scan_queue.get_queue_summary())
 
 
 @app.post("/install")
@@ -485,6 +525,80 @@ def _s_to_dict(s: FailureScore) -> dict[str, Any]:
         "risk_label": s.risk_label,
         "priority": s.priority,
     }
+
+
+# ── FP/TP Endpoints ─────────────────────────────────────────
+
+
+@app.get("/fp-tp/stats")
+async def fp_tp_stats(request: Request) -> ApiResponse:
+    """Get FP/TP database statistics."""
+    state = _get_state(request)
+    return ok(state.fp_tp_db.get_stats())
+
+
+@app.post("/fp-tp/record")
+async def fp_tp_record(body: dict, request: Request) -> ApiResponse:
+    """Record a FP/TP verdict for a fuzzing test."""
+    state = _get_state(request)
+    state.fp_tp_db.record(
+        test_function=body.get("test_function", ""),
+        verdict=body.get("verdict", "true_positive"),
+        audit_id=body.get("audit_id", ""),
+        category=body.get("category", "unknown"),
+        notes=body.get("notes", ""),
+    )
+    return ok({"status": "recorded"})
+
+
+# ── Agent Protocol Endpoints ────────────────────────────────
+
+
+@app.get("/agent/manifest")
+async def echidna_agent_manifest(request: Request) -> ApiResponse:
+    """Publish agent manifest for Antonio discovery."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+    return ok(state.agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def echidna_agent_delegate(body: dict, request: Request) -> ApiResponse:
+    """Receive a delegation from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+
+    delegation_req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await state.agent.handle_delegation(delegation_req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def echidna_agent_negotiate(body: dict, request: Request) -> ApiResponse:
+    """Handle a negotiation request from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        raise err("Agent not initialized", 503)
+
+    negotiation_req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await state.agent.handle_negotiation(negotiation_req)
+    return ok(response)
 
 
 # ── Entry Point ────────────────────────────────────────────

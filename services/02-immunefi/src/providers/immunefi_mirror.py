@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +38,10 @@ class ImmunefiMirrorProvider:
     name = "immunefi_mirror"
     priority = 10  # Lower than official API
 
-    MIRROR_URL = "https://immunefi.com/api/explore/programs/"
+    # API endpoint sudah tidak aktif (returns 404 sejak mid-2025)
+    # Gunakan web scraping langsung sebagai gantinya.
+    # ImmunefiWebScraper (immunefi_web_scraper.py) adalah pengganti resmi.
+    MIRROR_URL = "https://immunefi.com/bug-bounty/"
     WEB_BASE = "https://immunefi.com"
 
     def __init__(self, cache_dir: str | None = None) -> None:
@@ -58,34 +62,60 @@ class ImmunefiMirrorProvider:
     # ── Fetch Program List ───────────────────────────────────
 
     async def fetch_program_list(self) -> list[dict[str, Any]]:
-        """Fetch list program dari mirror endpoint publik."""
+        """Fetch list program dari mirror endpoint publik atau web scraping."""
         client = await self._get_client()
 
         log.info("immunefi_mirror.fetch_list.start")
 
+        # Priority 1: Coba web scraping langsung
+        try:
+            from src.providers.immunefi_web_scraper import ImmunefiWebScraper  # noqa: PLC0415
+            web = ImmunefiWebScraper()
+            programs = await web.fetch_program_list()
+            if programs:
+                log.info(
+                    "immunefi_mirror.fetch_list.web_success",
+                    count=len(programs),
+                )
+                self._save_cache(programs)
+                return self._normalize_programs(programs)
+        except ImportError:
+            pass
+        except Exception as e:
+            log.debug("immunefi_mirror.web_scraper_error", error=str(e)[:80])
+
+        # Priority 2: Coba scrape dari HTML halaman explore
         try:
             resp = await client.get(
                 self.MIRROR_URL,
-                headers={"Accept": "application/json"},
+                headers={"User-Agent": "Mozilla/5.0"},
             )
-            if resp.status_code == 200:
-                data = resp.json()
-                programs = data.get("data", data) if isinstance(data, dict) else data
+            from bs4 import BeautifulSoup  # noqa: PLC0415
+            soup = BeautifulSoup(resp.text, "lxml")
+
+            programs = []
+            for link in soup.find_all("a", href=re.compile(r"/bug-bounty/[^/]+/")):
+                href = link.get("href", "")
+                m = re.match(r"/bug-bounty/([^/]+)", href)
+                if m:
+                    slug = m.group(1)
+                    if slug not in (p.get("slug") for p in programs):
+                        programs.append({
+                            "slug": slug,
+                            "name": link.get_text(strip=True) or slug,
+                            "status": "active",
+                        })
+
+            if programs:
                 log.info(
-                    "immunefi_mirror.fetch_list.success",
+                    "immunefi_mirror.fetch_list.html_success",
                     count=len(programs),
                 )
                 self._save_cache(programs)
                 return self._normalize_programs(programs)
 
-            # Fallback: scrape dari HTML halaman explore
-            log.info(
-                "immunefi_mirror.fetch_list.fallback_html",
-                status=resp.status_code,
-            )
-
-        except (httpx.TimeoutException, httpx.ConnectError) as e:
-            log.warning("immunefi_mirror.network_error", error=str(e)[:100])
+        except Exception as e:
+            log.warning("immunefi_mirror.html_error", error=str(e)[:100])
 
         # Fallback: coba pakai cache
         cached = self._load_cache()

@@ -47,6 +47,8 @@ from src.models import (
     AgentSession,
     AgentState,
     ApiResponse,
+    ChatRequest,
+    ChatResponse,
     ErrorResponse,
     HealthData,
     Meta,
@@ -388,6 +390,44 @@ async def run_agent(body: AgentRequest) -> ApiResponse:
             error=session.error,
         )
     )
+
+
+@app.post("/agent/chat")
+async def agent_chat(body: ChatRequest) -> ApiResponse:
+    """Chat dengan Antonio menggunakan natural language.
+
+    Antonio akan memahami intent user, memanggil skill yang diperlukan
+    (audit, search memory, dll), dan merespon dalam bahasa yang sama.
+
+    **Request body**::
+
+        {
+            "message": "audit contract 0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+            "session_id": null
+        }
+
+    Returns:
+        ChatResponse dengan jawaban natural language Antonio.
+    """
+    if state is None or state.agent is None:
+        raise _err("Service not initialized", 503)
+
+    log.info(
+        "agent.chat_requested",
+        message=body.message[:100],
+        has_session=body.session_id is not None,
+    )
+
+    try:
+        result: ChatResponse = await state.agent.chat(
+            message=body.message,
+            session_id=body.session_id,
+        )
+    except Exception as exc:
+        log.exception("agent.chat_failed")
+        raise _err(f"Chat failed: {exc}", 500)
+
+    return _ok(result.__dict__)
 
 
 @app.get("/agent/sessions")

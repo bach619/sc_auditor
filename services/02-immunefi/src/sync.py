@@ -31,6 +31,16 @@ COMMIT_HASH_URL = (
     "infosec-us-team/Immunefi-Bug-Bounty-Programs-Unofficial/commits/main"
 )
 
+# Read GITHUB_TOKEN once from environment
+_GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
+
+
+def _github_auth_headers() -> dict[str, str]:
+    """Return Authorization header if GITHUB_TOKEN is set."""
+    if _GITHUB_TOKEN:
+        return {"Authorization": f"Bearer {_GITHUB_TOKEN}"}
+    return {}
+
 
 # ── SyncManager ────────────────────────────────────────────
 
@@ -417,7 +427,7 @@ class SyncManager:
                 client = httpx.AsyncClient(timeout=10.0)
 
             try:
-                resp = await client.get(COMMIT_HASH_URL)
+                resp = await client.get(COMMIT_HASH_URL, headers=_github_auth_headers())
                 resp.raise_for_status()
                 latest_sha = resp.json().get("sha", "")
                 has_updates = latest_sha != stored_hash
@@ -426,6 +436,7 @@ class SyncManager:
                     has_updates=has_updates,
                     stored=stored_hash[:8],
                     remote=latest_sha[:8],
+                    authenticated=bool(_GITHUB_TOKEN),
                 )
                 return has_updates
             finally:
@@ -773,6 +784,9 @@ class SyncManager:
 
         Returns dict mapping provider_name → list[dict] of raw programs.
         Falls back to ImmunefiScraper if no BountyProvider registered.
+
+        Semua provider HTTP clients di-close setelah selesai untuk
+        mencegah connection leak.
         """
         providers = get_available_providers()
 
@@ -784,23 +798,32 @@ class SyncManager:
                 return {"immunefi_scraper": raw}
 
         results: dict[str, list[dict]] = {}
-        for provider in providers:
-            name = getattr(provider, "name", provider.__class__.__name__)
-            try:
-                raw = await provider.fetch_program_list()
-                results[name] = raw
-                log.info(
-                    "sync.all.provider_success",
-                    provider=name,
-                    count=len(raw),
-                )
-            except Exception as e:
-                log.warning(
-                    "sync.all.provider_failed",
-                    provider=name,
-                    error=str(e)[:100],
-                )
-                results[name] = []
+        try:
+            for provider in providers:
+                name = getattr(provider, "name", provider.__class__.__name__)
+                try:
+                    raw = await provider.fetch_program_list()
+                    results[name] = raw
+                    log.info(
+                        "sync.all.provider_success",
+                        provider=name,
+                        count=len(raw),
+                    )
+                except Exception as e:
+                    log.warning(
+                        "sync.all.provider_failed",
+                        provider=name,
+                        error=str(e)[:100],
+                    )
+                    results[name] = []
+        finally:
+            # Cleanup: close all provider HTTP clients
+            for provider in providers:
+                if hasattr(provider, "close") and callable(provider.close):
+                    try:
+                        await provider.close()
+                    except Exception:
+                        pass
 
         return results
 
@@ -816,22 +839,33 @@ class SyncManager:
           1. BountyProvider (sorted by priority)
           2. Fallback to ImmunefiScraper
           3. Fallback to list_item (no detail)
+
+        Semua provider HTTP clients di-close setelah selesai.
         """
         providers = get_available_providers()
         providers.sort(key=lambda p: getattr(p, "priority", 99))
 
-        for provider in providers:
-            try:
-                detail = await provider.fetch_program_detail(slug)
-                if detail:
-                    return detail
-            except Exception as e:
-                log.warning(
-                    "sync.all.detail_failed",
-                    provider=getattr(provider, "name", "?"),
-                    slug=slug,
-                    error=str(e)[:80],
-                )
+        try:
+            for provider in providers:
+                try:
+                    detail = await provider.fetch_program_detail(slug)
+                    if detail:
+                        return detail
+                except Exception as e:
+                    log.warning(
+                        "sync.all.detail_failed",
+                        provider=getattr(provider, "name", "?"),
+                        slug=slug,
+                        error=str(e)[:80],
+                    )
+        finally:
+            # Cleanup: close all provider HTTP clients
+            for provider in providers:
+                if hasattr(provider, "close") and callable(provider.close):
+                    try:
+                        await provider.close()
+                    except Exception:
+                        pass
 
         # Fallback: ImmunefiScraper
         try:
@@ -857,9 +891,9 @@ class SyncManager:
             log.info("sync.commit_hash_updated", sha=sha[:8])
 
     async def _fetch_latest_commit(self, client: httpx.AsyncClient) -> str | None:
-        """Get latest commit SHA from GitHub API."""
+        """Get latest commit SHA from GitHub API (with GITHUB_TOKEN if available)."""
         try:
-            resp = await client.get(COMMIT_HASH_URL)
+            resp = await client.get(COMMIT_HASH_URL, headers=_github_auth_headers())
             resp.raise_for_status()
             return resp.json().get("sha", "")
         except Exception as e:
@@ -879,7 +913,7 @@ class SyncManager:
             f"compare/{base_sha}...{head_sha}"
         )
         try:
-            resp = await client.get(url)
+            resp = await client.get(url, headers=_github_auth_headers())
             resp.raise_for_status()
             files = resp.json().get("files", [])
         except Exception as e:

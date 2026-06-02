@@ -26,9 +26,14 @@ from typing import Any
 
 import structlog
 
-from src.models import Program
-
 log = structlog.get_logger()
+
+# ── Constants ──────────────────────────────────────────────
+
+MAX_HISTORY_ENTRIES = 500  # max history lines per program (auto-pruned on append)
+_MAX_PRUNE_BATCH = 10       # max files to check per save cycle
+
+from src.models import Program
 
 
 class EnhancedJSONStorage:
@@ -175,11 +180,14 @@ class EnhancedJSONStorage:
 
     # ── History (Append-Only JSON Lines) ─────────────────────
 
+    # ── History Management ───────────────────────────────────―
+
     def _save_history_snapshot(self, program: Program) -> None:
         """Append a snapshot to the history file for this program.
 
         This is called internally by save_program(). The snapshot captures
-        key fields so we can track changes over time.
+        key fields so we can track changes over time. Auto-prunes when
+        the file exceeds MAX_HISTORY_ENTRIES.
         """
         path = self.data_dir / "history" / f"{program.slug}.jsonl"
         entry = {
@@ -195,8 +203,11 @@ class EnhancedJSONStorage:
             },
         }
         try:
+            path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, default=str) + "\n")
+            # Auto-prune if too large (fire-and-forget)
+            self._prune_history_file(path)
         except OSError as e:
             log.warning("storage.history.append.error", slug=program.slug, error=str(e))
 
@@ -205,6 +216,7 @@ class EnhancedJSONStorage:
 
         This is the public API for external callers who want to
         record custom events (e.g., "bounty_changed", "status_changed").
+        Auto-prunes when the file exceeds MAX_HISTORY_ENTRIES.
         """
         path = self.data_dir / "history" / f"{slug}.jsonl"
         entry = {
@@ -212,12 +224,41 @@ class EnhancedJSONStorage:
             "snapshot": snapshot,
         }
         try:
+            path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, default=str) + "\n")
+            self._prune_history_file(path)
             return True
         except OSError as e:
             log.warning("storage.history.append.error", slug=slug, error=str(e))
             return False
+
+    def _prune_history_file(self, path: Path) -> None:
+        """Trim a history JSONL file to MAX_HISTORY_ENTRIES lines.
+
+        Keeps the most recent entries, discards oldest.
+        Synchronous — fast karena hanya file kecil (<200KB typical).
+        """
+        try:
+            if not path.exists():
+                return
+
+            text = path.read_text(encoding="utf-8")
+            lines = text.strip().split("\n")
+
+            if len(lines) <= MAX_HISTORY_ENTRIES:
+                return
+
+            kept = lines[-MAX_HISTORY_ENTRIES:]
+            path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+            log.info(
+                "storage.history.pruned",
+                file=path.name,
+                original=len(lines),
+                kept=len(kept),
+            )
+        except OSError as e:
+            log.warning("storage.history.prune.error", file=str(path), error=str(e))
 
     def get_history(self, slug: str, limit: int = 50) -> list[dict]:
         """Read the last N historical entries for a program.

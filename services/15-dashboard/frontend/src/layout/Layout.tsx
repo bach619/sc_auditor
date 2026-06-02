@@ -7,6 +7,7 @@ import { DaemonContext } from '../lib/daemon-context'
 
 const NAV_LOOKUP: Record<string, string> = {
   '/': 'Dashboard',
+  '/chat': 'Chat',
   '/programs': 'Programs',
   '/scanning': 'Scanning',
   '/exploit': 'Exploit',

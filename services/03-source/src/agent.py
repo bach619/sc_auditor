@@ -14,8 +14,10 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
+from shared.skills.skill_registry import SkillRegistry
 
 from .detector import SourceDetector
+from .skills import create_registry
 
 
 class SourceAgent(BaseAgent):
@@ -23,10 +25,12 @@ class SourceAgent(BaseAgent):
 
     def __init__(self, detector: SourceDetector) -> None:
         self._detector = detector
+        self.skill_registry = create_registry()
         super().__init__(
             service_name="03-source",
             agent_role="source_intelligence",
             version="0.2.0",
+            skill_registry=self.skill_registry,
         )
         self._max_concurrent = 5
 

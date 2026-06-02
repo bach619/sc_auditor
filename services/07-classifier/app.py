@@ -24,6 +24,7 @@ import signal
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any
 
 from shared.observability import setup_observability
@@ -44,6 +45,7 @@ from src.models import (
     ClassificationSource,
     ClassificationStage,
     ErrorResponse,
+    ExploitConfirmRequest,
     Feedback,
     FeedbackStatus,
     FeedbackRequest,
@@ -314,6 +316,24 @@ async def submit_feedback(
                 classification=created_pattern.classification.value,
             )
 
+        # ── Save feedback to Knowledge Base ──
+        try:
+            from shared.knowledge_base import KnowledgeRepository
+            kb = KnowledgeRepository()
+            kb.save_feedback({
+                "finding_id": body.finding_id,
+                "audit_id": body.audit_id,
+                "original_classification": (
+                    original_classification.value if original_classification else None
+                ),
+                "correct_classification": body.correct_classification.value,
+                "is_correction": True,
+                "notes": body.notes,
+                "source": "human_feedback",
+            })
+        except Exception as exc:
+            log.warning("kb.feedback_save_failed", error=str(exc))
+
     log.info(
         "feedback_submitted",
         feedback_id=feedback.feedback_id,
@@ -393,6 +413,87 @@ async def reclassify_endpoint(
             "details": reclassified,
         }
     )
+
+
+@app.post("/confirm", response_model=ApiResponse)
+async def confirm_exploit(
+    request: Request, body: ExploitConfirmRequest
+) -> ApiResponse:
+    """Receive exploit feedback from Orchestrator and update classification.
+
+    This is the core of the Exploit-as-Truth architecture.
+    Called AFTER exploit engine runs, to upgrade findings to
+    Stage 2 (TRUE_POSITIVE_CONFIRMED) or downgrade (TP_SUSPECTED).
+
+    Body (ExploitConfirmRequest):
+        audit_id: Audit session identifier.
+        finding_id: Finding identifier.
+        exploit_successful: Whether exploit was proven.
+        tx_hash: Transaction hash (optional).
+    """
+    state: AppState = request.app.state.vyper
+    classifier: Classifier = state.classifier
+    pattern_learner: PatternLearner = state.pattern_learner
+    metrics: MetricsTracker = state.metrics_tracker
+
+    try:
+        result = classifier.receive_exploit_feedback(
+            finding_id=body.finding_id,
+            exploit_successful=body.exploit_successful,
+            tx_hash=body.tx_hash,
+        )
+    except ValueError as exc:
+        log.warning("confirm.finding_not_found", finding_id=body.finding_id)
+        return ApiResponse(
+            data={"error": str(exc)},
+            meta=Meta(status="error"),
+        )
+
+    # Auto-learn from exploit result
+    pattern_learner.learn_from_exploit(
+        finding_id=body.finding_id,
+        exploit_successful=body.exploit_successful,
+        classification=Classification(result["new_classification"]),
+    )
+
+    # ── Save to Knowledge Base ──
+    try:
+        from shared.knowledge_base import KnowledgeRepository, ConfirmedFinding
+        kb = KnowledgeRepository()
+        confirmed = ConfirmedFinding(
+            finding_id=body.finding_id,
+            audit_id=body.audit_id,
+            contract_hash="",
+            title=body.finding_id,
+            severity="",
+            attack_type=result.get("attack_type", "unknown"),
+            confirmed_by="exploit",
+            exploit_successful=body.exploit_successful,
+            tx_hash=body.tx_hash,
+            vulnerability_pattern={},
+            primitive_sequence=[],
+            confidence=result["confidence"],
+        )
+        kb.save_confirmed(confirmed)
+    except Exception as exc:
+        log.warning("kb.save_failed", error=str(exc))
+
+    # Record metrics
+    metrics.record(
+        finding_id=body.finding_id,
+        classification=Classification(result["new_classification"]),
+        is_correct=result["exploit_successful"],
+        tool_name="exploit_engine",
+    )
+
+    log.info(
+        "exploit_feedback_processed",
+        finding_id=body.finding_id,
+        exploit_successful=body.exploit_successful,
+        new_classification=result["new_classification"],
+    )
+
+    return ApiResponse(data=result)
 
 
 # ===========================================================================

@@ -22,7 +22,7 @@ from src.storage import EnhancedJSONStorage
 log = structlog.get_logger()
 
 SOURCE_SERVICE_URL = os.getenv("SOURCE_URL", "http://03-source:8000")
-ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://11-orchestrator:8009")
+ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://11-orchestrator:8000")
 
 
 class ContractAutoFetcher:

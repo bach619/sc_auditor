@@ -1,7 +1,13 @@
-"""ImmunefiScraper — Fetches bug bounty programs from the Immunefi GitHub mirror."""
+"""ImmunefiScraper — Fetches bug bounty programs from the Immunefi GitHub mirror.
+
+Now with multi-source fallback:
+  1. GitHub mirror (primary — reliable, structured)
+  2. ImmunefiWebScraper (fallback — live immunefi.com)
+"""
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import httpx
@@ -90,7 +96,10 @@ class ImmunefiScraper:
 
     @scraper_retry
     async def fetch_program_list(self) -> list[dict[str, Any]]:
-        """Fetch the full program list from projects.json.
+        """Fetch the full program list from GitHub mirror (projects.json).
+
+        ImmunefiWebScraper (live site) is handled by the provider registry
+        in sync.py — not duplicated here.
 
         Returns a list of program dicts with keys:
             slug, name, chains, maxBounty, status, etc.
@@ -111,10 +120,13 @@ class ImmunefiScraper:
 
     @scraper_retry
     async def fetch_program_detail(self, slug: str) -> dict[str, Any]:
-        """Fetch detail for a single program by slug.
+        """Fetch detail for a single program by slug (from GitHub mirror).
 
         Returns the full program detail dict from project/{slug}.json.
         Raises ProgramNotFoundError if slug does not exist.
+
+        Note: ImmunefiWebScraper (live site) is handled by the provider
+        registry in sync.py — not duplicated here.
         """
         url = PROGRAM_DETAIL_URL.format(slug=slug)
         log.info("fetch_program_detail.start", slug=slug)
@@ -141,20 +153,113 @@ class ImmunefiScraper:
 
     @staticmethod
     def parse_contracts(detail: dict[str, Any]) -> list[dict[str, str]]:
-        """Extract contract addresses from program detail."""
+        """Extract smart contract addresses from program detail.
+
+        Handles multiple formats:
+        - GitHub mirror: assets[] with {url, type, description}
+        - Live API: contracts[] with {address, chain, name}
+        - Raw: list of address strings
+
+        Only returns assets where type='smart_contract' (in-scope).
+        Detects chain from explorer URL when available.
+        """
         contracts: list[dict[str, str]] = []
-        raw = detail.get("contracts", [])
-        if isinstance(raw, list):
-            for c in raw:
+        seen: set[str] = set()
+
+        # Format 1: assets[] (GitHub mirror format)
+        raw_assets = detail.get("assets", [])
+        if isinstance(raw_assets, list):
+            for asset in raw_assets:
+                if isinstance(asset, dict):
+                    asset_type = str(asset.get("type", "") or "").lower()
+                    url = str(asset.get("url", "") or "")
+
+                    # Hanya smart contract type yang in-scope
+                    if asset_type and asset_type != "smart_contract":
+                        continue
+
+                    # Extract address dari URL
+                    addr = str(asset.get("address", "") or "")
+                    if not addr or len(addr) < 30:
+                        addr_match = re.search(r"0x[a-fA-F0-9]{40}", url)
+                        if addr_match:
+                            addr = addr_match.group(0)
+
+                    if addr and len(addr) == 42 and addr not in seen:
+                        seen.add(addr)
+                        chain = ImmunefiScraper._detect_chain_from_url(url)
+                        name = str(asset.get("description", "") or asset.get("name", ""))
+                        contracts.append({
+                            "address": addr,
+                            "chain": chain,
+                            "name": name,
+                        })
+
+        # Format 2: contracts[] (API format)
+        raw_contracts = detail.get("contracts", [])
+        if isinstance(raw_contracts, list):
+            for c in raw_contracts:
                 if isinstance(c, dict):
-                    contracts.append({
-                        "address": str(c.get("address", "")),
-                        "chain": str(c.get("chain", "")),
-                        "name": str(c.get("name", "")),
-                    })
+                    addr = str(c.get("address", "") or "")
+                    if addr and len(addr) == 42 and addr not in seen:
+                        seen.add(addr)
+                        contracts.append({
+                            "address": addr,
+                            "chain": str(c.get("chain", "") or ""),
+                            "name": str(c.get("name", "") or ""),
+                        })
                 elif isinstance(c, str):
-                    contracts.append({"address": c, "chain": "", "name": ""})
+                    addr = c.strip()
+                    if addr.startswith("0x") and len(addr) == 42 and addr not in seen:
+                        seen.add(addr)
+                        contracts.append({"address": addr, "chain": "", "name": ""})
+
+        # Format 3: targets[] (alternative format)
+        raw_targets = detail.get("targets", [])
+        if isinstance(raw_targets, list):
+            for t in raw_targets:
+                if isinstance(t, dict):
+                    addr = str(t.get("address", "") or "")
+                    if addr and len(addr) == 42 and addr not in seen:
+                        seen.add(addr)
+                        contracts.append({
+                            "address": addr,
+                            "chain": str(t.get("chain", "") or ""),
+                            "name": str(t.get("name", "") or ""),
+                        })
+
         return contracts
+
+    @staticmethod
+    def _detect_chain_from_url(url: str) -> str:
+        """Detect blockchain dari explorer URL.
+
+        Order matters: more specific subdomains (e.g. optimistic.etherscan.io)
+        must be checked before their parent domain (etherscan.io).
+        """
+        domain = url.lower()
+        # Check specific subdomain patterns FIRST (before generic etherscan.io)
+        if "optimistic.etherscan.io" in domain:
+            return "optimism"
+        if "etherscan.io" in domain:
+            return "ethereum"
+        if "arbiscan.io" in domain:
+            return "arbitrum"
+        if "polygonscan.com" in domain:
+            return "polygon"
+        if "bscscan.com" in domain:
+            return "bsc"
+        if "snowtrace.io" in domain or "snowscan.xyz" in domain:
+            return "avalanche"
+        if "ftmscan.com" in domain:
+            return "fantom"
+        if "basescan.org" in domain:
+            return "base"
+        if "mantlescan.xyz" in domain:
+            return "mantle"
+        if "scrollscan.com" in domain:
+            return "scroll"
+        return "unknown"
 
     @staticmethod
     def parse_social_links(detail: dict[str, Any]) -> list[str]:

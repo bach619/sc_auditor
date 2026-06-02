@@ -1,9 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Bot, FolderOpen, FileText, Settings, Zap } from 'lucide-react'
+import { LayoutDashboard, Bot, FolderOpen, FileText, Settings, Zap, MessageSquareText } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/chat', label: 'Chat', icon: MessageSquareText },
   { to: '/agent', label: 'Antonio', icon: Bot },
   { to: '/programs', label: 'Programs', icon: FolderOpen },
   { to: '/reports', label: 'Reports', icon: FileText },

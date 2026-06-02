@@ -17,6 +17,7 @@ from src.intelligence.scorer import EchidnaScorer, FailureScore, create_scorer
 from src.intelligence.fixer import EchidnaFixer, create_fixer
 from src.intelligence.path_predictor import SequenceAnalyzer, create_path_predictor
 from src.intelligence.nlp import EchidnaNLP, create_nlp
+from src.intelligence.fp_tp_db import FpTpDatabase, create_fp_tp_db
 
 __all__ = [
     "EchidnaClassifier",
@@ -31,4 +32,6 @@ __all__ = [
     "create_nlp",
     "create_path_predictor",
     "create_scorer",
+    "FpTpDatabase",
+    "create_fp_tp_db",
 ]

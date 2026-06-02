@@ -14,8 +14,10 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
+from shared.skills.skill_registry import SkillRegistry
 
 from .dispatcher import WebhookDispatcher
+from .skills import create_registry
 
 
 class WebhookAgent(BaseAgent):
@@ -23,10 +25,12 @@ class WebhookAgent(BaseAgent):
 
     def __init__(self, dispatcher: WebhookDispatcher) -> None:
         self._dispatcher = dispatcher
+        self.skill_registry = create_registry()
         super().__init__(
             service_name="12-webhook",
             agent_role="webhook_manager",
             version="0.1.0",
+            skill_registry=self.skill_registry,
         )
         self._max_concurrent = 5
 

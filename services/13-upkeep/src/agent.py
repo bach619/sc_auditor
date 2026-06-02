@@ -14,10 +14,12 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
+from shared.skills.skill_registry import SkillRegistry
 
 from .backup import BackupManager
 from .metrics import MetricsAggregator
 from .update import UpdateManager
+from .skills import create_registry
 
 
 class UpkeepAgent(BaseAgent):
@@ -32,10 +34,12 @@ class UpkeepAgent(BaseAgent):
         self._update_mgr = update_mgr
         self._backup_mgr = backup_mgr
         self._metrics_mgr = metrics_mgr
+        self.skill_registry = create_registry()
         super().__init__(
             service_name="13-upkeep",
             agent_role="platform_maintenance",
             version="0.1.0",
+            skill_registry=self.skill_registry,
         )
         self._max_concurrent = 3
 

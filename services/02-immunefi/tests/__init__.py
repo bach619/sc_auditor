@@ -1,0 +1,1 @@
+"""Tests for 02-immunefi service."""

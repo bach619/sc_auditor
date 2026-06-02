@@ -36,11 +36,17 @@ from src.intelligence import (
     create_path_predictor,
     create_scorer,
 )
-
-
-
-
-
+from src.agent import MythrilAgent
+from src.guided_analyzer import GuidedAnalyzer
+from src.cross_reference import CrossReferenceEngine
+from src.enhanced_nlp import EnhancedNLP
+from src.enhanced_fixer import EnhancedFixer
+from src.severity_scorer import SeverityScorer
+from src.resource_guard import ResourceBudget, ResourceGuard
+from shared.agent_protocol.models import (
+    DelegationRequest,
+    NegotiationRequest,
+)
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -283,13 +289,35 @@ class AppState:
         self.mythril_available: bool = False
         self.mythril_version: str | None = None
         self._shutdown_requested: bool = False
+        # Agent
+        self.agent: MythrilAgent | None = None
 
-        # Intelligence engine
+        # Intelligence engine (existing)
         self.classifier: MythrilClassifier = create_classifier()
         self.scorer: MythrilScorer = create_scorer()
         self.fixer: MythrilFixer = create_fixer()
         self.chain_predictor: MythrilChainPredictor = create_path_predictor()
         self.nlp: MythrilNLP = create_nlp()
+
+        # Enhanced modules
+        self.guided_analyzer: GuidedAnalyzer = GuidedAnalyzer(
+            slither_url=os.environ.get(
+                "SLITHER_URL", "http://04a-scanner-slither:8014"
+            ),
+            ai_url=os.environ.get(
+                "AI_URL", "http://06-ai:8004"
+            ),
+            manticore_url=os.environ.get(
+                "MANTICORE_URL", "http://04e-scanner-manticore:8018"
+            ),
+        )
+        self.cross_reference: CrossReferenceEngine = CrossReferenceEngine()
+        self.enhanced_nlp: EnhancedNLP = EnhancedNLP(
+            ai_url=os.environ.get("AI_URL", "http://06-ai:8004"),
+        )
+        self.enhanced_fixer: EnhancedFixer = EnhancedFixer()
+        self.resource_guard: ResourceGuard = ResourceGuard()
+        self._mythril_findings_count: int = 0
 
     @property
     def shutdown_requested(self) -> bool:
@@ -307,6 +335,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup: check mythril availability. Shutdown: clean exit."""
     state = AppState()
     app.state.vyper = state
+
+    # Init Agent
+    state.agent = MythrilAgent(guided_analyzer=state.guided_analyzer)
+    log.info("mythril.agent_initialized", agent_role=state.agent.agent_role)
 
     available, version = check_mythril()
     state.mythril_available = available
@@ -574,11 +606,220 @@ async def intel_stats(request: Request) -> ApiResponse:
         "fixer": state.fixer.get_stats(),
         "chain_predictor": {
             "chains_defined": 5,
-            "chain_names": [
-                "contract_takeover", "fund_drain",
-                "reentrancy_with_unchecked_call",
-                "proxy_initialization_attack",
-                "price_oracle_manipulation",
-            ],
-        },
+
+
+# ═══════════════════════════════════════════════════════════
+# Enhanced Endpoints (Power Mode)
+# ═══════════════════════════════════════════════════════════
+
+
+class GuidedAnalyzeRequest(BaseModel):
+    sources: dict[str, str]
+    functions: list[str] | None = None
+    timeout: int = 300
+    depth: int = 42
+    use_slither_guide: bool = True
+    use_custom_plugins: bool = True
+
+
+class DeepAnalyzeResponse(BaseModel):
+    audit_id: str
+    duration_seconds: float
+    findings: list[dict[str, Any]]
+    summary: dict[str, Any]
+    cross_reference: dict[str, Any]
+    resource_usage: dict[str, Any]
+    errors: list[str]
+
+
+class ExplainRequest(BaseModel):
+    finding: dict[str, Any]
+
+
+class POCRequest(BaseModel):
+    finding: dict[str, Any]
+
+
+class CrossRefRequest(BaseModel):
+    mythril_findings: list[dict[str, Any]]
+    slither_findings: list[dict[str, Any]] | None = None
+    manticore_findings: list[dict[str, Any]] | None = None
+    echidna_findings: list[dict[str, Any]] | None = None
+
+
+@app.post("/analyze/deep", response_model=ApiResponse)
+async def analyze_deep(body: GuidedAnalyzeRequest, request: Request) -> ApiResponse:
+    """Deep guided analysis: Slither → Mythril → cross-reference → AI explanation.
+
+    Pipeline:
+      1. Optional: call Slither for function targeting
+      2. Run Mythril with custom plugins and deeper analysis
+      3. Cross-reference findings with other tools
+      4. Score and filter HIGH/CRITICAL only
+      5. Return enriched findings
+    """
+    state = _get_state(request)
+    if not body.sources:
+        return ApiResponse(ok=False, error="At least one source file is required")
+
+    result = await state.guided_analyzer.analyze(
+        source_files=body.sources,
+        functions_to_test=body.functions,
+        timeout=body.timeout,
+        depth=body.depth,
+        use_slither_guide=body.use_slither_guide,
+        use_custom_plugins=body.use_custom_plugins,
+    )
+    state._mythril_findings_count += len(result.get("findings", []))
+    return ok(result)
+
+
+@app.post("/analyze/guided", response_model=ApiResponse)
+async def analyze_guided(body: GuidedAnalyzeRequest, request: Request) -> ApiResponse:
+    """Quick guided analysis — Slither → Mythril with auto settings."""
+    state = _get_state(request)
+    if not body.sources:
+        return ApiResponse(ok=False, error="At least one source file is required")
+
+    result = await state.guided_analyzer.analyze(
+        source_files=body.sources,
+        functions_to_test=body.functions,
+        timeout=min(body.timeout, 180),  # Shorter timeout
+        depth=32,  # Standard depth
+        use_slither_guide=body.use_slither_guide,
+        use_custom_plugins=True,
+    )
+    state._mythril_findings_count += len(result.get("findings", []))
+    return ok(result)
+
+
+@app.post("/intel/explain", response_model=ApiResponse)
+async def intel_explain(body: ExplainRequest, request: Request) -> ApiResponse:
+    """Get AI-powered or rule-based explanation for a finding."""
+    state = _get_state(request)
+    explanation = await state.enhanced_nlp.explain_finding(body.finding)
+    return ok({"explanation": explanation})
+
+
+@app.post("/intel/poc", response_model=ApiResponse)
+async def intel_poc(body: POCRequest, request: Request) -> ApiResponse:
+    """Generate PoC description for a finding."""
+    state = _get_state(request)
+    poc = await state.enhanced_nlp.generate_poc_description(body.finding)
+    return ok({"poc": poc})
+
+
+@app.post("/intel/summarize", response_model=ApiResponse)
+async def intel_summarize(body: IntelScoreRequest, request: Request) -> ApiResponse:
+    """Generate AI-powered summary of findings."""
+    state = _get_state(request)
+    summary = await state.enhanced_nlp.summarize_findings(body.findings)
+    return ok({"summary": summary})
+
+
+@app.post("/intel/fix/enhanced", response_model=ApiResponse)
+async def intel_fix_enhanced(body: IntelFixRequest, request: Request) -> ApiResponse:
+    """Get enhanced fix suggestions covering all 30 SWC entries."""
+    state = _get_state(request)
+    fixes = state.enhanced_fixer.get_fixes_batch(body.findings)
+    return ok({
+        "fixes": fixes,
+        "total_swc_covered": 30,
     })
+
+
+@app.post("/intel/crossref", response_model=ApiResponse)
+async def intel_crossref(body: CrossrefRequest, request: Request) -> ApiResponse:
+    """Cross-reference Mythril findings with Slither, Manticore, Echidna."""
+    state = _get_state(request)
+    result = state.cross_reference.cross_reference(
+        mythril_findings=body.mythril_findings,
+        slither_findings=body.slither_findings,
+        manticore_findings=body.manticore_findings,
+        echidna_findings=body.echidna_findings,
+    )
+    return ok(result)
+
+
+@app.post("/intel/ask/enhanced", response_model=ApiResponse)
+async def intel_ask_enhanced(body: IntelAskRequest, request: Request) -> ApiResponse:
+    """Ask questions with AI-powered responses (falls back to rule-based)."""
+    state = _get_state(request)
+    context = {
+        "findings": body.findings,
+        "swc_registry": state.classifier.get_swc_registry(),
+    }
+    answer = await state.enhanced_nlp.ask_question(body.query, context)
+    return ok({"answer": answer, "ai_used": state.enhanced_nlp._ai_url is not None})
+
+
+@app.get("/analyze/stats")
+async def analyze_stats(request: Request) -> ApiResponse:
+    """Get Mythril analysis statistics."""
+    state = _get_state(request)
+    return ok({
+        "total_findings_analyzed": state._mythril_findings_count,
+        "mythril_available": state.mythril_available,
+        "mythril_version": state.mythril_version,
+        "enhanced_modules": {
+            "guided_analyzer": True,
+            "cross_reference": True,
+            "enhanced_nlp": state.enhanced_nlp._ai_url is not None,
+            "enhanced_fixer": True,
+            "custom_plugins": True,
+            "resource_guard": True,
+        },
+        "swc_coverage": len(state.classifier.get_swc_registry()),
+    })
+
+
+# ═══════════════════════════════════════════════════════════
+# Agent Endpoints
+# ═══════════════════════════════════════════════════════════
+
+
+@app.get("/agent/manifest")
+async def mythril_agent_manifest(request: Request) -> ApiResponse:
+    """Publish agent manifest for Antonio discovery."""
+    state = _get_state(request)
+    if state.agent is None:
+        return ApiResponse(ok=False, error="Agent not initialized")
+    return ok(state.agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def mythril_agent_delegate(body: dict, request: Request) -> ApiResponse:
+    """Receive a delegation from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        return ApiResponse(ok=False, error="Agent not initialized")
+
+    delegation_req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await state.agent.handle_delegation(delegation_req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def mythril_agent_negotiate(body: dict, request: Request) -> ApiResponse:
+    """Handle a negotiation request from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        return ApiResponse(ok=False, error="Agent not initialized")
+
+    negotiation_req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await state.agent.handle_negotiation(negotiation_req)
+    return ok(response)

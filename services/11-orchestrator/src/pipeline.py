@@ -63,6 +63,7 @@ class Pipeline:
         (PipelineState.AI_ANALYSIS, "_run_ai_analysis", ToolType.AI),
         (PipelineState.CLASSIFYING, "_classify_findings", ToolType.CLASSIFIER),
         (PipelineState.EXPLOITING, "_generate_exploit", ToolType.EXPLOIT),
+        (PipelineState.RECLASSIFYING, "_reclassify_findings", None),
         (PipelineState.REPORTING, "_generate_report", ToolType.REPORTER),
         (PipelineState.NOTIFYING, "_notify", None),
     ]
@@ -76,6 +77,7 @@ class Pipeline:
         PipelineState.AI_ANALYSIS: PipelineState.AI_FAILED,
         PipelineState.CLASSIFYING: PipelineState.CLASSIFY_FAILED,
         PipelineState.EXPLOITING: PipelineState.EXPLOIT_FAILED,
+        PipelineState.RECLASSIFYING: PipelineState.CLASSIFY_FAILED,
         PipelineState.REPORTING: PipelineState.REPORT_FAILED,
         PipelineState.NOTIFYING: PipelineState.NOTIFY_FAILED,
     }
@@ -84,6 +86,7 @@ class Pipeline:
     COMPENSATIONS: Dict[PipelineState, List[str]] = {
         PipelineState.NOTIFYING: ["_compensate_notify"],
         PipelineState.REPORTING: ["_compensate_report"],
+        PipelineState.RECLASSIFYING: ["_compensate_reclassify"],
         PipelineState.EXPLOITING: ["_compensate_exploit"],
         PipelineState.CLASSIFYING: ["_compensate_classify"],
         PipelineState.AI_ANALYSIS: ["_compensate_ai"],
@@ -790,7 +793,88 @@ class Pipeline:
         resp = await self.client.post(url, json=payload, timeout=600.0)
         resp.raise_for_status()
         data = resp.json()
-        record.metadata["exploit_data"] = data.get("data")
+        exploit_data = data.get("data") or {}
+
+        # ── Feedback loop: send exploit result to Classifier ──
+        finding_id = target.get("id", target.get("finding_id", "F-001"))
+        try:
+            await self._send_exploit_feedback(
+                audit_id=record.audit_id,
+                finding_id=finding_id,
+                exploit_data=exploit_data,
+            )
+        except Exception as exc:
+            # Don't fail the pipeline if feedback fails — log and continue
+            logger.warning(
+                "Failed to send exploit feedback to classifier: %s", exc,
+            )
+
+        record.metadata["exploit_data"] = exploit_data
+        return data
+
+    async def _send_exploit_feedback(
+        self,
+        audit_id: str,
+        finding_id: str,
+        exploit_data: dict[str, Any],
+    ) -> None:
+        """Send exploit result back to Classifier for Stage 2 confirmation.
+
+        This is the core feedback loop of the Exploit-as-Truth architecture.
+        Called after each exploit attempt to update the finding classification
+        based on real execution results (not predictions).
+        """
+        exploit_successful = exploit_data.get("success", False)
+        tx_hash = exploit_data.get("tx_hash")
+
+        confirm_payload = {
+            "audit_id": audit_id,
+            "finding_id": finding_id,
+            "exploit_successful": exploit_successful,
+            "tx_hash": tx_hash,
+            "exploit_duration": exploit_data.get("duration_seconds"),
+            "attack_type": exploit_data.get("attack_type"),
+            "hypotheses_tried": exploit_data.get("hypotheses_tried"),
+        }
+
+        confirm_url = f"{config.classifier_url}/confirm"
+        resp = await self.client.post(confirm_url, json=confirm_payload)
+        resp.raise_for_status()
+
+        logger.info(
+            "exploit_feedback_sent",
+            audit_id=audit_id,
+            finding_id=finding_id,
+            exploit_successful=exploit_successful,
+        )
+
+    async def _reclassify_findings(self, record: AuditRecord) -> Dict[str, Any]:
+        """Run reclassification after exploit feedback.
+
+        This step triggers the Classifier to re-evaluate all findings
+        using the latest exploit-confirmed patterns. Called AFTER exploit
+        feedback has been sent to the Classifier.
+
+        Returns:
+            Dict with reclassification results.
+        """
+        url = f"{config.classifier_url}/reclassify"
+        payload = {
+            "audit_id": record.audit_id,
+        }
+
+        resp = await self.client.post(url, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        record.metadata["reclassification_data"] = data.get("data")
+
+        changed = (data.get("data") or {}).get("changed", 0)
+        logger.info(
+            "reclassification_complete",
+            audit_id=record.audit_id,
+            findings_changed=changed,
+        )
+
         return data
 
     async def _generate_report(self, record: AuditRecord) -> Dict[str, Any]:
@@ -952,6 +1036,10 @@ class Pipeline:
     async def _compensate_exploit(self, record: AuditRecord) -> None:
         """Remove exploit data."""
         record.metadata.pop("exploit_data", None)
+
+    async def _compensate_reclassify(self, record: AuditRecord) -> None:
+        """Remove reclassification data (rollback to Stage 1)."""
+        record.metadata.pop("reclassification_data", None)
 
     async def _compensate_report(self, record: AuditRecord) -> None:
         """Remove report path."""

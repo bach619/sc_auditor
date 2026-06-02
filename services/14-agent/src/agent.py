@@ -21,13 +21,16 @@ from typing import Any
 import httpx
 import structlog
 
-from src.llm import AgentReasoningClient
+from src.llm import AgentReasoningClient, CHAT_SYSTEM_PROMPT
 from src.memory import AgentMemory
 from src.models import (
     AgentResponse,
     AgentSession,
     AgentState,
     AgentStep,
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
     TaskType,
 )
 from src.planner import Planner, ExecutionPlan
@@ -61,6 +64,7 @@ class AgentLoop:
         self.planner = Planner()
         self.http_client = http_client
         self._sessions: dict[str, AgentSession] = {}
+        self._chat_sessions: dict[str, list[dict[str, str]]] = {}
 
     # ── Public API ─────────────────────────────────────────
 
@@ -391,6 +395,161 @@ class AgentLoop:
 
         return session
 
+    # ── Chat ───────────────────────────────────────────────
+
+    async def chat(
+        self,
+        message: str,
+        session_id: str | None = None,
+        max_steps: int = MAX_STEPS_DEFAULT,
+    ) -> ChatResponse:
+        """Handle a natural language chat message.
+
+        Runs the ReAct loop with the CHAT system prompt so Antonio
+        can understand user intent, call skills, and respond conversationally.
+        Maintains message history per session in working memory.
+
+        Args:
+            message: User's natural language message.
+            session_id: If provided, resume an existing chat session.
+            max_steps: Maximum ReAct steps.
+
+        Returns:
+            ChatResponse with Antonio's natural language response.
+        """
+        # Create or resume session
+        sid = session_id or f"chat-{uuid.uuid4().hex[:12]}"
+
+        if session_id and session_id in self._chat_sessions:
+            # Load existing history
+            history = self._chat_sessions[session_id]
+            self.memory.set_working("chat_history", history)
+            goal = f"Continue conversation. User says: {message}"
+        else:
+            # New session
+            history: list[dict[str, str]] = []
+            self._chat_sessions[sid] = history
+            goal = message
+
+        # Add user message to history
+        history.append({"role": "user", "content": message})
+        self.memory.set_working("chat_history", history)
+
+        # Init working memory for this chat turn
+        self.memory.set_working("task_type", TaskType.CHAT.value)
+        self.memory.set_working("goal", goal)
+        self.memory.set_working("findings", [])
+        self.memory.set_working("analyzed_findings", [])
+
+        log.info(
+            "chat_session",
+            session_id=sid,
+            message=message[:100],
+            history_len=len(history),
+        )
+
+        # Build context: recent history + working memory
+        context_parts = [f"User message: {message}"]
+        if len(history) > 1:
+            context_parts.append("\nRecent conversation:")
+            for msg in history[-6:-1]:  # Last 5 exchanges (exclude current)
+                role = "User" if msg["role"] == "user" else "Antonio"
+                content_preview = msg["content"][:200]
+                context_parts.append(f"  {role}: {content_preview}")
+        context_parts.append(f"\nWorking memory contents:\n{self.memory.build_context()}")
+        context = "\n".join(context_parts)
+
+        # ReAct loop with chat prompt
+        step_count = 0
+
+        for step_num in range(1, max_steps + 1):
+            step_count = step_num
+            skills_desc = self.registry.format_for_prompt()
+
+            # Use chat-specific system prompt
+            decision = await self.llm.reason_custom(
+                system_prompt=CHAT_SYSTEM_PROMPT.replace("{s Skills}", skills_desc),
+                context=context,
+                skills_desc="",  # Already in system prompt
+            )
+
+            action_name = decision.get("action", "FINAL_ANSWER")
+            action_input = decision.get("action_input") or {}
+            final_answer = decision.get("final_answer")
+            thought = decision.get("thought", "")
+
+            # FINAL ANSWER
+            if action_name == "FINAL_ANSWER":
+                response_text = final_answer or "Done."
+                # Add to history
+                history.append({"role": "assistant", "content": response_text})
+                self._chat_sessions[sid] = history
+
+                log.info(
+                    "chat_completed",
+                    session_id=sid,
+                    steps=step_count,
+                    response_length=len(response_text),
+                )
+                return ChatResponse(
+                    session_id=sid,
+                    response=response_text,
+                    steps_taken=step_count,
+                    status=AgentState.COMPLETED,
+                )
+
+            # Execute skill
+            log.info(
+                "chat_acting",
+                session_id=sid,
+                step=step_num,
+                skill=action_name,
+                thought=thought[:100],
+            )
+
+            result = await self.registry.execute(action_name, **action_input)
+
+            # Update context with observation
+            observation = self._format_observation(result)
+            context += f"\n\nStep {step_num}: Called {action_name}\nObservation: {observation[:500]}"
+
+            # Update working memory with findings if any
+            if result.success and isinstance(result.output, dict):
+                if "findings" in result.output:
+                    existing = self.memory.get_working("findings", [])
+                    existing.extend(result.output["findings"])
+                    self.memory.set_working("findings", existing)
+                if "analyzed_findings" in result.output:
+                    self.memory.set_working(
+                        "analyzed_findings",
+                        result.output["analyzed_findings"],
+                    )
+
+            if not result.success:
+                log.warning(
+                    "chat_step_failed",
+                    session_id=sid,
+                    step=step_num,
+                    skill=action_name,
+                    error=result.error,
+                )
+
+        # Max steps
+        fallback = (
+            "Maaf, saya butuh langkah lebih banyak untuk menyelesaikan ini. "
+            "Bisa coba pertanyaan yang lebih spesifik?"
+        )
+        history.append({"role": "assistant", "content": fallback})
+        self._chat_sessions[sid] = history
+
+        return ChatResponse(
+            session_id=sid,
+            response=fallback,
+            steps_taken=step_count,
+            status=AgentState.STOPPED,
+            error=f"Reached maximum steps ({max_steps})",
+        )
+
     # ── Helpers ────────────────────────────────────────────
 
     def _format_observation(self, result: Any) -> str:
@@ -440,6 +599,7 @@ class AgentLoop:
     ) -> str:
         """Generate default goal description based on task type."""
         goals = {
+            TaskType.CHAT: "Chat with user — answer questions, run audits, provide info",
             TaskType.FULL_AUDIT: (
                 "Complete smart contract audit: fetch source → scan for vulnerabilities "
                 "→ analyze findings with AI → classify TP/FP → exploit critical bugs "

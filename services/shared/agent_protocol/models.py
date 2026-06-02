@@ -25,6 +25,9 @@ class AgentCapability(str, Enum):
     MANAGE_WEBHOOK = "manage_webhook"
     SCHEDULE_TASKS = "schedule_tasks"
     SUBMIT_FINDING = "submit_finding"
+    RUN_MANTICORE = "run_manticore"
+    RUN_MYTHRIL_DEEP = "run_mythril_deep"
+    EXPERIENCE_QUERY = "experience_query"
 
 
 class AgentStatus(str, Enum):

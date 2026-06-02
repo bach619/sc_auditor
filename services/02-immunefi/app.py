@@ -38,7 +38,7 @@ from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 
 # ── Dependent service URLs (for cross-service integration) ─
 
-ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://11-orchestrator:8009")
+ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://11-orchestrator:8000")
 SOURCE_URL = os.getenv("SOURCE_URL", "http://03-source:8000")
 CONFIG_URL = os.getenv("CONFIG_URL", "http://01-config:8000")
 
@@ -71,6 +71,41 @@ _immunefi_agent: ImmunefiAgent | None = None
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Load programs on startup, clean up client on shutdown."""
     log.info("app.startup", service=SERVICE_NAME)
+
+    # ── Startup Validation ──────────────────────────────────
+    errors: list[str] = []
+
+    # Validate data directory
+    if not DATA_DIR.exists():
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            log.info("app.data_dir_created", path=str(DATA_DIR))
+        except OSError as e:
+            errors.append(f"Cannot create DATA_DIR {DATA_DIR}: {e}")
+    elif not os.access(str(DATA_DIR), os.W_OK):
+        errors.append(f"DATA_DIR {DATA_DIR} is not writable")
+
+    # Validate required subdirectories
+    for sub in ("programs", "history", "indexes"):
+        sub_path = DATA_DIR / sub
+        if not sub_path.exists():
+            try:
+                sub_path.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                errors.append(f"Cannot create {sub_path}: {e}")
+
+    # Validate env config has sensible defaults
+    if not ORCHESTRATOR_URL.startswith("http"):
+        errors.append(f"ORCHESTRATOR_URL does not look like a URL: {ORCHESTRATOR_URL}")
+    if not SOURCE_URL.startswith("http"):
+        errors.append(f"SOURCE_URL does not look like a URL: {SOURCE_URL}")
+
+    if errors:
+        for err in errors:
+            log.error("app.validation_error", error=err)
+        log.warning("app.startup_with_errors", error_count=len(errors))
+    else:
+        log.info("app.validation_passed")
 
     # Load existing programs from disk
     count = len(sync_manager.load_programs())
@@ -477,6 +512,76 @@ async def list_all_contracts(
         "offset": offset,
         "limit": limit,
         "contracts": paginated,
+    })
+
+
+@app.get("/contracts/scope")
+async def list_scope_contracts(
+    chain: str | None = Query(None, description="Filter by blockchain"),
+    min_bounty: float = Query(0, ge=0, description="Min program bounty in USD"),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=500),
+) -> ApiResponse:
+    """List ONLY in-scope smart contracts ready for audit scanning.
+
+    Filter:
+    - Hanya contracts dengan valid 0x address (42 chars)
+    - Hanya dari program active
+    - Filter chain (opsional)
+    - Filter minimum bounty (opsional)
+    - Kelompokan per program untuk konteks audit
+    """
+    scope_contracts = []
+
+    for program in sync_manager.programs.values():
+        # Skip program non-active
+        if program.status.lower() not in ("active", "live"):
+            continue
+
+        # Skip program below min bounty
+        if min_bounty > 0 and (program.max_bounty or 0) < min_bounty:
+            continue
+
+        for contract in program.contracts:
+            # Validasi: hanya address Ethereum valid
+            addr = contract.address.strip()
+            if not addr.startswith("0x") or len(addr) != 42:
+                continue
+
+            # Filter chain (opsional)
+            if chain:
+                chain_lower = chain.lower()
+                contract_chain = (contract.chain or "").lower()
+                program_chains = [c.lower() for c in program.chains]
+                if contract_chain != chain_lower and chain_lower not in program_chains:
+                    continue
+
+            c = contract.model_dump()
+            c["program_slug"] = program.slug
+            c["program_name"] = program.name
+            c["program_max_bounty"] = program.max_bounty
+            c["program_status"] = program.status
+            scope_contracts.append(c)
+
+    total = len(scope_contracts)
+    paginated = scope_contracts[offset:offset + limit]
+
+    # Group by chain untuk statistik
+    by_chain: dict[str, int] = {}
+    for c in scope_contracts:
+        ch = c.get("chain") or "unknown"
+        by_chain[ch] = by_chain.get(ch, 0) + 1
+
+    return ok({
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "contracts": paginated,
+        "stats": {
+            "total_scope_contracts": total,
+            "unique_programs": len(set(c["program_slug"] for c in scope_contracts)),
+            "by_chain": by_chain,
+        },
     })
 
 

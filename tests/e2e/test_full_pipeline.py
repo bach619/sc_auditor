@@ -117,10 +117,11 @@ class TestScannerTools:
         ("forge", "scanner_forge_url"),
         ("halmos", "scanner_halmos_url"),
         ("mythril", "scanner_mythril_url"),
+        ("manticore", "scanner_manticore_url"),
     ]
 
     async def test_scanner_tools_health(self, async_client: httpx.AsyncClient, request) -> None:
-        """All 5 scanner tool health endpoints respond."""
+        """All 6 scanner tool health endpoints respond."""
         for tool_name, fixture_name in self.SCANNER_TOOLS:
             url = request.getfixturevalue(fixture_name)
             try:

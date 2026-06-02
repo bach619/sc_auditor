@@ -13,8 +13,9 @@ import { PageHeader } from '../components/PageHeader'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog'
+
 import { formatDate } from '../lib/utils'
-import { Bot, Play, Loader2, Users, Brain, Search, Cpu, MessageSquare, Activity, Server } from 'lucide-react'
+import { Bot, Play, Loader2, Users, Brain, Search, Cpu, Activity, Server } from 'lucide-react'
 
 interface TeamMember {
   name: string; role: string; skills: string[]; status?: string
@@ -154,25 +155,6 @@ export default function Antonio() {
       <PageHeader title="Antonio" description="AI Agent Commander — orchestrates all service agents via natural language" />
 
       {error && <ErrorBanner message={error} onDismiss={() => setError('')} />}
-
-      {/* Quick Command Bar */}
-      <Card>
-        <div className="flex items-center gap-3">
-          <Bot className="w-5 h-5 text-vyper-400 flex-shrink-0" />
-          <Input
-            placeholder="Chat with Antonio — e.g., 'audit 0x1234 on ethereum', 'show me programs', 'generate report for audit_xxx'..."
-            className="flex-1"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                setModalOpen(true)
-              }
-            }}
-          />
-          <Button onClick={() => setModalOpen(true)}>
-            <Play className="w-4 h-4" /> Run Audit
-          </Button>
-        </div>
-      </Card>
 
       {/* Service Agents Status */}
       <Card>

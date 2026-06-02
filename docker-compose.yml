@@ -74,6 +74,8 @@ services:
   # 04a = Slither (static analysis)
   # 04b = Echidna (fuzzing)
   # 04c = Forge   (build verification)
+  # 04d = Halmos  (symbolic testing)
+  # 04e = Manticore (symbolic execution — HIGH/CRITICAL focus)
   # 05  = Mythril (symbolic execution) — already existed
 
   04a-scanner-slither:
@@ -120,7 +122,19 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
 
-  05-scanner-mythril:
+   04e-scanner-manticore:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: services/04e-scanner-manticore/Dockerfile
+    ports: ["8020:8018"]
+    volumes: [vyper_scanner_manticore:/data/scanner-manticore]
+    depends_on: [04a-scanner-slither]
+    environment:
+      - CONFIG_URL=http://01-config:8000
+      - SLITHER_URL=http://04a-scanner-slither:8014
+
+   05-scanner-mythril:
     <<: *service-base
     build:
       context: .
@@ -152,6 +166,7 @@ services:
     volumes:
       - vyper_classifier:/data/classifier
       - vyper_learning:/data/learning
+      - vyper_kb:/data/knowledge
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
@@ -168,6 +183,7 @@ services:
       # ephemeral Anvil containers. The Docker socket MUST be mounted
       # read-write so the SDK can perform container lifecycle operations.
       - /var/run/docker.sock:/var/run/docker.sock
+      - vyper_kb:/data/knowledge
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
@@ -313,6 +329,19 @@ services:
       - EXPLOIT_URL=http://08-exploit:8006
       - ORCHESTRATOR_URL=http://11-orchestrator:8000
 
+  17-experience:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: services/17-experience/Dockerfile
+    ports: ["8019:8019"]
+    volumes: [vyper_experience:/data/experience]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8019/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
 volumes:
   vyper_agent:
   vyper_dashboard:
@@ -321,6 +350,7 @@ volumes:
   vyper_scanner_echidna:
   vyper_scanner_forge:
   vyper_scanner_halmos:
+  vyper_scanner_manticore:
   vyper_immunefi:
   vyper_source:
   vyper_scanner:
@@ -334,6 +364,8 @@ volumes:
   vyper_webhook:
   vyper_upkeep:
   vyper_submission:
+  vyper_experience:
+  vyper_kb:
   vyper_learning:
 
 networks:

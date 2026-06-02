@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 Severity = Literal["critical", "high", "medium", "low", "informational"]
 Verdict = Literal["true_positive", "false_positive"]
-Provider = Literal["openai", "anthropic"]
+Provider = Literal["openai", "anthropic", "openrouter", "huggingface"]
 
 
 # ── Findings ──────────────────────────────────────────────
@@ -201,7 +201,7 @@ class HealthData(BaseModel):
         status: Service health status.
         service: Service name.
         version: Service version.
-        provider: Active AI provider (openai or anthropic).
+        provider: Active AI provider (openai, anthropic, openrouter, or huggingface).
         model: Active model name.
         cache_entries: Number of cached analysis results.
     """

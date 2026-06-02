@@ -27,7 +27,7 @@ def _env_or(key: str, default: str) -> str:
 @dataclass
 class ServiceURLs:
     orchestrator: str = field(
-        default_factory=lambda: _env_or("ORCHESTRATOR_URL", "http://localhost:8009")
+        default_factory=lambda: _env_or("ORCHESTRATOR_URL", "http://localhost:8000")
     )
     config: str = field(
         default_factory=lambda: _env_or("CONFIG_URL", "http://localhost:8011")
@@ -113,6 +113,11 @@ class ServiceProxy:
         """Create the shared HTTP client (call at app startup)."""
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(self._timeout),
+            limits=httpx.Limits(
+                max_connections=100,           # default 10 → 100 untuk handle parallel proxy + health poll
+                max_keepalive_connections=20,  # keepalive pool untuk reuse koneksi
+                keepalive_expiry=30.0,         # keepalive 30 detik
+            ),
             headers={
                 "User-Agent": "Vyper-Dashboard/1.0",
                 "X-API-Key": os.environ.get("DASHBOARD_API_KEY", "dev-mode-no-key"),
@@ -304,6 +309,21 @@ class ServiceProxy:
     async def get_updates(self) -> Dict[str, Any]:
         return await self._get(f"{self.urls.immunefi}/updates")
 
+    async def get_scope_contracts(
+        self,
+        chain: Optional[str] = None,
+        min_bounty: float = 0,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        """Get in-scope smart contracts ready for audit."""
+        params: Dict[str, Any] = {"offset": offset, "limit": limit}
+        if chain:
+            params["chain"] = chain
+        if min_bounty > 0:
+            params["min_bounty"] = min_bounty
+        return await self._get(f"{self.urls.immunefi}/contracts/scope", params=params)
+
     # ═══════════════════════════════════════════════════════════
     # Notifier Service
     # ═══════════════════════════════════════════════════════════
@@ -391,6 +411,15 @@ class ServiceProxy:
 
     async def get_agent_health(self) -> Dict[str, Any]:
         return await self._get(f"{self.urls.agent}/health")
+
+    async def send_chat_message(
+        self, message: str, session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Send a chat message to Antonio and get response."""
+        body: Dict[str, Any] = {"message": message}
+        if session_id:
+            body["session_id"] = session_id
+        return await self._post(f"{self.urls.agent}/agent/chat", json=body)
 
     # ═══════════════════════════════════════════════════════════
     # Health Check All Services

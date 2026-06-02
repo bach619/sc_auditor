@@ -41,6 +41,7 @@ _SERVICE_URLS: dict[str, str] = {
     "upkeep": "http://localhost:8012",
     "agent": "http://localhost:8021",  # 14-agent on port 8021 (hindari bentrok 04a-scanner-slither di 8014)
     "dashboard": "http://localhost:8000",
+    "scanner_manticore": "http://localhost:8020",
     "submission": "http://localhost:8018",
 }
 
@@ -228,6 +229,12 @@ def agent_url() -> str:
 def dashboard_url() -> str:
     """Dashboard Service URL."""
     return _service_url("dashboard")
+
+
+@pytest.fixture()
+def scanner_manticore_url() -> str:
+    """Scanner Manticore Service URL."""
+    return _service_url("scanner_manticore")
 
 
 @pytest.fixture()

@@ -14,9 +14,11 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
+from shared.skills.skill_registry import SkillRegistry
 
 from .classify import Classifier
 from .metrics import MetricsTracker
+from .skills import create_registry
 
 
 class ClassifierAgent(BaseAgent):
@@ -25,10 +27,12 @@ class ClassifierAgent(BaseAgent):
     def __init__(self, classifier: Classifier, metrics: MetricsTracker) -> None:
         self._classifier = classifier
         self._metrics = metrics
+        self.skill_registry = create_registry()
         super().__init__(
             service_name="07-classifier",
             agent_role="bug_classifier",
             version="0.1.0",
+            skill_registry=self.skill_registry,
         )
         self._max_concurrent = 5
 

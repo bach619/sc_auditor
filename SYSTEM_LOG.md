@@ -1,5 +1,11 @@
 # System Log — sc_auditor (Vyper)
 
+## 2026-06-02
+
+### `2026-06-02 | [FIX] | File: docker-compose.yml + conftest.py + test_full_pipeline.py + services/04d-scanner-halmos/Dockerfile | Agent: lore-master | [pipeline-e2e] FIX: Port conflict 8018 (04e-manticore → 8020), tambah HEALTHCHECK ke halmos, tambah scanner_manticore fixture di conftest & E2E test`
+
+
+
 > **System Log** — Mencatat **setiap perubahan** (write/modify/delete) yang dilakukan oleh opencode agents.
 >
 > Format: `YYYY-MM-DD HH:MM | [TYPE] | File: path | Agent: agent | Deskripsi`
@@ -12,6 +18,215 @@
 > Atau edit langsung file ini (append di bagian atas).
 
 ---
+
+## 2026-06-02
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/pages/Settings.tsx + services/06-ai/src/llm.py + services/06-ai/src/models.py + services/06-ai/app.py | Agent: lore-master | [openrouter] MODIFY: Tambah OpenRouter sebagai provider LLM — Settings UI (28 model FREE variants dari DeepSeek, OpenAI OSS, Meta, Qwen, Google, NVIDIA, Nous, Z.ai, MoonshotAI, Poolside, Arcee, Liquid, MiniMax, Community + openrouter/free auto-router), LLMClient (openrouter_key, openrouter_model, openrouter_base_url, _call_openrouter OpenAI-compatible API), Provider literal update, AI config loader. Default model: openrouter/free`
+
+### `2026-06-02 | [CREATE] | File: services/04a-scanner-slither/src/intelligence/ai_verifier.py | Agent: lore-master | [slither-quality] CREATE: AI Verifier (L5) — integrasi 06-AI /analyze untuk TP/FP classification per finding, local disk cache (7-day TTL), heuristic fallback saat AI offline, batch verification`
+
+### `2026-06-02 | [CREATE] | File: services/04a-scanner-slither/src/intelligence/fp_patterns.py | Agent: lore-master | [slither-quality] CREATE: FP Pattern Matcher (L6) — 15 known FP patterns (reentrancy guard, CEI, SafeERC20, checked return, deadline, tx.origin defense), regex-based, FpPatternMatcher + FpMatchResult, custom pattern loading`
+
+### `2026-06-02 | [CREATE] | File: services/04a-scanner-slither/src/intelligence/pipeline.py | Agent: lore-master | [slither-quality] CREATE: Quality Pipeline (L7) — 6-stage orchestrator: FP_PATTERN → NOISE_FILTER → AI_VERIFY → SCORE → RANK → ENRICH, ProcessedFinding with quality_score, QualityReport with drop_rate/overall_quality`
+
+### `2026-06-02 | [CREATE] | File: services/04a-scanner-slither/detectors/detector_vyper_reentrancy.py | Agent: lore-master | [slither-quality] CREATE: Custom Vyper Reentrancy Detector — raw_call/send before state update detection`
+
+### `2026-06-02 | [CREATE] | File: services/04a-scanner-slither/detectors/detector_vyper_storage.py | Agent: lore-master | [slither-quality] CREATE: Custom Vyper Storage Collision Detector — proxy storage gap detection`
+
+### `2026-06-02 | [CREATE] | File: services/04a-scanner-slither/detectors/detector_vyper_integer.py | Agent: lore-master | [slither-quality] CREATE: Custom Vyper Integer Safety Detector — divide-before-multiply, unsafe convert(), loop arithmetic`
+
+### `2026-06-02 | [MODIFY] | File: services/04a-scanner-slither/detectors/__init__.py | Agent: lore-master | [slither-quality] UPDATE: Updated module docstring with 6 available custom detectors`
+
+### `2026-06-02 | [MODIFY] | File: services/04a-scanner-slither/src/intelligence/__init__.py | Agent: lore-master | [slither-quality] MODIFY: Export AIVerifier, FpPatternMatcher, FpMatchResult, QualityPipeline, PipelineStage, ProcessedFinding, QualityReport + factories`
+
+### `2026-06-02 | [MODIFY] | File: services/04a-scanner-slither/src/skills/run_slither.py | Agent: lore-master | [slither-quality] MODIFY: RunSlitherSkill — dari stub ke pipeline execution: contract classification, SlitherRunner, QualityPipeline post-process, min_quality_score, enable_ai_verify toggle`
+
+### `2026-06-02 | [MODIFY] | File: services/04a-scanner-slither/src/skills/interpret_slither.py | Agent: lore-master | [slither-quality] MODIFY: InterpretSlitherSkill — dari stub ke full intelligence: FP matching, scoring, exploit paths, fix generation, NLP query`
+
+### `2026-06-02 | [MODIFY] | File: services/04a-scanner-slither/src/skills/__init__.py | Agent: lore-master | [slither-quality] MODIFY: create_registry() — optional runner/pipeline/classifier params passed to RunSlitherSkill`
+
+### `2026-06-02 | [MODIFY] | File: services/04a-scanner-slither/src/agent.py | Agent: lore-master | [slither-quality] MODIFY: SlitherAgent v0.3.0 — pipeline integration, contract classification, enable_pipeline/enable_ai_verify config, quality_report output, drop_rate tracking`
+
+### `2026-06-02 | [MODIFY] | File: services/04a-scanner-slither/app.py | Agent: lore-master | [slither-quality] MODIFY: 5 new endpoints (POST /pipeline/run, POST /pipeline/ai-verify, POST /pipeline/fp-patterns, GET /pipeline/stats), pipeline components in AppState, version 0.2.0→0.3.0, fix duplicate list_detectors`
+
+### `2026-06-02 | [MODIFY] | File: services/04a-scanner-slither/src/intelligence/scorer.py | Agent: lore-master | [slither-quality] MODIFY: CompositeScorer — ai_confidence parameter blending historical + AI confidence, score_findings accepts ai_confidences dict`
+
+### `2026-06-02 | [DOCS] | File: docs/plans/2026-06-02-echidna-fix-p2-p3.md | Agent: lore-master | [echidna-p2p3] Implementation plan — 7 task: harness invariants, multi-contract, coverage, queue, FP/TP DB, ARM64, cost estimation`
+
+### `2026-06-02 | [MODIFY] | File: services/04b-scanner-echidna/src/echidna.py | Agent: lore-master | [echidna-p2p3] P2-1: Upgrade HARNESS_TEMPLATE — dari 1 jadi 5 default invariants (eth_balance_cap, no_selfdestruct, owner_not_zero, total_supply_valid)`
+
+### `2026-06-02 | [MODIFY] | File: services/04b-scanner-echidna/src/echidna.py | Agent: lore-master | [echidna-p2p3] P2-2: Multi-contract dependency support — tambah _resolve_dependencies() recursive, _resolved_sources di __init__, cryticArgs di _build_config`
+
+### `2026-06-02 | [MODIFY] | File: services/04b-scanner-echidna/src/echidna.py + vyper_lib/models.py | Agent: lore-master | [echidna-p2p3] P2-3: Coverage extraction — tambah _extract_coverage() + --coverage true flag + coverage field di ToolResult`
+
+### `2026-06-02 | [CREATE] | File: services/04b-scanner-echidna/src/queue_manager.py | Agent: lore-master | [echidna-p2p3] P2-4: Async queue management — ScanQueue class dengan semaphore + status tracking`
+
+### `2026-06-02 | [MODIFY] | File: services/04b-scanner-echidna/app.py | Agent: lore-master | [echidna-p2p3] P2-4: Integrasi ScanQueue + endpoint GET /scan/queue dan /scan/queue/{audit_id}`
+
+### `2026-06-02 | [CREATE] | File: services/04b-scanner-echidna/src/intelligence/fp_tp_db.py | Agent: lore-master | [echidna-p2p3] P3-1: L3 FP/TP Database — FpTpDatabase class dengan persistent JSON, 90-day auto-prune, per-function FP rate`
+
+### `2026-06-02 | [MODIFY] | File: services/04b-scanner-echidna/src/intelligence/__init__.py + app.py | Agent: lore-master | [echidna-p2p3] P3-1: Integrasi FpTpDatabase — export + AppState init + endpoints GET /fp-tp/stats, POST /fp-tp/record`
+
+### `2026-06-02 | [MODIFY] | File: services/04b-scanner-echidna/Dockerfile | Agent: lore-master | [echidna-p2p3] P3-2: ARM64 support — case statement detect uname -m, download correct arch (x86_64/aarch64/arm64)`
+
+### `2026-06-02 | [MODIFY] | File: services/04b-scanner-echidna/src/agent.py | Agent: lore-master | [echidna-p2p3] P3-3: Cost estimation — tambah estimate_cost() method (lines, complexity, duration, cost USD)`
+
+### `2026-06-02 | [TEST] | File: tests/04b-scanner-echidna/* (7 files) | Agent: lore-master | [echidna-intel] Buat 7 file test — __init__.py, conftest.py, test_classifier.py (12 tests), test_scorer.py (9 tests), test_fixer.py (7 tests), test_path_predictor.py (10 tests), test_nlp.py (8 tests) — total 42 tests untuk intelligence modules`
+
+### `2026-06-02 | [FIX] | File: services/04b-scanner-echidna/app.py | Agent: lore-master | [echidna-intel] Fix enrichment reliability — ganti `if result.success and result.findings:` jadi `if result.findings:` agar enrichment tetap jalan ketika findings ada meskipun exit code 0`
+
+### `2026-06-02 | [FIX] | File: services/04b-scanner-echidna/src/agent.py | Agent: lore-master | [echidna-intel] Fix parameter mismatch — ganti `sources={...}` dict → `source_dir: Path` + `contract_name` di `_execute_task()` supaya match signature `EchidnaRunner.run()`
+
+### `2026-06-02 | [DOCS] | File: docs/plans/2026-06-02-echidna-fix-p0-p1.md | Agent: lore-master | [echidna-intel] Implementation plan — 3 task: fix agent.py bug, fix app.py enrichment, unit tests 5 intelligence modules`
+
+### `2026-06-02 | [DOCS] | File: docs/plans/2026-06-02-exploit-as-truth.md | Agent: lore-master | [exploit-truth] Implementation plan — Exploit-as-Truth architecture, 3-layer decision flow, feedback loop Exploit→Classifier`
+
+### `2026-06-02 | [MODIFY] | File: services/07-classifier/src/models.py | Agent: lore-master | [exploit-truth] Tambah ExploitStatus enum, ExploitConfirmRequest, ExploitFeedbackRecord models`
+
+### `2026-06-02 | [MODIFY] | File: services/07-classifier/src/classify.py | Agent: lore-master | [exploit-truth] Tambah receive_exploit_feedback() — Stage 2 classification berdasarkan exploit result`
+
+### `2026-06-02 | [MODIFY] | File: services/07-classifier/src/improver.py | Agent: lore-master | [exploit-truth] Tambah learn_from_exploit() + _register_or_update_pattern() — auto-learning dari exploit feedback`
+
+### `2026-06-02 | [MODIFY] | File: services/07-classifier/app.py | Agent: lore-master | [exploit-truth] Tambah POST /confirm endpoint — terima exploit feedback, trigger reclassify + learning + metrics`
+### `2026-06-02 | [FIX] | File: services/07-classifier/app.py | Agent: lore-master | [exploit-truth] Tambah import datetime hilang + error meta dict kehilangan field 'error' karena coercion Pydantic`
+
+### `2026-06-02 | [MODIFY] | File: services/11-orchestrator/src/models.py | Agent: lore-master | [exploit-truth] Tambah RECLASSIFYING state di PipelineState enum`
+
+### `2026-06-02 | [MODIFY] | File: services/11-orchestrator/src/pipeline.py | Agent: lore-master | [exploit-truth] Tambah RECLASSIFYING step di WORKFLOW + _send_exploit_feedback() loop ke Classifier + _reclassify_findings() handler + _compensate_reclassify()`
+
+### `2026-06-02 | [MODIFY] | File: services/09-reporter/src/immunefi.py | Agent: lore-master | [exploit-truth] Update _filter_true_positives() — hanya include finding dengan exploit success jika exploit_results tersedia`
+
+### `2026-06-02 | [FIX] | File: services/08-exploit/src/fork_proxy.py | Agent: lore-master | [exploit-10] Fix Fork Proxy: `async with self._http_client` nutup client setelah request pertama — ganti jadi direct usage`
+
+### `2026-06-02 | [FIX] | File: services/08-exploit/src/fork_proxy.py | Agent: lore-master | [exploit-10] Fix Fork Proxy: `start()` return upstream RPC URL, bukan proxy URL — tambah host/port params, return `http://{host}:{port}/fork/rpc`
+
+### `2026-06-02 | [CREATE] | File: services/08-exploit/app.py | Agent: lore-master | [exploit-10] Tambah POST /fork/rpc endpoint — proxy JSON-RPC lewat ForkProxy untuk fork mode aman`
+
+### `2026-06-02 | [MODIFY] | File: services/08-exploit/src/engine.py | Agent: lore-master | [exploit-10] Update start() call ke fork proxy — tambah host=0.0.0.0, port=8555`
+
+### `2026-06-02 | [MODIFY] | File: services/08-exploit/src/poc_generator.py | Agent: lore-master | [exploit-10] Replace template markers + inject real exploit code dari exploit_sequence, bukan stub "IMPLEMENT HERE"`
+
+### `2026-06-02 | [MODIFY] | File: services/08-exploit/src/primitives/__init__.py | Agent: lore-master | [exploit-10] `compose_exploit()` sekarang collect imports & state declarations dari tiap primitive, inject ke header`
+
+### `2026-06-02 | [DELETE] | File: services/08-exploit/src/executor.py | Agent: lore-master | [exploit-10] Hapus dead code — superseded by isolated_executor.py`
+
+### `2026-06-02 | [MODIFY] | File: services/08-exploit/src/anvil.py | Agent: lore-master | [exploit-10] Port range management — port dynamic 8545-8645, _get_available_port() + _release_port(), port_bind: int | None = None`
+
+### `2026-06-02 | [CREATE] | File: services/08-exploit/src/config.py | Agent: lore-master | [exploit-10] Centralized config — semua env vars di satu ExploitConfig dataclass`
+
+### `2026-06-02 | [TEST] | File: services/08-exploit/tests/* (7 files) | Agent: lore-master | [exploit-10] Buat 7 test file — __init__.py, conftest.py, test_models.py (6 tests), test_primitives.py (6 tests), test_poc_generator.py (6 tests), test_analyzer.py (4 tests), test_sanitizer.py (4 tests) — total 28 tests PASS`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/* | Agent: lore-master | [manticore-service] Buat 17 file — full service Manticore symbolic execution fokus HIGH/CRITICAL bug`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/Dockerfile | Agent: lore-master | [manticore-service] Dockerfile — install manticore pip, expose 8018`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/app.py | Agent: lore-master | [manticore-service] FastAPI app — /analyze, /confirm, /health, agent endpoints`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/detectors/reentrancy_high.py | Agent: lore-master | [manticore-service] Cross-contract reentrancy detector — CEI violation, multi-function reentry`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/detectors/access_control.py | Agent: lore-master | [manticore-service] Critical access control bypass detector — owner check, init front-running, selfdestruct`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/detectors/flash_loan_oracle.py | Agent: lore-master | [manticore-service] Flash loan + oracle manipulation — multi-tx symbolic, price manipulation path`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/detectors/overflow_critical.py | Agent: lore-master | [manticore-service] Integer overflow → fund loss — ADD/SUB/MUL overflow tracking ke CALL/SSTORE`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/detectors/delegatecall_arb.py | Agent: lore-master | [manticore-service] Arbitrary delegatecall injection — symbolic address, proxy upgrade, storage collision`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/guided_analyzer.py | Agent: lore-master | [manticore-service] Slither → Manticore guided pipeline + synthax fallback`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/severity_scorer.py | Agent: lore-master | [manticore-service] Scorer — filter hanya HIGH/CRITICAL, skor confidence, cross-ref Slither`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/resource_guard.py | Agent: lore-master | [manticore-service] Timeout, path limit, state limit — prevent runaway symbolic execution`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/agent.py | Agent: lore-master | [manticore-service] ManticoreAgent — RUN_MANTICORE capability, delegate/negotiate`
+
+### `2026-06-02 | [MODIFY] | File: docker-compose.yml | Agent: lore-master | [manticore-service] Tambah service 04e-scanner-manticore port 8018 + volume`
+
+### `2026-06-02 | [MODIFY] | File: services/shared/agent_protocol/models.py | Agent: lore-master | [manticore-service] Tambah enum RUN_MANTICORE = "run_manticore"`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/mythril_modules/* | Agent: lore-master | [mythril-upgrade] Buat 5 custom Mythril analysis modules — reentrancy_enhanced, access_control_deep, delegatecall_arbitrary, flash_loan_oracle, overflow_chain`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/guided_analyzer.py | Agent: lore-master | [mythril-upgrade] Slither → Mythril guided analysis pipeline — target fungsi HIGH/CRITICAL dari Slither`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/cross_reference.py | Agent: lore-master | [mythril-upgrade] Cross-reference engine — bandingkan temuan Mythril dgn Slither, Manticore, Echidna`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/enhanced_nlp.py | Agent: lore-master | [mythril-upgrade] AI-enhanced NLP — integrasi 06-ai LLM untuk explain, PoC, report section, summarize`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/_rule_based_nlp.py | Agent: lore-master | [mythril-upgrade] Rule-based NLP fallback — enhanced dari MythrilNLP asli dengan lebih banyak intent`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/enhanced_fixer.py | Agent: lore-master | [mythril-upgrade] Expanded fix library — dari 6 SWC jadi 30 SWC (semua known SWC)`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/resource_guard.py | Agent: lore-master | [mythril-upgrade] Resource guard — timeout, function limit, depth adjustment`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/severity_scorer.py | Agent: lore-master | [mythril-upgrade] Severity scorer — SWC base score + fund_boost + filter HIGH/CRITICAL`
+
+### `2026-06-02 | [MODIFY] | File: services/05-scanner-mythril/app.py | Agent: lore-master | [mythril-upgrade] Tambah 8 endpoint baru — /analyze/deep, /analyze/guided, /intel/explain, /intel/poc, /intel/summarize, /intel/fix/enhanced, /intel/crossref, /intel/ask/enhanced`
+
+### `2026-06-02 | [MODIFY] | File: services/05-scanner-mythril/src/agent.py | Agent: lore-master | [mythril-upgrade] Tambah RUN_MYTHRIL_DEEP capability — deep analysis via GuidedAnalyzer, backward compat`
+
+### `2026-06-02 | [MODIFY] | File: services/shared/agent_protocol/models.py | Agent: lore-master | [mythril-upgrade] Tambah enum RUN_MYTHRIL_DEEP = "run_mythril_deep"`
+
+### `2026-06-02 | [MODIFY] | File: services/shared/agent_protocol/registry.py | Agent: lore-master | [manticore-service] Daftar 04e-scanner-manticore:8018 ke _known_services`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/src/proxy.py | Agent: lore-master | [contracts-table] Tambah get_scope_contracts() proxy method — ambil contract siap audit dari Immunefi`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/app.py | Agent: lore-master | [contracts-table] Tambah route GET /api/contracts/scope — proxy contract scope ke frontend`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/lib/api.ts | Agent: lore-master | [contracts-table] Tambah ScopeContract interface + getScopeContracts() API method`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/pages/Programs.tsx | Agent: lore-master | [contracts-table] Rewrite: dari program cards jadi full table smart contracts siap audit + stats bar + filter + Audit button navigate ke Antonio`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/components/chat/ChatInput.tsx | Agent: lore-master | [contracts-table] Tambah initialValue prop — auto-fill dari navigation state`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/components/chat/ChatPanel.tsx | Agent: lore-master | [contracts-table] Baca location state untuk suggestAudit — auto-fill input dari pilihan contract`
+
+### `2026-06-02 | [CREATE] | File: services/15-dashboard/frontend/src/components/chat/ChatMessage.tsx | Agent: lore-master | [antonio-chat] Komponen chat bubble — user/assistant, markdown render, code blocks`
+
+### `2026-06-02 | [CREATE] | File: services/15-dashboard/frontend/src/components/chat/ChatInput.tsx | Agent: lore-master | [antonio-chat] Komponen chat input — auto-resize textarea, send button, Enter/Shift+Enter`
+
+### `2026-06-02 | [CREATE] | File: services/15-dashboard/frontend/src/components/chat/ChatPanel.tsx | Agent: lore-master | [antonio-chat] Komponen chat panel — message list, session management, typing indicator, welcome message`
+
+### `2026-06-02 | [CREATE] | File: services/15-dashboard/frontend/src/components/chat/index.ts | Agent: lore-master | [antonio-chat] Re-export chat components`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/lib/api.ts | Agent: lore-master | [antonio-chat] Tambah sendChatMessage() API method`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/pages/Antonio.tsx | Agent: lore-master | [antonio-chat] Ganti Quick Command Bar dengan ChatPanel — real chat UI`
+
+### `2026-06-02 | [MODIFY] | File: services/14-agent/src/models.py | Agent: lore-master | [antonio-chat] Tambah TaskType.CHAT, ChatMessage, ChatRequest, ChatResponse models`
+
+### `2026-06-02 | [MODIFY] | File: services/14-agent/src/llm.py | Agent: lore-master | [antonio-chat] Tambah CHAT_SYSTEM_PROMPT — instruksi ReAct untuk chat mode`
+
+### `2026-06-02 | [MODIFY] | File: services/14-agent/src/agent.py | Agent: lore-master | [antonio-chat] Tambah chat() method di AgentLoop — natural language chat via ReAct`
+
+### `2026-06-02 | [MODIFY] | File: services/14-agent/app.py | Agent: lore-master | [antonio-chat] Tambah endpoint POST /agent/chat — chat dengan Antonio`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/src/proxy.py | Agent: lore-master | [antonio-chat] Tambah send_chat_message() proxy method`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/app.py | Agent: lore-master | [antonio-chat] Tambah route POST /api/agent/chat — proxy ke Antonio`
+
+### `2026-06-02 | [MODIFY] | File: services/shared/agent_protocol/registry.py | Agent: lore-master | [full-registration] Tambah 6 service missing ke _known_services: 04a,04b,04c,04d,05,14-agent — total jadi 18 service known`
+
+### `2026-06-02 | [CREATE] | File: services/04a-scanner-slither/src/agent.py | Agent: lore-master | [full-registration] SlitherAgent(BaseAgent) — RUN_STATIC_ANALYSIS capability + 3 agent endpoints di app.py`
+
+### `2026-06-02 | [CREATE] | File: services/04b-scanner-echidna/src/agent.py | Agent: lore-master | [full-registration] EchidnaAgent(BaseAgent) — RUN_FUZZING capability + 3 agent endpoints di app.py`
+
+### `2026-06-02 | [CREATE] | File: services/04c-scanner-forge/src/agent.py | Agent: lore-master | [full-registration] ForgeAgent(BaseAgent) — RUN_FORGE capability + 3 agent endpoints di app.py`
+
+### `2026-06-02 | [CREATE] | File: services/04d-scanner-halmos/src/agent.py | Agent: lore-master | [full-registration] HalmosAgent(BaseAgent) — RUN_SYMBOLIC capability + 3 agent endpoints di app.py`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/agent.py | Agent: lore-master | [full-registration] MythrilAgent(BaseAgent) — RUN_SYMBOLIC capability + 3 agent endpoints di app.py`
+
+### `2026-06-02 | [DOCS] | File: ARCHITECTURE.md | Agent: lore-master | [antonio-supremacy] Tambah section 9: Antonio Supremacy — Chain of Command 4 level, 6 aturan mutlak (R1-R6), diagram kontrol, status implementasi`
+
+### `2026-06-02 | [DOCS] | File: ARCHITECTURE.md | Agent: lore-master | [antonio-supremacy] Tambah section 9.5: Violation 06-ai — temuan audit R1 violation (LLMClient + AIAgent otonom)`
+
+### `2026-06-02 | [MODIFY] | File: services/06-ai/src/agent_loop.py | Agent: lore-master | [antonio-supremacy] STRIP AIAgent: hapus SkillRegistry, 4 skills, severity-based routing, _generate_reflection, DEEP_ANALYSIS capability — jadi pure delegation receiver`
+
+### `2026-06-02 | [MODIFY] | File: services/06-ai/src/skills/*.py | Agent: lore-master | [antonio-supremacy] DEPRECATE 5 file skills — semua isi diganti deprecation notice. Logic pindah ke analyzer.py/fixer.py`
+
+### `2026-06-02 | [MODIFY] | File: services/06-ai/app.py | Agent: lore-master | [antonio-supremacy] Fix AIAgent init: pindah FixSuggester creation sebelum AIAgent, ganti llm_client param → fixer param`
+
+### `2026-06-02 | [DOCS] | File: ARCHITECTURE.md | Agent: lore-master | [antonio-supremacy] Update section 9.5: Violation → Fix. Status table R1: VIOLASI → FIXED`
 
 ## 2026-06-01
 
@@ -28,6 +243,15 @@
 ### `2026-06-01 14:00 | [CREATE] | File: services/03-source/src/agent.py | Agent: lore-master | [agent-orchestration] SourceAgent(BaseAgent) — FETCH_SOURCE capability + agent endpoints`
 
 ### `2026-06-01 14:00 | [MODIFY] | File: services/03-source/app.py | Agent: lore-master | [agent-orchestration] Tambah init SourceAgent di lifespan + /agent/manifest, /agent/delegate, /agent/negotiate`
+
+### `2026-06-01 15:30 | [CREATE] | File: services/02-immunefi/src/providers/immunefi_web_scraper.py | Agent: lore-master | [immunefi-web-scraper] Buat ImmunefiWebScraper provider — scrape live immunefi.com/bug-bounty/ dengan 3 layer: __NEXT_DATA__, RSC streaming, HTML BeautifulSoup. Filter hanya smart_contract assets`
+### `2026-06-01 15:30 | [MODIFY] | File: services/02-immunefi/src/providers/__init__.py | Agent: lore-master | [immunefi-web-scraper] Register ImmunefiWebScraper ke PROVIDER_REGISTRY (priority=8)`
+### `2026-06-01 15:30 | [MODIFY] | File: services/02-immunefi/app.py | Agent: lore-master | [immunefi-web-scraper] Tambah endpoint GET /contracts/scope — return only in-scope smart contracts siap audit, dengan filter chain + min_bounty + grouping`
+### `2026-06-01 15:30 | [MODIFY] | File: services/02-immunefi/src/scraper.py | Agent: lore-master | [immunefi-web-scraper] Multi-source fallback: GitHub mirror → ImmunefiWebScraper. Parse_contracts handle assets[] format (GitHub mirror) + chain detection from URL`
+### `2026-06-01 15:30 | [MODIFY] | File: services/02-immunefi/src/providers/immunefi_mirror.py | Agent: lore-master | [immunefi-web-scraper] Fix 404 API endpoint — redirect ke web scraper atau HTML parsing`
+
+### `2026-06-01 15:40 | [MODIFY] | File: services/03-source/src/providers/etherscan.py | Agent: lore-master | [etherscan-api-key] Embed Etherscan API key (F3VMTJ...) langsung di kode EtherscanProvider — tidak pakai .env`
+### `2026-06-01 15:40 | [MODIFY] | File: services/03-source/src/providers/etherscan_chain.py | Agent: lore-master | [etherscan-api-key] Embed Etherscan API key sebagai fallback di EtherscanChainProvider ketika env var per-chain tidak diset`
 
 ### `2026-06-01 14:00 | [CREATE] | File: services/07-classifier/src/agent.py | Agent: lore-master | [agent-orchestration] ClassifierAgent(BaseAgent) — CLASSIFY_FINDINGS capability`
 
@@ -102,4 +326,116 @@
 
 > Lihat `.context/activity-log.md` dan `daily_agenda/activity-log.md` untuk aktivitas sebelumnya.
 > System Log ini mulai berlaku sejak 2026-05-26.
+
+## 2026-06-02
+
+### `2026-06-02 | [FIX] | File: services/02-immunefi/src/providers/immunefi_mirror.py | Agent: lore-master | [crash-fix] CRITICAL #1 — Tambah `import re` (NameError pada `re.compile`)`
+
+### `2026-06-02 | [FIX] | File: services/02-immunefi/app.py, services/02-immunefi/src/contract_fetcher.py | Agent: lore-master | [crash-fix] CRITICAL #2 — Ubah orchestrator port dari 8009 ke 8000 (connection refused di container)`
+
+### `2026-06-02 | [FIX] | File: services/02-immunefi/src/sync.py | Agent: lore-master | [crash-fix] CRITICAL #3 — Tambah try/finally untuk close provider HTTP clients di _fetch_from_all_providers dan _fetch_best_detail (connection leak)`
+
+### `2026-06-02 | [MODIFY] | File: services/02-immunefi/src/providers/immunefi_web_scraper.py | Agent: lore-master | [quality] HIGH #4 — Tambah rate limiter (3 req/s token bucket + 5 concurrent semaphore), retry 429 dengan backoff, shared _request() helper. Ganti semua 5x client.get() langsung`
+
+### `2026-06-02 | [MODIFY] | File: services/02-immunefi/src/storage.py | Agent: lore-master | [quality] HIGH #5 — Tambah MAX_HISTORY_ENTRIES=500 + _prune_history_file() yang truncate file > ~175KB. Auto-prune setelah setiap append`
+
+### `2026-06-02 | [MODIFY] | File: services/02-immunefi/src/sync.py | Agent: lore-master | [quality] HIGH #6 — Baca GITHUB_TOKEN dari env, inject sebagai Authorization header di semua GitHub API calls (has_updates, _fetch_latest_commit, _get_changed_files)`
+
+### `2026-06-02 | [MODIFY] | File: services/02-immunefi/src/scraper.py | Agent: lore-master | [quality] HIGH #7 — Hapus duplicate ImmunefiWebScraper fallback dari fetch_program_list dan fetch_program_detail (web scraper sudah registered sebagai provider, di-call oleh sync.py via provider registry)`
+
+### `2026-06-02 | [TEST] | File: services/02-immunefi/tests/*.py (5 files) | Agent: lore-master | [quality] HIGH #8 — Tambah 3 test suites: test_storage (save/load, history, pruning, indexes, sync log, edge cases), test_parsing (parse_contracts, chain detection, dedup, filtering), test_web_scraper (extract_next_data, parse_bounty_string, has_smart_contracts, extract_from_next_data)`
+
+### `2026-06-02 | [FIX] | File: services/02-immunefi/tests/*.py + scraper.py + web_scraper.py + storage.py | Agent: lore-master | [test-fix] Fix 9 test failures — chain detection (snowtrace.io, optimistic.etherscan.io priority, default→unknown), history pruning (remove size-based early exit), parse_bounty_string (empty string, $ sign), recursive search (lower >5→>0 threshold)`
+
+### `2026-06-02 | [FIX] | File: services/02-immunefi/src/exploit_planner.py + services/14-agent/src/daemon.py + services/15-dashboard/src/proxy.py | Agent: lore-master | [quality] MEDIUM #1 — Fix stale port 8009→8000 defaults for 11-orchestrator URL (internal port is 8000, 8009 is external mapping only)`
+
+### `2026-06-02 | [MODIFY] | File: services/02-immunefi/app.py | Agent: lore-master | [quality] MEDIUM #5 — Add startup validation: DATA_DIR writable check, subdirectory creation, URL format validation, error aggregation`
+
+### `2026-06-02 | [MODIFY] | File: services/02-immunefi/src/storage.py | Agent: lore-master | [quality] Remove duplicate import structlog + log = get_logger()`
+
+### `2026-06-02 | [CREATE] | File: services/02-immunefi/.dockerignore | Agent: lore-master | [quality] LOW #5 — Add .dockerignore (Python cache, tests, git, IDE, OS files, logs)`
+
+### `2026-06-02 | [CREATE] | File: services/shared/skills/op_skills.py | Agent: lore-master | [skills] Buat 4 overpower universal skills: AlgorithmAnalyzerSkill, MathVerifierSkill, ComplexityAnalyzerSkill, DataStructureOptimizerSkill — 10/10 rating, confidence 0.99`
+
+### `2026-06-02 | [CREATE] | File: services/03-source/src/skills/* | Agent: lore-master | [skills] Buat 4 skill files: __init__.py (create_registry), fetch_source.py, analyze_dependencies.py, detect_upgrades.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/04a-scanner-slither/src/skills/* | Agent: lore-master | [skills] Buat 3 skill files: __init__.py, run_slither.py, interpret_slither.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/04b-scanner-echidna/src/skills/* | Agent: lore-master | [skills] Buat 3 skill files: __init__.py, run_echidna.py, interpret_echidna.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/04c-scanner-forge/src/skills/* | Agent: lore-master | [skills] Buat 3 skill files: __init__.py, run_forge.py, analyze_build_errors.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/04d-scanner-halmos/src/skills/* | Agent: lore-master | [skills] Buat 3 skill files: __init__.py, run_halmos.py, interpret_halmos.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/04e-scanner-manticore/src/skills/* | Agent: lore-master | [skills] Buat 4 skill files: __init__.py, run_manticore.py, confirm_finding.py, interpret_manticore.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/05-scanner-mythril/src/skills/* | Agent: lore-master | [skills] Buat 4 skill files: __init__.py, run_mythril_standard.py, run_mythril_deep.py, explain_finding.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/07-classifier/src/skills/* | Agent: lore-master | [skills] Buat 4 skill files: __init__.py, classify_finding.py, analyze_patterns.py, compute_metrics.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/12-webhook/src/skills/* | Agent: lore-master | [skills] Buat 4 skill files: __init__.py, deliver_webhook.py, manage_endpoints.py, analyze_logs.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/13-upkeep/src/skills/* | Agent: lore-master | [skills] Buat 4 skill files: __init__.py, create_backup.py, aggregate_metrics.py, monitor_health.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/16-submission/src/skills/* | Agent: lore-master | [skills] Buat 4 skill files: __init__.py, create_submission.py, generate_draft.py, collect_evidence.py + MODIFY agent.py inject SkillRegistry`
+
+### `2026-06-02 | [CREATE] | File: services/shared/experience/* | Agent: lore-master | [experience] Buat 5 file — Experience System: models.py (AuditExperience, ExperienceQuery), store.py (SQLite-based ExperienceStore), manager.py (ExperienceManager), experience_skill.py (ExperienceSkill), __init__.py`
+
+### `2026-06-02 | [MODIFY] | File: services/shared/agent_protocol/models.py | Agent: lore-master | [experience] Tambah enum AgentCapability.EXPERIENCE_QUERY`
+
+### `2026-06-02 | [MODIFY] | File: services/shared/agent_protocol/base_agent.py | Agent: lore-master | [experience] Integrasi ExperienceManager: auto-create di __init__, auto-record di handle_delegation, intercept EXPERIENCE_QUERY, register ExperienceSkill di SkillRegistry. 0 perubahan di agent individual — semua inherit otomatis.`
+
+### `2026-06-02 | [FIX] | File: services/shared/agent_protocol/base_agent.py | Agent: lore-master | [experience] Ubah default path dari /data/experiences/{nama}/ → /data/{subdir}/experiences/ — pakai volume Docker yang sudah ada per service. Data experience sekarang persisten saat container restart.`
+
+### `2026-06-02 | [CREATE] | File: services/17-experience/* | Agent: lore-master | [experience-hybrid] Buat central Experience Service — global SQLite store, endpoint /sync, /experience/query, /experience/stats, /experience/learn (cross-agent patterns). Port 8019.`
+
+### `2026-06-02 | [CREATE] | File: services/shared/experience/syncer.py | Agent: lore-master | [experience-hybrid] ExperienceSyncer — background batch sync dari local SQLite ke 17-experience. Trigger: 50 experiences baru atau 5 menit. Never blocks local recording.`
+
+### `2026-06-02 | [MODIFY] | File: services/shared/experience/manager.py | Agent: lore-master | [experience-hybrid] Integrasi syncer: start_sync(), stop_sync(), notify_syncer() tiap record_experience.`
+
+### `2026-06-02 | [MODIFY] | File: services/shared/agent_protocol/base_agent.py | Agent: lore-master | [experience-hybrid] Start background sync di __init__. Ambil central_url dari env EXPERIENCE_CENTRAL_URL.`
+
+### `2026-06-02 | [MODIFY] | File: docker-compose.yml | Agent: lore-master | [experience-hybrid] Tambah service 17-experience port 8019 + volume vyper_experience:/data/experience`
+
+### `2026-06-02 | [CREATE] | File: services/shared/knowledge_base/* (3 files) | Agent: lore-master | [knowledge-base] Create Knowledge Base shared module — models.py (ConfirmedFinding, KnowledgeStats, KBEntry), repository.py (KnowledgeRepository — save_confirmed, save_feedback, find_matching_patterns, get_stats), __init__.py`
+
+### `2026-06-02 | [MODIFY] | File: services/08-exploit/src/engine.py + planner.py | Agent: lore-master | [knowledge-base] Exploit service KB integration — engine.py: save ConfirmedFinding ke KB setelah exploit sukses (contract hash, vulnerability pattern, primitive sequence). planner.py: baca KB untuk boost hypothesis priority (+0.15 estimated_success untuk attack type yang cocok)`
+
+### `2026-06-02 | [MODIFY] | File: services/07-classifier/app.py + src/classify.py | Agent: lore-master | [knowledge-base] Classifier service KB integration — app.py: save ConfirmedFinding di /confirm endpoint + save feedback di /feedback endpoint. classify.py: Stage 0 KB check — auto-classify TRUE_POSITIVE jika finding match dengan KB`
+
+### `2026-06-02 | [MODIFY] | File: docker-compose.yml | Agent: lore-master | [knowledge-base] Tambah vyper_kb named volume + mount /data/knowledge di 07-classifier dan 08-exploit`
+
+### `2026-06-02 | [CREATE] | File: tests/test_integration_pipeline.py | Agent: lore-master | [knowledge-base] Buat 8 integration tests — save/retrieve, dedup, contract match, pattern match, feedback storage, stats, empty KB, full cross-service workflow`
+
+### `2026-06-02 | [FIX] | File: services/15-dashboard/frontend/vite.config.ts | Agent: lore-master | [ECONNRESET] Tambah proxy options: timeout 120s, configure onError handler untuk suppress ECONNRESET/ECONNREFUSED`
+
+### `2026-06-02 | [FIX] | File: services/15-dashboard/src/proxy.py | Agent: lore-master | [ECONNRESET] Tingkatkan httpx connection pool limits: max_connections 10→100, max_keepalive 20, keepalive_expiry 30s`
+
+### `2026-06-02 | [FIX] | File: services/15-dashboard/src/health_monitor.py | Agent: lore-master | [ECONNRESET] Tingkatkan httpx connection pool limits: max_connections 10→50, max_keepalive 20, keepalive_expiry 30s`
+
+### `2026-06-02 | [CREATE] | File: services/15-dashboard/frontend/src/pages/Chat.tsx | Agent: lore-master | [chat-space] Buat dedicated ChatPage — full-height chat space + suggestion quick-tips buttons`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/components/chat/ChatPanel.tsx | Agent: lore-master | [chat-space] Tambah ChatPanelProps.height (default 420px / 'full'), tambah event listener 'vyper:chat-suggest' untuk suggestion clicks`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/App.tsx | Agent: lore-master | [chat-space] Tambah route /chat → ChatPage`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/layout/Sidebar.tsx | Agent: lore-master | [chat-space] Tambah nav item 'Chat' dengan MessageSquareText icon`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/layout/Layout.tsx | Agent: lore-master | [chat-space] Tambah '/chat' di NAV_LOOKUP`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/pages/Antonio.tsx | Agent: lore-master | [chat-space] Hapus ChatPanel dari halaman /agent — sudah ada dedicated /chat page`
+
+### `2026-06-02 | [CREATE] | File: services/15-dashboard/frontend/src/components/chat/useChat.ts | Agent: lore-master | [chat-bottom] Extract shared chat state/logic ke custom hook useChat — dipakai oleh ChatPanel dan ChatPage`
+
+### `2026-06-02 | [REFACTOR] | File: services/15-dashboard/frontend/src/components/chat/ChatPanel.tsx | Agent: lore-master | [chat-bottom] Pake useChat hook + tambah props hideHeader & hideInput`
+
+### `2026-06-02 | [REFACTOR] | File: services/15-dashboard/frontend/src/pages/Chat.tsx | Agent: lore-master | [chat-bottom] Pake useChat hook langsung + input box fixed di bottom (outside scroll area)`
+
+### `2026-06-02 | [REFACTOR] | File: services/15-dashboard/frontend/src/components/chat/useChat.ts | Agent: lore-master | [chat-history] Tambah localStorage persistence — save/load/delete sessions, auto-save setiap 500ms`
+
+### `2026-06-02 | [CREATE] | File: services/15-dashboard/frontend/src/components/chat/ChatHistory.tsx | Agent: lore-master | [chat-history] Komponen sidebar kanan — daftar histori chat, click to load, delete, clear all`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/pages/Chat.tsx | Agent: lore-master | [chat-history] Layout flex row: main chat (kiri) + history sidebar (kanan 288px)`
+
+### `2026-06-02 | [MODIFY] | File: services/15-dashboard/frontend/src/components/chat/index.ts | Agent: lore-master | [chat-history] Export ChatHistory dari barrel`
 

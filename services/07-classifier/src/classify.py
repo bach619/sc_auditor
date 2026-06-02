@@ -112,6 +112,39 @@ class Classifier:
         3. Falls back to trusting the AI verdict
         4. Records the decision as a new classification layer
         """
+        # ── Stage 0: Check Knowledge Base for confirmed matches ──
+        try:
+            from shared.knowledge_base import KnowledgeRepository
+            kb = KnowledgeRepository()
+            # Check if this or similar finding was already confirmed
+            contract_hash = finding.audit_id or ""
+            matches = kb.find_matching_pattern(
+                attack_type=finding.title[:50],
+            )
+            if matches:
+                layer = ClassificationLayer(
+                    stage=ClassificationStage.EXPLOIT_CONFIRMED,
+                    classification=Classification.TRUE_POSITIVE,
+                    source=ClassificationSource.EXPLOIT,
+                    confidence=1.0,
+                    reasoning=(
+                        f"Knowledge Base match: {len(matches)} prior confirmation(s) "
+                        f"for similar finding type '{matches[0].attack_type}'. "
+                        f"Auto-classified as TRUE POSITIVE."
+                    ),
+                )
+                finding.add_layer(layer)
+                log.info(
+                    "classified_by_kb",
+                    finding_id=finding.finding_id,
+                    matches=len(matches),
+                )
+                return finding
+        except ImportError:
+            pass
+        except Exception as exc:
+            log.warning("classify.kb_error", error=str(exc))
+
         # ── Stage 1: Pattern match ────────────────────────────────────────
         matched_pattern = self._pattern_learner.match_pattern(finding)
         if matched_pattern is not None:
@@ -311,6 +344,89 @@ class Classifier:
             changed=sum(1 for r in reclassified if r["changed"]),
         )
         return reclassified
+
+    def receive_exploit_feedback(
+        self,
+        finding_id: str,
+        exploit_successful: bool,
+        tx_hash: str | None = None,
+    ) -> dict[str, Any]:
+        """Process exploit feedback and update classification to Stage 2.
+
+        This is the core of the Exploit-as-Truth architecture.
+        Stage 2 reclassifies the finding based on real exploit results.
+
+        Args:
+            finding_id: The finding identifier.
+            exploit_successful: Whether the exploit was successfully executed.
+            tx_hash: Transaction hash of the successful exploit (if any).
+
+        Returns:
+            Dict with reclassification details.
+
+        Raises:
+            ValueError: If finding_id not found.
+        """
+        # Load findings from disk to get latest state
+        self._findings = _load_findings()
+        fdata = self._findings.get(finding_id)
+        if fdata is None:
+            raise ValueError(f"Finding not found: {finding_id}")
+
+        finding = Finding(**fdata)
+        old_class = finding.current_classification
+
+        # Determine Stage 2 classification based on exploit result
+        if exploit_successful:
+            # Exploit WORKED → TRUE POSITIVE CONFIRMED
+            new_class = Classification.TRUE_POSITIVE
+            confidence = 1.0  # Absolute certainty — exploit proved it
+            reasoning = (
+                f"Exploit successfully executed (tx: {tx_hash or 'N/A'}). "
+                f"Stage 1: {old_class.value}. Confirmed: TRUE POSITIVE."
+            )
+            log.info(
+                "exploit.confirmed_tp",
+                finding_id=finding_id,
+                tx_hash=tx_hash,
+                original_classification=old_class.value,
+            )
+        else:
+            # Exploit FAILED → downgrade
+            new_class = Classification.FALSE_POSITIVE
+            confidence = finding.current_confidence * 0.5  # Penalty: cut confidence in half
+            reasoning = (
+                f"Exploit execution failed. "
+                f"Stage 1: {old_class.value}. Downgraded to FALSE POSITIVE (suspected)."
+            )
+            log.info(
+                "exploit.failed_downgrade",
+                finding_id=finding_id,
+                original_classification=old_class.value,
+            )
+
+        # Add Stage 2 classification layer
+        layer = ClassificationLayer(
+            stage=ClassificationStage.EXPLOIT_CONFIRMED,
+            classification=new_class,
+            source=ClassificationSource.EXPLOIT,
+            confidence=confidence,
+            reasoning=reasoning,
+        )
+        finding.add_layer(layer)
+
+        # Persist
+        self._store_finding(finding)
+
+        return {
+            "finding_id": finding_id,
+            "original_classification": old_class.value,
+            "new_classification": new_class.value,
+            "confidence": confidence,
+            "exploit_successful": exploit_successful,
+            "stage": ClassificationStage.EXPLOIT_CONFIRMED.value,
+            "reclassified_at": _now_iso(),
+        }
 
     def get_finding(self, finding_id: str) -> dict[str, Any] | None:
         """Retrieve a stored finding by ID."""

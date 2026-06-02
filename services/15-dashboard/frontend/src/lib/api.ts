@@ -54,6 +54,16 @@ export interface Program {
   status?: string;
 }
 
+export interface ScopeContract {
+  address: string;
+  chain: string;
+  name: string;
+  program_slug: string;
+  program_name: string;
+  program_max_bounty?: number;
+  program_status: string;
+}
+
 export interface MetricsSummary {
   total_audits: number;
   total_findings: number;
@@ -120,6 +130,15 @@ export const api = {
     return request<ApiResponse<Program[]>>(`/api/programs${q ? '?' + q : ''}`);
   },
   getProgram: (slug: string) => request<ApiResponse<Program>>(`/api/programs/${slug}`),
+  getScopeContracts: (params?: { chain?: string; min_bounty?: number; offset?: number; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.chain) qs.set('chain', params.chain);
+    if (params?.min_bounty) qs.set('min_bounty', String(params.min_bounty));
+    if (params?.offset) qs.set('offset', String(params.offset));
+    if (params?.limit) qs.set('limit', String(params.limit));
+    const q = qs.toString();
+    return request<ApiResponse>(`/api/contracts/scope${q ? '?' + q : ''}`);
+  },
 
   // Stats & Metrics
   getStats: () => request<ApiResponse<PipelineStats>>('/api/stats'),
@@ -200,6 +219,11 @@ export const api = {
   startDaemon: () => request<ApiResponse>('/api/agent/daemon/start', { method: 'POST' }),
   stopDaemon: () => request<ApiResponse>('/api/agent/daemon/stop', { method: 'POST' }),
   getAgentDaemonStatus: () => request<ApiResponse>('/api/agent/daemon/status'),
+  sendChatMessage: (message: string, sessionId?: string) =>
+    request<ApiResponse>('/api/agent/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, session_id: sessionId || null }),
+    }),
   submitAgentFeedback: (body: { session_id: string; rating: number; comment?: string; tags?: string[] }) =>
     request<ApiResponse>('/api/agent/learning/feedback', { method: 'POST', body: JSON.stringify(body) }),
   getLearningStats: () => request<ApiResponse>('/api/agent/learning/stats'),

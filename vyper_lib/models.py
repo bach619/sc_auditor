@@ -71,6 +71,7 @@ class ToolResult(BaseModel):
     raw_output: str = ""
     error: str | None = None
     duration_seconds: float = 0.0
+    coverage: dict[str, Any] | None = None
 
 
 class ForgeResult(BaseModel):

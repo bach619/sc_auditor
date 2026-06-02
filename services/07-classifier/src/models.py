@@ -271,6 +271,39 @@ class ReclassifyRequest(BaseModel):
     finding_ids: list[str] | None = None
 
 
+class ExploitStatus(str, Enum):
+    """Status exploit untuk Stage 2 classification."""
+    CONFIRMED = "confirmed"
+    FAILED = "failed"
+    ERROR = "error"
+    SKIPPED = "skipped"
+
+
+class ExploitConfirmRequest(BaseModel):
+    """Request body untuk POST /confirm — menerima exploit feedback dari Orchestrator."""
+    audit_id: str
+    finding_id: str
+    exploit_successful: bool
+    tx_hash: str | None = None
+    exploit_duration: float | None = None
+    attack_type: str | None = None
+    hypotheses_tried: int | None = None
+
+
+class ExploitFeedbackRecord(BaseModel):
+    """Record of exploit feedback for learning."""
+    feedback_id: str
+    finding_id: str
+    audit_id: str
+    exploit_successful: bool
+    original_classification: str
+    new_classification: str
+    tx_hash: str | None = None
+    created_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+
+
 class Meta(BaseModel):
     """Standard response metadata."""
 

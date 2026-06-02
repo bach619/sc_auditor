@@ -35,6 +35,11 @@ from src.intelligence import (
     create_scorer,
 )
 from shared.observability import setup_observability
+from src.agent import HalmosAgent
+from shared.agent_protocol.models import (
+    DelegationRequest,
+    NegotiationRequest,
+)
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -108,6 +113,8 @@ class IntelAskRequest(BaseModel):
 class AppState:
     def __init__(self) -> None:
         self.runner: HalmosRunner = create_halmos_runner()
+        # Agent
+        self.agent: HalmosAgent | None = None
         # Intelligence
         self.classifier: HalmosClassifier = create_classifier()
         self.scorer: HalmosScorer = create_scorer()
@@ -129,6 +136,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.vyper = state
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Init Agent
+    state.agent = HalmosAgent(runner=state.runner)
+    log.info("halmos.agent_initialized", agent_role=state.agent.agent_role)
 
     halmos_avail, halmos_ver = state.runner.check_available()
     forge_avail, forge_ver = state.runner.check_forge()
@@ -333,6 +344,56 @@ async def intel_stats(request: Request) -> ApiResponse:
             "chain_names": ["unauthorized_drain", "price_oracle_attack", "reentrancy_exploit"],
         },
     })
+
+
+# ── Agent Protocol Endpoints ────────────────────────────────
+
+
+@app.get("/agent/manifest")
+async def halmos_agent_manifest(request: Request) -> ApiResponse:
+    """Publish agent manifest for Antonio discovery."""
+    state = _get_state(request)
+    if state.agent is None:
+        return ApiResponse(ok=False, error="Agent not initialized")
+    return ok(state.agent.get_manifest())
+
+
+@app.post("/agent/delegate")
+async def halmos_agent_delegate(body: dict, request: Request) -> ApiResponse:
+    """Receive a delegation from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        return ApiResponse(ok=False, error="Agent not initialized")
+
+    delegation_req = DelegationRequest(
+        task_id=body.get("task_id", ""),
+        goal=body.get("goal", ""),
+        capability=body.get("capability", ""),
+        input_data=body.get("input_data", {}),
+        constraints=body.get("constraints", {}),
+        parent_session_id=body.get("parent_session_id", ""),
+        priority=body.get("priority", "normal"),
+    )
+    response = await state.agent.handle_delegation(delegation_req)
+    return ok(response)
+
+
+@app.post("/agent/negotiate")
+async def halmos_agent_negotiate(body: dict, request: Request) -> ApiResponse:
+    """Handle a negotiation request from Antonio."""
+    state = _get_state(request)
+    if state.agent is None:
+        return ApiResponse(ok=False, error="Agent not initialized")
+
+    negotiation_req = NegotiationRequest(
+        task_description=body.get("task_description", ""),
+        required_capability=body.get("required_capability", ""),
+        estimated_complexity=body.get("estimated_complexity", "medium"),
+        budget_usd=body.get("budget_usd", 0.0),
+        deadline_seconds=body.get("deadline_seconds", 0),
+    )
+    response = await state.agent.handle_negotiation(negotiation_req)
+    return ok(response)
 
 
 # ── Entry Point ────────────────────────────────────────────

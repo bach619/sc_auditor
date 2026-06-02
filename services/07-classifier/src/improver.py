@@ -41,6 +41,7 @@ CLASSIFIER_DATA_DIR = Path("/data/classifier")
 LEARNING_DATA_DIR = Path("/data/learning")
 
 PATTERNS_FILE = CLASSIFIER_DATA_DIR / "patterns.json"
+FINDINGS_FILE = CLASSIFIER_DATA_DIR / "findings.json"
 FN_FILE = LEARNING_DATA_DIR / "false_negatives.json"
 FP_FILE = LEARNING_DATA_DIR / "false_positives.json"
 FEEDBACK_FILE = LEARNING_DATA_DIR / "feedback.json"
@@ -303,6 +304,138 @@ class PatternLearner:
         pattern = self._generate_pattern_from_fn(fn_record)
         if pattern:
             self.add_pattern(pattern)
+        return pattern
+
+    # ── Learning from Exploit Feedback ───────────────────────────────────
+
+    def learn_from_exploit(
+        self,
+        finding_id: str,
+        exploit_successful: bool,
+        classification: Classification,
+    ) -> Pattern | None:
+        """Learn from automated exploit feedback.
+
+        Unlike human feedback (which goes through INITIAL→REVIEWED→FINALIZED),
+        exploit feedback is AUTOMATICALLY used because it's objective truth.
+
+        Args:
+            finding_id: The finding identifier.
+            exploit_successful: Whether exploit worked.
+            classification: The resulting classification.
+
+        Returns:
+            The created/updated pattern, or None.
+        """
+        # Load finding data to extract pattern attributes
+        finding_data = None
+        try:
+            if FINDINGS_FILE.exists():
+                with open(FINDINGS_FILE) as f:
+                    all_findings = json.load(f)
+                    finding_data = all_findings.get(finding_id)
+        except (json.JSONDecodeError, OSError) as exc:
+            log.warning("exploit_learning.load_error", error=str(exc))
+
+        if not finding_data:
+            log.warning("exploit_learning.no_finding_data", finding_id=finding_id)
+            return None
+
+        title = finding_data.get("title", "")
+        tool_name = ""
+        tool_info = finding_data.get("tool")
+        if isinstance(tool_info, dict):
+            tool_name = tool_info.get("name", "")
+        severity = finding_data.get("severity", "")
+
+        # Create a pattern key from finding attributes
+        pattern_key = f"exploit_{tool_name}_{severity}_{title[:50]}"
+
+        if exploit_successful and classification == Classification.TRUE_POSITIVE:
+            log.info(
+                "exploit_learning.tp_confirmed",
+                finding_id=finding_id,
+                pattern_key=pattern_key,
+            )
+            return self._register_or_update_pattern(
+                pattern_key=pattern_key,
+                classification=Classification.TRUE_POSITIVE,
+                weight_increase=0.15,
+            )
+
+        elif not exploit_successful:
+            log.info(
+                "exploit_learning.fp_suspected",
+                finding_id=finding_id,
+                pattern_key=pattern_key,
+            )
+            return self._register_or_update_pattern(
+                pattern_key=pattern_key,
+                classification=Classification.FALSE_POSITIVE,
+                weight_increase=-0.1,
+            )
+
+        return None
+
+    def _register_or_update_pattern(
+        self,
+        pattern_key: str,
+        classification: Classification,
+        weight_increase: float,
+    ) -> Pattern | None:
+        """Register a new pattern or update existing one's effectiveness score.
+
+        Args:
+            pattern_key: Unique key derived from finding attributes.
+            classification: The classification this pattern represents.
+            weight_increase: Amount to adjust effectiveness score.
+
+        Returns:
+            The created or updated Pattern, or None.
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Check if pattern already exists (by key in dict or by name)
+        for pdata in self._patterns.values():
+            pattern = Pattern(**pdata)
+            if pattern.name == pattern_key or pattern.pattern_id == pattern_key:
+                old_score = pattern.effectiveness_score
+                pattern.effectiveness_score = max(
+                    0.0, min(1.0, pattern.effectiveness_score + weight_increase)
+                )
+                pattern.match_count += 1
+                if weight_increase > 0:
+                    pattern.correct_count += 1
+                pattern.updated_at = now_iso
+                self._patterns[pattern.pattern_id] = pattern.model_dump()
+                _save_json(PATTERNS_FILE, self._patterns)
+                log.info(
+                    "pattern_updated_from_exploit",
+                    pattern_id=pattern.pattern_id,
+                    old_score=old_score,
+                    new_score=pattern.effectiveness_score,
+                )
+                return pattern
+
+        # Create new pattern
+        pattern = Pattern(
+            pattern_id=pattern_key,
+            name=pattern_key,
+            pattern_type=PatternType.CODE_PATTERN,
+            classification=classification,
+            description=f"Auto-learned from exploit feedback: {classification.value}",
+            effectiveness_score=0.5 + max(0, weight_increase),
+            match_count=1,
+            correct_count=1 if weight_increase > 0 else 0,
+            is_active=True,
+        )
+        self._patterns[pattern.pattern_id] = pattern.model_dump()
+        _save_json(PATTERNS_FILE, self._patterns)
+        log.info(
+            "pattern_created_from_exploit",
+            pattern_id=pattern.pattern_id,
+            classification=classification.value,
+        )
         return pattern
 
     # ── Pattern Management ───────────────────────────────────────────────

@@ -54,10 +54,12 @@ class EtherscanProvider:
         """Initialize provider.
 
         Args:
-            api_key: Etherscan API key. If None, reads from env or uses a
-                     default free-tier key. Rate limits apply without a key.
+            api_key: Etherscan API key. If None, uses the embedded default key
+                     (F3VMTJ...). Pass empty string to force no-key mode.
         """
-        self.api_key = api_key or ""
+        # Embedded API key — diberikan oleh user untuk akses pro tier.
+        # Tidak perlu disimpan di .env, sudah langsung di kode.
+        self.api_key = api_key or "F3VMTJ9CKTA9NR76T5VCY1VC2YBNSTAADI"
 
     @retry(
         stop=stop_after_attempt(3),
