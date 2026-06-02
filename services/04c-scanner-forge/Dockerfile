@@ -14,7 +14,7 @@ COPY vyper_lib/ /app/vyper_lib/
 
 # Install app deps
 COPY services/04c-scanner-forge/requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+RUN pip install --no-cache-dir --upgrade pip 'setuptools<60' wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # Install solc-select

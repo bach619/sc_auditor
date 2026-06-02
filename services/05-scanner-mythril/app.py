@@ -606,6 +606,8 @@ async def intel_stats(request: Request) -> ApiResponse:
         "fixer": state.fixer.get_stats(),
         "chain_predictor": {
             "chains_defined": 5,
+        },
+    })
 
 
 # ═══════════════════════════════════════════════════════════

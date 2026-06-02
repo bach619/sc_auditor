@@ -797,18 +797,30 @@ class SyncManager:
                 raw = await scraper.fetch_program_list()
                 return {"immunefi_scraper": raw}
 
+        PROVIDER_TIMEOUT = 60  # seconds max per provider
+
         results: dict[str, list[dict]] = {}
         try:
             for provider in providers:
                 name = getattr(provider, "name", provider.__class__.__name__)
                 try:
-                    raw = await provider.fetch_program_list()
+                    raw = await asyncio.wait_for(
+                        provider.fetch_program_list(),
+                        timeout=PROVIDER_TIMEOUT,
+                    )
                     results[name] = raw
                     log.info(
                         "sync.all.provider_success",
                         provider=name,
                         count=len(raw),
                     )
+                except asyncio.TimeoutError:
+                    log.warning(
+                        "sync.all.provider_timeout",
+                        provider=name,
+                        timeout=PROVIDER_TIMEOUT,
+                    )
+                    results[name] = []
                 except Exception as e:
                     log.warning(
                         "sync.all.provider_failed",

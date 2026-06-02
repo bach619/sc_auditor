@@ -437,7 +437,7 @@ async def run_scan(body: ScanRequest, request: Request) -> ApiResponse:
         if body.sources and result.success:
             # Classify contract
             try:
-                classification = state.classifier.classify(body.sources)
+                classification = await state.classifier.classify(body.sources)
                 contract_type = classification.contract_type
                 contract_type_label = contract_type.value
             except Exception as exc:
@@ -540,7 +540,7 @@ async def classify_contract(body: ClassifyRequest, request: Request) -> ApiRespo
         raise err("At least one source file is required")
 
     try:
-        classification = state.classifier.classify(
+        classification = await state.classifier.classify(
             source_code=body.sources,
             contract_address=body.contract_address or None,
         )

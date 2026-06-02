@@ -1,0 +1,6 @@
+Collecting manticore
+  Downloading manticore-0.3.7-py3-none-any.whl.metadata (13 kB)
+Downloading manticore-0.3.7-py3-none-any.whl (420 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 420.9/420.9 kB 2.6 MB/s eta 0:00:00
+Saved /tmp/manticore-check/manticore-0.3.7-py3-none-any.whl
+Successfully downloaded manticore

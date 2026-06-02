@@ -211,6 +211,33 @@ class Analyzer:
             compiler=compiler,
         )
 
+        # ── Early exit: no LLM keys configured ──────────────
+        # If no API keys are set, skip LLM calls entirely and
+        # return scanner findings as trusted true_positives.
+        if not self.llm.has_keys:
+            log.info(
+                "analyzer.no_llm_keys",
+                count=len(findings),
+                message="No LLM API keys configured. Trusting scanner findings.",
+            )
+            trusted: list[AnalyzedFinding] = []
+            for f in findings:
+                scanner_sev: str = f.severity or "informational"
+                trusted.append(AnalyzedFinding(
+                    id=f.id,
+                    tool=f.tool,
+                    title=f.title,
+                    description=f.description,
+                    ai_verdict="true_positive",
+                    ai_confidence=0.5,
+                    ai_severity=scanner_sev,  # type: ignore[arg-type]
+                    ai_reasoning="LLM analysis unavailable (no API keys). Finding trusted based on scanner assessment.",
+                    suggested_fix=None,
+                    scanner_severity=scanner_sev,
+                    location=f.location,
+                ))
+            return trusted
+
         # Create tasks for each finding, with concurrent limit
         sem = self._semaphore
 
@@ -417,28 +444,30 @@ class Analyzer:
         finding: Finding,
         error: str,
     ) -> AnalyzedFinding:
-        """Produce a safe fallback result when LLM analysis fails.
+        """Produce a fallback result when LLM analysis fails.
 
-        Returns a False Positive verdict with low confidence and
-        the error message as reasoning. This prevents a single
-        failed analysis from blocking an entire audit.
+        Returns a True Positive verdict with low confidence and
+        the error message as reasoning. Scanner findings from
+        tools like Slither have high baseline accuracy, so we
+        trust the scanner result when LLM is unavailable rather
+        than silently discarding potential vulnerabilities.
 
         Args:
             finding: The original finding.
             error: The error message from the failure.
 
         Returns:
-            A degraded AnalyzedFinding with a conservative default verdict.
+            A degraded AnalyzedFinding that trusts the scanner verdict.
         """
         return AnalyzedFinding(
             id=finding.id,
             tool=finding.tool,
             title=finding.title,
             description=finding.description,
-            ai_verdict="false_positive",  # Conservative default
-            ai_confidence=0.0,
-            ai_severity="informational",
-            ai_reasoning=f"Analysis unavailable: {error}",
+            ai_verdict="true_positive",  # Trust scanner when LLM unavailable
+            ai_confidence=0.3,
+            ai_severity=finding.severity,
+            ai_reasoning=f"AI analysis unavailable: {error}. Finding retained based on scanner ({finding.tool}) assessment.",
             suggested_fix=None,
             scanner_severity=finding.severity,
             location=finding.location,

@@ -122,7 +122,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
 
-   04e-scanner-manticore:
+  04e-scanner-manticore:
     <<: *service-base
     build:
       context: .
@@ -134,7 +134,7 @@ services:
       - CONFIG_URL=http://01-config:8000
       - SLITHER_URL=http://04a-scanner-slither:8014
 
-   05-scanner-mythril:
+  05-scanner-mythril:
     <<: *service-base
     build:
       context: .

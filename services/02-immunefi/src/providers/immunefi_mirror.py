@@ -36,11 +36,21 @@ class ImmunefiMirrorProvider:
     """
 
     name = "immunefi_mirror"
-    priority = 10  # Lower than official API
+    priority = 5  # Higher than web scraper (8) so GitHub mirror is tried first
 
     # API endpoint sudah tidak aktif (returns 404 sejak mid-2025)
     # Gunakan web scraping langsung sebagai gantinya.
     # ImmunefiWebScraper (immunefi_web_scraper.py) adalah pengganti resmi.
+    # GitHub raw mirror (primary — reliable, 276+ programs)
+    GITHUB_MIRROR_LIST = (
+        "https://raw.githubusercontent.com/"
+        "infosec-us-team/Immunefi-Bug-Bounty-Programs-Unofficial/main/projects.json"
+    )
+    GITHUB_MIRROR_DETAIL = (
+        "https://raw.githubusercontent.com/"
+        "infosec-us-team/Immunefi-Bug-Bounty-Programs-Unofficial/main/project/{slug}.json"
+    )
+
     MIRROR_URL = "https://immunefi.com/bug-bounty/"
     WEB_BASE = "https://immunefi.com"
 
@@ -62,12 +72,27 @@ class ImmunefiMirrorProvider:
     # ── Fetch Program List ───────────────────────────────────
 
     async def fetch_program_list(self) -> list[dict[str, Any]]:
-        """Fetch list program dari mirror endpoint publik atau web scraping."""
+        """Fetch list program dari GitHub mirror Immunefi (primary) atau web scraping."""
         client = await self._get_client()
 
         log.info("immunefi_mirror.fetch_list.start")
 
-        # Priority 1: Coba web scraping langsung
+        # Priority 1: GitHub raw mirror (paling reliable, 276+ programs)
+        try:
+            resp = await client.get(self.GITHUB_MIRROR_LIST)
+            if resp.status_code == 200:
+                raw = resp.json()
+                if raw and len(raw) > 10:
+                    log.info(
+                        "immunefi_mirror.fetch_list.github_success",
+                        count=len(raw),
+                    )
+                    self._save_cache(raw)
+                    return self._normalize_programs(raw)
+        except Exception as e:
+            log.debug("immunefi_mirror.github_error", error=str(e)[:80])
+
+        # Priority 2: Coba web scraping langsung
         try:
             from src.providers.immunefi_web_scraper import ImmunefiWebScraper  # noqa: PLC0415
             web = ImmunefiWebScraper()
@@ -84,7 +109,7 @@ class ImmunefiMirrorProvider:
         except Exception as e:
             log.debug("immunefi_mirror.web_scraper_error", error=str(e)[:80])
 
-        # Priority 2: Coba scrape dari HTML halaman explore
+        # Priority 3: Coba scrape dari HTML halaman explore
         try:
             resp = await client.get(
                 self.MIRROR_URL,
@@ -126,9 +151,19 @@ class ImmunefiMirrorProvider:
         return []
 
     async def fetch_program_detail(self, slug: str) -> dict[str, Any] | None:
-        """Scrape detail program dari halaman web Immunefi."""
+        """Fetch detail program dari GitHub mirror (primary) atau web scraping."""
         client = await self._get_client()
 
+        # Priority 1: GitHub raw mirror
+        try:
+            resp = await client.get(self.GITHUB_MIRROR_DETAIL.format(slug=slug))
+            if resp.status_code == 200:
+                log.info("immunefi_mirror.detail.github_success", slug=slug)
+                return self._normalize_program(resp.json())
+        except Exception as e:
+            log.debug("immunefi_mirror.detail.github_error", slug=slug, error=str(e)[:80])
+
+        # Fallback: scrape dari halaman web Immunefi
         try:
             resp = await client.get(
                 f"{self.WEB_BASE}/explore/{slug}",
@@ -156,6 +191,9 @@ class ImmunefiMirrorProvider:
 
             # Fallback: coba scrape table info dari halaman
             return self._scrape_detail_from_html(html, slug)
+        except Exception as e:
+            log.debug("immunefi_mirror.detail.web_error", slug=slug, error=str(e)[:80])
+            return None
 
         except Exception as e:
             log.warning(
@@ -184,6 +222,7 @@ class ImmunefiMirrorProvider:
             "logo": raw.get("logo") or raw.get("logoUrl", ""),
             "tags": raw.get("tags", raw.get("categories", [])),
             "contracts": self._extract_contracts(raw),
+            "assets": raw.get("assets", []),  # Preserve original assets for parse_contracts
             "social": raw.get("social", raw.get("links", [])),
             "rewards": raw.get("rewards", raw.get("rewardDetails", {})),
             "updatedAt": raw.get("updatedAt")
@@ -192,17 +231,88 @@ class ImmunefiMirrorProvider:
         }
 
     def _extract_contracts(self, raw: dict) -> list[dict]:
+        """Extract smart contract addresses from raw program data.
+
+        Handles multiple formats:
+        - assets[] (GitHub mirror format): has type, url, description
+        - contracts[] (API format): has address, chain, name
+        - targets[] (alternative): has address, chain, name
+
+        Only includes smart_contract type assets with valid 0x addresses.
+        Extracts address from the URL if no direct address field exists.
+        """
+        import re  # noqa: PLC0415
+
         contracts = raw.get("contracts", raw.get("assets", raw.get("targets", [])))
-        if isinstance(contracts, list):
-            return [
-                {
-                    "address": c.get("address", c) if isinstance(c, dict) else c,
-                    "chain": c.get("chain", "") if isinstance(c, dict) else "",
-                    "name": c.get("name", "") if isinstance(c, dict) else "",
-                }
-                for c in contracts
-            ]
-        return []
+        if not isinstance(contracts, list):
+            return []
+
+        result: list[dict] = []
+        seen: set[str] = set()
+
+        for c in contracts:
+            if not isinstance(c, dict):
+                # Raw address string
+                addr = str(c).strip()
+                if addr.startswith("0x") and len(addr) == 42 and addr not in seen:
+                    seen.add(addr)
+                    result.append({"address": addr, "chain": "", "name": ""})
+                continue
+
+            # Filter by type: only smart_contract
+            asset_type = str(c.get("type", "") or "").lower()
+            if asset_type and asset_type != "smart_contract":
+                continue
+
+            # Extract address
+            addr = str(c.get("address", "") or "")
+            if not addr or len(addr) < 30:
+                url = str(c.get("url", "") or "")
+                addr_match = re.search(r"0x[a-fA-F0-9]{40}", url)
+                if addr_match:
+                    addr = addr_match.group(0)
+
+            if addr and len(addr) == 42 and addr not in seen:
+                seen.add(addr)
+                # Detect chain from URL if not explicit
+                chain = str(c.get("chain", "") or "")
+                if not chain:
+                    url = str(c.get("url", "") or "")
+                    chain = self._detect_chain_from_url(url)
+                name = str(c.get("description", "") or c.get("name", "") or "")
+                result.append({
+                    "address": addr,
+                    "chain": chain,
+                    "name": name.strip(),
+                })
+
+        return result
+
+    @staticmethod
+    def _detect_chain_from_url(url: str) -> str:
+        """Detect blockchain dari explorer URL."""
+        domain = url.lower()
+        if "optimistic.etherscan.io" in domain:
+            return "optimism"
+        if "etherscan.io" in domain:
+            return "ethereum"
+        if "arbiscan.io" in domain:
+            return "arbitrum"
+        if "polygonscan.com" in domain:
+            return "polygon"
+        if "bscscan.com" in domain:
+            return "bsc"
+        if "snowtrace.io" in domain or "snowscan.xyz" in domain:
+            return "avalanche"
+        if "ftmscan.com" in domain:
+            return "fantom"
+        if "basescan.org" in domain:
+            return "base"
+        if "mantlescan.xyz" in domain:
+            return "mantle"
+        if "scrollscan.com" in domain:
+            return "scroll"
+        return "unknown"
 
     def _scrape_detail_from_html(
         self,

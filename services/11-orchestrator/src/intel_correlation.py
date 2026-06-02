@@ -359,7 +359,7 @@ def _detect_chains(detected_bugs: set[str]) -> list[dict[str, Any]]:
         if not required.issubset(detected_bugs):
             continue
 
-        boosters_present = chain["boosters"].intersection(detected_bugs)
+        boosters_present = set(chain["boosters"]).intersection(detected_bugs)
         booster_ratio = len(boosters_present) / max(len(chain["boosters"]), 1)
         confidence = chain["confidence"] * (0.8 + 0.2 * booster_ratio)
         confidence = min(1.0, max(0.1, confidence))

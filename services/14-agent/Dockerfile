@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements from service directory
 COPY services/14-agent/requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+RUN pip install --no-cache-dir --upgrade pip 'setuptools<60' wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy service code + shared module

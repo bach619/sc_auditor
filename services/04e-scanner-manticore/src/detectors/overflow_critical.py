@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from manticore.plugins import Plugin
+from manticore import Plugin
 
 
 class OverflowCriticalDetector(Plugin):

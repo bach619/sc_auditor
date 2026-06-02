@@ -150,7 +150,7 @@ async def health() -> HealthResponse:
 # will capture "bulk" and "reset" as path parameters.
 
 
-@app.get("/config/", response_model=ConfigResponse)
+@app.get("/config", response_model=ConfigResponse)
 async def list_config_keys(request: Request) -> ConfigResponse:
     """Retrieve all configuration keys and their values."""
     mgr: ConfigManager = request.app.state.vyper.manager

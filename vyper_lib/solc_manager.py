@@ -47,10 +47,13 @@ class SolcManager:
     # ------------------------------------------------------------------
 
     def ensure_version(self, version: str) -> bool:
-        """Ensure a specific Solidity version is installed.
+        """Ensure a specific Solidity version is installed and activated.
 
         If the version is not installed and ``install_if_missing`` is
-        ``True``, it will be installed automatically.
+        ``True``, it will be installed automatically. After installation
+        (or if already installed), the version is activated via
+        ``solc-select use`` so that ``solc`` points to the requested
+        version.
 
         Args:
             version: Solidity version string (e.g. ``"0.8.20"``).
@@ -59,24 +62,26 @@ class SolcManager:
             ``True`` if the version is available, ``False`` otherwise.
 
         Raises:
-            RuntimeError: If installation fails.
+            RuntimeError: If installation or activation fails.
         """
         installed = self.list_versions()
 
         if version in installed:
             log.debug("solc.version_already_installed", version=version)
-            return True
+        else:
+            if not self._install_if_missing:
+                log.warning("solc.version_not_installed", version=version)
+                return False
 
-        if not self._install_if_missing:
-            log.warning("solc.version_not_installed", version=version)
-            return False
+            log.info("solc.installing_version", version=version)
+            success = self._install_version(version)
+            if not success:
+                raise RuntimeError(
+                    f"Failed to install solc version {version}"
+                )
 
-        log.info("solc.installing_version", version=version)
-        success = self._install_version(version)
-        if not success:
-            raise RuntimeError(
-                f"Failed to install solc version {version}"
-            )
+        # Activate the version so solc binary points to the right one
+        self.use_version(version)
 
         return True
 

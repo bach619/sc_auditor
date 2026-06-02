@@ -15,6 +15,8 @@ from typing import Any
 import httpx
 import structlog
 
+from src._rule_based_nlp import _RuleBasedNLP
+
 log = structlog.get_logger()
 
 

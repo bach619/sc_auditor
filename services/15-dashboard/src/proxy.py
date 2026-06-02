@@ -7,6 +7,7 @@ uses a shared httpx.AsyncClient with connection pooling for efficiency.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -113,6 +114,7 @@ class ServiceProxy:
         """Create the shared HTTP client (call at app startup)."""
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(self._timeout),
+            follow_redirects=True,
             limits=httpx.Limits(
                 max_connections=100,           # default 10 → 100 untuk handle parallel proxy + health poll
                 max_keepalive_connections=20,  # keepalive pool untuk reuse koneksi
@@ -207,16 +209,20 @@ class ServiceProxy:
             "priority": priority,
             "metadata": metadata or {},
         }
-        return await self._post(f"{self.urls.orchestrator}/audit", json=body)
+        # Antonio Supremacy — all audit requests route through Antonio
+        return await self._post(f"{self.urls.agent}/audit", json=body)
 
     async def start_daemon(self) -> Dict[str, Any]:
-        return await self._post(f"{self.urls.orchestrator}/daemon/start")
+        # Antonio Supremacy — daemon control through Antonio
+        return await self._post(f"{self.urls.agent}/orchestrator/daemon/start")
 
     async def stop_daemon(self) -> Dict[str, Any]:
-        return await self._post(f"{self.urls.orchestrator}/daemon/stop")
+        # Antonio Supremacy — daemon control through Antonio
+        return await self._post(f"{self.urls.agent}/orchestrator/daemon/stop")
 
     async def get_daemon_status(self) -> Dict[str, Any]:
-        return await self._get(f"{self.urls.orchestrator}/daemon/status")
+        # Antonio Supremacy — daemon status through Antonio
+        return await self._get(f"{self.urls.agent}/orchestrator/daemon/status")
 
     async def get_orchestrator_stats(self) -> Dict[str, Any]:
         return await self._get(f"{self.urls.orchestrator}/stats")
@@ -406,8 +412,17 @@ class ServiceProxy:
     async def get_agent_skills(self) -> Dict[str, Any]:
         return await self._get(f"{self.urls.agent}/skills")
 
+    async def get_skill_metrics(self) -> Dict[str, Any]:
+        return await self._get(f"{self.urls.agent}/skills/metrics")
+
     async def get_agent_memory(self) -> Dict[str, Any]:
         return await self._get(f"{self.urls.agent}/memory")
+
+    async def get_memory_stats(self) -> Dict[str, Any]:
+        return await self._get(f"{self.urls.agent}/memory/stats")
+
+    async def get_learning_stats(self) -> Dict[str, Any]:
+        return await self._get(f"{self.urls.agent}/learning/stats")
 
     async def get_agent_health(self) -> Dict[str, Any]:
         return await self._get(f"{self.urls.agent}/health")
@@ -426,7 +441,7 @@ class ServiceProxy:
     # ═══════════════════════════════════════════════════════════
 
     async def check_all_services(self) -> Dict[str, Any]:
-        """Ping all services and return health status."""
+        """Ping all services in parallel and return health status."""
         services = {
             "01-config": f"{self.urls.config}/health",
             "02-immunefi": f"{self.urls.immunefi}/health",
@@ -447,19 +462,22 @@ class ServiceProxy:
             "13-upkeep": f"{self.urls.upkeep}/health",
             "14-agent": f"{self.urls.agent}/health",
         }
-        results = {}
-        for name, url in services.items():
+
+        async def _check_one(name: str, url: str) -> tuple[str, dict]:
             try:
                 resp = await self.client.get(url, timeout=5.0)
                 data = resp.json()
-                results[name] = {
+                return name, {
                     "status": "healthy" if resp.status_code == 200 else "unhealthy",
                     "code": resp.status_code,
                     "data": data.get("data") if isinstance(data, dict) else None,
                 }
             except Exception as e:
-                results[name] = {"status": "unreachable", "error": str(e)}
-        return results
+                return name, {"status": "unreachable", "error": str(e)}
+
+        tasks = [_check_one(name, url) for name, url in services.items()]
+        results_list = await asyncio.gather(*tasks)
+        return dict(results_list)
 
     # ═══════════════════════════════════════════════════════════
     # Pipeline

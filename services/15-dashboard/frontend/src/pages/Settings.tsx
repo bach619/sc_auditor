@@ -322,7 +322,58 @@ export default function Settings() {
         </Card>
       </section>
 
-      {/* Model Variants */}
+      {/* Use Case Assignment */}
+      <section>
+        <h2 className="text-base font-semibold mb-4 dark:text-[#d4d4dc] light:text-[#09090b] flex items-center gap-2.5">
+          <Sliders className="w-5 h-5 text-vyper-400" /> Use Case Assignment
+        </h2>
+        <Card className="p-0 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Task</TableHead>
+                <TableHead>Assigned Model</TableHead>
+                <TableHead>Recommendation</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {USE_CASES.map(uc => (
+                <TableRow key={uc.id}>
+                  <TableCell><span className="font-medium dark:text-[#d4d4dc]">{uc.label}</span></TableCell>
+                    <TableCell>
+                    <Select
+                      value={useCaseSelections[uc.id] || uc.default}
+                      onChange={e => setUseCaseSelections(prev => ({ ...prev, [uc.id]: e.target.value }))}
+                      className="max-w-xs">
+                      {ALL_VARIANTS.filter(v => hasKey(v.providerId)).length === 0 ? (
+                        <option value="" disabled>— Save API key first —</option>
+                      ) : (
+                        ALL_VARIANTS
+                          .filter(v => hasKey(v.providerId))
+                          .map(v => (
+                            <option key={v.id} value={v.id}>
+                              {v.name} — {v.providerName}
+                            </option>
+                          ))
+                      )}
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs dark:text-[#68687a]">{uc.recommendation}</span>
+                      {useCaseSelections[uc.id] === uc.default && (
+                        <Badge variant="default" className="text-[10px]">Default</Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      </section>
+
+       {/* Model Variants */}
       <section>
         <h2 className="text-base font-semibold mb-4 dark:text-[#d4d4dc] light:text-[#09090b] flex items-center gap-2.5">
           <Cpu className="w-5 h-5 text-vyper-400" /> Available Models
@@ -347,51 +398,6 @@ export default function Settings() {
             )
           })}
         </div>
-      </section>
-
-      {/* Use Case Assignment */}
-      <section>
-        <h2 className="text-base font-semibold mb-4 dark:text-[#d4d4dc] light:text-[#09090b] flex items-center gap-2.5">
-          <Sliders className="w-5 h-5 text-vyper-400" /> Use Case Assignment
-        </h2>
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Task</TableHead>
-                <TableHead>Assigned Model</TableHead>
-                <TableHead>Recommendation</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {USE_CASES.map(uc => (
-                <TableRow key={uc.id}>
-                  <TableCell><span className="font-medium dark:text-[#d4d4dc]">{uc.label}</span></TableCell>
-                  <TableCell>
-                    <Select
-                      value={useCaseSelections[uc.id] || uc.default}
-                      onChange={e => setUseCaseSelections(prev => ({ ...prev, [uc.id]: e.target.value }))}
-                      className="max-w-xs">
-                      {ALL_VARIANTS.map(v => (
-                        <option key={v.id} value={v.id} disabled={!hasKey(v.providerId)}>
-                          {v.name} — {v.providerName}{!hasKey(v.providerId) ? ' (requires key)' : ''}
-                        </option>
-                      ))}
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs dark:text-[#68687a]">{uc.recommendation}</span>
-                      {useCaseSelections[uc.id] === uc.default && (
-                        <Badge variant="default" className="text-[10px]">Default</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
       </section>
 
       {/* Save */}

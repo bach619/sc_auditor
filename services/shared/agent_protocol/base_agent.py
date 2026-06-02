@@ -60,6 +60,14 @@ class BaseAgent(ABC):
         self._max_concurrent = 3
         self._skill_registry = skill_registry
 
+        import structlog
+
+        self._logger = structlog.get_logger(
+            f"vyper.{service_name}.{agent_role}",
+            service_name=service_name,
+            agent_role=agent_role,
+        )
+
         # ── Auto-create ExperienceManager ──
         if experience_manager is not None:
             self._experience_manager = experience_manager
@@ -92,14 +100,6 @@ class BaseAgent(ABC):
                 self._experience_manager.start_sync()
             except Exception:
                 pass  # Sync failure tidak boleh menggagalkan startup
-
-        import structlog
-
-        self._logger = structlog.get_logger(
-            f"vyper.{service_name}.{agent_role}",
-            service_name=service_name,
-            agent_role=agent_role,
-        )
 
     def register_capability(self, capability: CapabilityDefinition) -> None:
         cap_enum = AgentCapability(capability.name)

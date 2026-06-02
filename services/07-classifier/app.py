@@ -88,6 +88,21 @@ class AppState:
 
 
 # ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+
+def _get_state(request: Request) -> AppState:
+    """Extract AppState from the FastAPI request."""
+    state: AppState = request.app.state.vyper
+    return state
+
+
+def ok(data: Any = None) -> ApiResponse:
+    return ApiResponse(data=data)
+
+
+# ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
 @asynccontextmanager

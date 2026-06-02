@@ -11,13 +11,20 @@ Endpoints:
   GET  /memory               → Get memory contents
   POST /memory/search        → Search across memory stores
   GET  /memory/stats         → Get memory store statistics
-  POST /daemon/start         → Start autonomous daemon
-  POST /daemon/stop          → Stop autonomous daemon
-  GET  /daemon/status        → Get daemon status
+  POST /daemon/start         → Start autonomous daemon (14-agent)
+  POST /daemon/stop          → Stop autonomous daemon (14-agent)
+  GET  /daemon/status        → Get daemon status (14-agent)
   POST /learning/feedback    → Submit session feedback
   GET  /learning/stats       → Get learning statistics
   GET  /learning/recommendations → Get learning recommendations
   GET  /health               → Health check
+  ═══════════════════════════════════════════════════════════
+  Antonio Gateway (Supreme Controller — proxied to Orchestrator):
+  POST /audit                         → Start audit
+  POST /orchestrator/daemon/start     → Start Orchestrator daemon
+  POST /orchestrator/daemon/stop      → Stop Orchestrator daemon
+  GET  /orchestrator/daemon/status    → Get Orchestrator daemon status
+  ═══════════════════════════════════════════════════════════
 """
 
 from __future__ import annotations
@@ -28,7 +35,7 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -76,6 +83,7 @@ from shared.agent_protocol.registry import AgentRegistry
 SERVICE_NAME = "antonio"
 SERVICE_VERSION = "0.2.0"
 CONFIG_URL = "http://01-config:8000"
+ORCHESTRATOR_URL = "http://11-orchestrator:8000"
 
 # ── App State ──────────────────────────────────────────────
 
@@ -293,6 +301,8 @@ async def agent_manifest() -> ApiResponse:
             "name": skill.name,
             "description": skill.description,
             "parameters": skill.parameters,
+            "input_schema": {"type": "object", "properties": skill.parameters or {}},
+            "output_schema": {"type": "object"},
         })
 
     active = state.agent.active_sessions if state.agent else 0
@@ -907,6 +917,114 @@ async def get_team_structure() -> ApiResponse:
         "team_size": len(roles),
         "roles": roles,
     })
+
+
+# ═══════════════════════════════════════════════════════════
+# Antonio Gateway — Supreme Controller Endpoints
+# All external requests route through Antonio for awareness,
+# context, and audit trail. Orchestrator is backend-only.
+# ═══════════════════════════════════════════════════════════
+
+
+@app.post("/audit", status_code=201)
+async def gateway_start_audit(body: dict[str, Any], request: Request) -> JSONResponse:
+    """Start an audit — gatewayed through Antonio.
+    
+    Accepts the same payload as Orchestrator's /audit endpoint:
+    { chain, address, program, priority, metadata }.
+    
+    Antonio logs the request, delegates to Orchestrator,
+    and returns the result with an Antonio processing header.
+    """
+    chain = body.get("chain", "ethereum")
+    address = body.get("address", "")
+    program = body.get("program", "")
+    priority = body.get("priority", 5)
+    use_ai = body.get("use_ai", True)
+    metadata = body.get("metadata", {})
+
+    if not address.startswith("0x"):
+        raise _err("Address must be 0x-prefixed")
+
+    log.info(
+        "antonio.gateway.audit_requested",
+        chain=chain,
+        address=address,
+        program=program,
+        priority=priority,
+    )
+
+    orchestrator_payload = {
+        "chain": chain,
+        "address": address,
+        "program": program,
+        "priority": priority,
+        "use_ai": use_ai,
+        "metadata": metadata,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"{ORCHESTRATOR_URL}/audit",
+                json=orchestrator_payload,
+            )
+            resp.raise_for_status()
+            result = resp.json()
+    except httpx.RequestError as exc:
+        log.error("antonio.gateway.orchestrator_unreachable", error=str(exc))
+        raise _err(f"Orchestrator unreachable: {exc}", 502)
+    except Exception as exc:
+        log.error("antonio.gateway.audit_failed", error=str(exc))
+        raise _err(f"Audit failed: {exc}", 500)
+
+    # Add Antonio gateway mark
+    if isinstance(result, dict) and "meta" in result:
+        result["meta"]["gateway"] = "antonio"
+
+    return JSONResponse(
+        content=result,
+        status_code=201,
+        headers={"X-Antonio-Gateway": "true"},
+    )
+
+
+@app.post("/orchestrator/daemon/start")
+async def gateway_daemon_start() -> JSONResponse:
+    """Start the Orchestrator daemon via Antonio gateway."""
+    log.info("antonio.gateway.daemon_start")
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(f"{ORCHESTRATOR_URL}/daemon/start")
+            resp.raise_for_status()
+            return JSONResponse(content=resp.json())
+    except Exception as exc:
+        raise _err(f"Daemon start failed: {exc}", 502)
+
+
+@app.post("/orchestrator/daemon/stop")
+async def gateway_daemon_stop() -> JSONResponse:
+    """Stop the Orchestrator daemon via Antonio gateway."""
+    log.info("antonio.gateway.daemon_stop")
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(f"{ORCHESTRATOR_URL}/daemon/stop")
+            resp.raise_for_status()
+            return JSONResponse(content=resp.json())
+    except Exception as exc:
+        raise _err(f"Daemon stop failed: {exc}", 502)
+
+
+@app.get("/orchestrator/daemon/status")
+async def gateway_daemon_status() -> JSONResponse:
+    """Get Orchestrator daemon status via Antonio gateway."""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(f"{ORCHESTRATOR_URL}/daemon/status")
+            resp.raise_for_status()
+            return JSONResponse(content=resp.json())
+    except Exception as exc:
+        raise _err(f"Daemon status failed: {exc}", 502)
 
 
 # ── Helpers ──────────────────────────────────────────────────

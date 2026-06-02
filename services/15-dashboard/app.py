@@ -382,6 +382,21 @@ async def api_get_config_key(key: str) -> JSONResponse:
         return _err(f"Config key not found: {key}", status_code=404)
 
 
+@app.put("/api/config/bulk")
+async def api_set_bulk_config(body: dict) -> JSONResponse:
+    """Set multiple config values at once (proxies to Config Service).
+
+    WARNING: This route MUST be registered BEFORE `/api/config/{key}`
+    to prevent FastAPI from matching ``bulk`` as a ``{key}`` parameter.
+    """
+    try:
+        result = await proxy.set_bulk_config(body.get("config", {}))
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Bulk config failed", error=str(e))
+        return _err(f"Failed to set config: {e}", status_code=502)
+
+
 @app.put("/api/config/{key}")
 async def api_set_config(key: str, body: dict) -> JSONResponse:
     """Set a config value (proxies to Config Service)."""
@@ -390,17 +405,6 @@ async def api_set_config(key: str, body: dict) -> JSONResponse:
         return _ok(data=result.get("data"))
     except Exception as e:
         logger.error("Set config failed", key=key, error=str(e))
-        return _err(f"Failed to set config: {e}", status_code=502)
-
-
-@app.put("/api/config/bulk")
-async def api_set_bulk_config(body: dict) -> JSONResponse:
-    """Set multiple config values at once (proxies to Config Service)."""
-    try:
-        result = await proxy.set_bulk_config(body.get("config", {}))
-        return _ok(data=result.get("data"))
-    except Exception as e:
-        logger.error("Bulk config failed", error=str(e))
         return _err(f"Failed to set config: {e}", status_code=502)
 
 
@@ -623,6 +627,39 @@ async def api_agent_skills() -> JSONResponse:
         return _ok(data=result.get("data"))
     except Exception as e:
         logger.error("Get agent skills failed", error=str(e))
+        return _err(f"Failed: {e}", status_code=502)
+
+
+@app.get("/api/agent/skills/metrics")
+async def api_agent_skill_metrics() -> JSONResponse:
+    """Get agent skill metrics."""
+    try:
+        result = await proxy.get_skill_metrics()
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Get skill metrics failed", error=str(e))
+        return _err(f"Failed: {e}", status_code=502)
+
+
+@app.get("/api/agent/memory/stats")
+async def api_agent_memory_stats() -> JSONResponse:
+    """Get memory store statistics."""
+    try:
+        result = await proxy.get_memory_stats()
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Get memory stats failed", error=str(e))
+        return _err(f"Failed: {e}", status_code=502)
+
+
+@app.get("/api/agent/learning/stats")
+async def api_agent_learning_stats() -> JSONResponse:
+    """Get learning statistics."""
+    try:
+        result = await proxy.get_learning_stats()
+        return _ok(data=result.get("data"))
+    except Exception as e:
+        logger.error("Get learning stats failed", error=str(e))
         return _err(f"Failed: {e}", status_code=502)
 
 

@@ -328,6 +328,20 @@ class LLMClient:
 
     # ── Public API ─────────────────────────────────────────
 
+    @property
+    def has_keys(self) -> bool:
+        """Check whether at least one LLM API key is configured.
+
+        Returns:
+            ``True`` if any provider key is set, ``False`` otherwise.
+        """
+        return bool(
+            self.openai_key
+            or self.anthropic_key
+            or self.openrouter_key
+            or self.huggingface_key
+        )
+
     async def analyze(
         self,
         source_code: str,

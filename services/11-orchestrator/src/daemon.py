@@ -195,12 +195,23 @@ class Daemon:
     # ── Immunefi sync ───────────────────────────────────────────
 
     async def _sync_immunefi_programs(self) -> list:
-        """Fetch program list from Immunefi service."""
+        """Fetch program list from Immunefi service.
+
+        Response shape (wrapped in ApiResponse):
+          { "data": { "data": [...programs...], "total": N, ... }, "meta": {...} }
+        """
         try:
             resp = await self.client.get(f"{config.immunefi_url}/programs")
             resp.raise_for_status()
             data = resp.json()
-            return (data.get("data") or []) if isinstance(data, dict) else (data or [])
+            # Unwrap ApiResponse: data → inner → program list
+            if isinstance(data, dict):
+                inner = data.get("data") or {}
+                if isinstance(inner, dict):
+                    return inner.get("data") or []
+                if isinstance(inner, list):
+                    return inner
+            return data if isinstance(data, list) else []
         except httpx.HTTPError as exc:
             logger.warning("Immunefi sync failed: %s", exc)
             return []

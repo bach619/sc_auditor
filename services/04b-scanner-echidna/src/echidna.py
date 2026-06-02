@@ -136,7 +136,9 @@ class EchidnaRunner:
             "--solc-args", "--allow-paths .",
         ]
         if self._coverage_enabled:
-            cmd.extend(["--coverage", "true"])
+            coverage_dir = self._working_dir / "coverage"
+            coverage_dir.mkdir(parents=True, exist_ok=True)
+            cmd.extend(["--coverage-dir", str(coverage_dir)])
 
         log.info("echidna.run.start", target=target, contract=resolved_name, timeout=effective_timeout)
 

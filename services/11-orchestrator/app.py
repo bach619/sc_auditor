@@ -67,7 +67,7 @@ orchestrator_agent: OrchestratorAgent
 @app.on_event("startup")
 async def startup() -> None:
     """Initialise all components."""
-    global governor, pipeline, batch, scorer, similarity, daemon
+    global governor, pipeline, batch, scorer, similarity, daemon, orchestrator_agent
 
     logger.info("Starting Orchestrator Service")
 

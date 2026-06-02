@@ -22,7 +22,7 @@ export default defineConfig({
         // Jangan timeout saat besar body response
         selfHandleResponse: false,
         configure: (proxy) => {
-          proxy.on('error', (err, _req, res) => {
+          proxy.on('error', (err, _req, _res) => {
             // Suppress ECONNRESET — terjadi saat downstream service lambat/down
             // Ini tidak kritikal, frontend sudah handle error di catch-blocks
             if ((err as any).code === 'ECONNRESET' || (err as any).code === 'ECONNREFUSED') {

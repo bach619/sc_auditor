@@ -20,7 +20,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from manticore.plugins import Plugin
+from manticore import Plugin
 
 
 class AccessControlDetector(Plugin):

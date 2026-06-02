@@ -63,6 +63,7 @@ class CapabilityDefinition:
     estimated_duration_ms: int = 0
     estimated_cost_usd: float = 0.0
     confidence: float = 0.0
+    parameters: dict | None = None
 
 
 @dataclass

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
+import structlog
 from tenacity import (
     before_sleep_log,
     retry,
@@ -40,7 +41,7 @@ from src.models import (
 )
 from src.resource_governor import ResourceGovernor, ToolType
 
-logger = logging.getLogger("vyper.orchestrator.pipeline")
+logger = structlog.get_logger("vyper.orchestrator.pipeline")
 
 # ── Type alias ──────────────────────────────────────────────────
 StepHandler = Callable[[AuditRecord], Any]
@@ -418,7 +419,7 @@ class Pipeline:
                 if resp.status_code == 200:
                     legacy_data = resp.json().get("data") or {}
                     # Only add findings not already captured
-                    existing_tools = {t.get("tool") for t in tool_results}
+                    existing_tools = {str(t.get("tool")) for t in tool_results if t.get("tool") is None or isinstance(t.get("tool"), (str, bytes, int, float, bool))}
                     for tool_result in legacy_data.get("tools", []):
                         if tool_result.get("tool") not in existing_tools:
                             tool_results.append(tool_result)
@@ -1148,10 +1149,7 @@ __all__ = ["Pipeline"]
 
 # ── Resilient Pipeline Step ─────────────────────────────────────
 
-import asyncio
-import logging
-
-logger = logging.getLogger("vyper.orchestrator.pipeline.resilient")
+_rlogger = structlog.get_logger("vyper.orchestrator.pipeline.resilient")
 
 
 class ResilientPipelineStep:

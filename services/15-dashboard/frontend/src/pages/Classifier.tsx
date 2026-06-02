@@ -96,14 +96,14 @@ export default function Classifier() {
           <StatCard label="Total Findings" value={metrics.total_findings} />
           <StatCard label="True Positive Rate" value={`${(tpRate * 100).toFixed(1)}%`} accent accentColor="green" />
           <StatCard label="Precision" value={`${(precision * 100).toFixed(1)}%`} accent accentColor="blue" />
-          <StatCard label="F1 Score" value={`${(f1 * 100).toFixed(1)}%`} accent accentColor="purple" />
+          <StatCard label="F1 Score" value={`${(f1 * 100).toFixed(1)}%`} accent accentColor="blue" />
         </div>
       )}
 
       {metrics && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Critical" value={metrics.critical_findings} accent accentColor="red" />
-          <StatCard label="High" value={metrics.high_findings} accent accentColor="orange" />
+          <StatCard label="High" value={metrics.high_findings} accent accentColor="red" />
           <StatCard label="Medium" value={metrics.medium_findings} accent accentColor="yellow" />
           <StatCard label="Low" value={metrics.low_findings} />
         </div>
