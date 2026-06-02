@@ -1,8 +1,16 @@
 # System Log — sc_auditor (Vyper)
 
+## 2026-06-03
+
+### `2026-06-03 00:13 | [MODIFY] | File: services/15-dashboard/frontend/src/pages/Settings.tsx | Agent: lore-master | Filter dropdown Assigned Model: hanya menampilkan model yang provider-nya sudah memiliki API key aktif (hasKey true). Jika belum ada API key sama sekali, tampilkan placeholder '— Save API key first —'`
+
 ## 2026-06-02
 
 ### `2026-06-02 23:49 | [FIX] | File: services/15-dashboard/app.py | Agent: lore-master | FIX route ordering: pindahkan PUT /api/config/bulk SEBELUM PUT /api/config/{key} agar FastAPI tidak mengarahkan 'bulk' sebagai parameter {key}. Sebelumnya request bulk config dikirim ke api_set_config(key='bulk') yang mengirim {'value': None} ke config service → 422 validation error.`
+
+### `2026-06-02 | [FIX] | File: services/15-dashboard/src/proxy.py + services/15-dashboard/app.py | Agent: lore-master | [fix-404-proxy] ADD: 3 missing proxy methods & routes di Dashboard API Gateway — get_memory_stats() → /api/agent/memory/stats, get_learning_stats() → /api/agent/learning/stats, get_skill_metrics() → /api/agent/skills/metrics. Sebelumnya frontend call 3 endpoint ini dapat 404 karena route proxy tidak ada.`
+
+### `2026-06-02 | [PERF] | File: services/15-dashboard/src/proxy.py | Agent: lore-master | [fix-slow-load] PARALLEL health check: check_all_services() diubah dari sequential loop (18 service × 5s timeout = ~90s worst case) jadi asyncio.gather parallel (~5s worst case). Penyebab halaman /agent loading sangat lama karena Antonio.tsx memanggil api.getHealthAll() yang sebelumnya nge-loop sequential 18 service health check.`
 ### `2026-06-02 23:24 | [FIX] | File: services/02-immunefi/src/providers/immunefi_mirror.py | Agent: lore-master | FIX _extract_contracts: ganti c.get('address', c) yang return entire asset dict jadi regex extract 0x dari explorer URL + filter asset_type smart_contract + tambah _detect_chain_from_url. Sync ulang → 3,976 scope contracts dari 134 program`
 ### `2026-06-02 | [FIX] | File: docker-compose.yml + conftest.py + test_full_pipeline.py + services/04d-scanner-halmos/Dockerfile | Agent: lore-master | [pipeline-e2e] FIX: Port conflict 8018 (04e-manticore → 8020), tambah HEALTHCHECK ke halmos, tambah scanner_manticore fixture di conftest & E2E test`
 
