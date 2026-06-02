@@ -2,6 +2,7 @@
 
 ## 2026-06-02
 
+### `2026-06-02 23:24 | [FIX] | File: services/02-immunefi/src/providers/immunefi_mirror.py | Agent: lore-master | FIX _extract_contracts: ganti c.get('address', c) yang return entire asset dict jadi regex extract 0x dari explorer URL + filter asset_type smart_contract + tambah _detect_chain_from_url. Sync ulang → 3,976 scope contracts dari 134 program`
 ### `2026-06-02 | [FIX] | File: docker-compose.yml + conftest.py + test_full_pipeline.py + services/04d-scanner-halmos/Dockerfile | Agent: lore-master | [pipeline-e2e] FIX: Port conflict 8018 (04e-manticore → 8020), tambah HEALTHCHECK ke halmos, tambah scanner_manticore fixture di conftest & E2E test`
 
 
