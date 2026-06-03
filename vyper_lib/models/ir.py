@@ -62,7 +62,7 @@ class IROpType(str, Enum):
     PUSH = "push"
     POP = "pop"
     DUP = "dup"
-    SWAP = "swap"
+    SWAP_OP = "swap_op"
 
     # Logging
     LOG = "log"

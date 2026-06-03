@@ -43,6 +43,13 @@ _SERVICE_URLS: dict[str, str] = {
     "dashboard": "http://localhost:8000",
     "scanner_manticore": "http://localhost:8020",
     "submission": "http://localhost:8018",
+    "experience": "http://localhost:8019",
+    "code4rena": "http://localhost:8022",
+    "sherlock": "http://localhost:8023",
+    "cantina": "http://localhost:8024",
+    "hats": "http://localhost:8025",
+    "source_starknet": "http://localhost:8026",
+    "scanner_cairo": "http://localhost:8028",
 }
 
 
@@ -241,3 +248,45 @@ def scanner_manticore_url() -> str:
 def submission_url() -> str:
     """Submission Service URL."""
     return _service_url("submission")
+
+
+@pytest.fixture()
+def experience_url() -> str:
+    """Experience Service URL."""
+    return _service_url("experience")
+
+
+@pytest.fixture()
+def code4rena_url() -> str:
+    """Code4rena Service URL."""
+    return _service_url("code4rena")
+
+
+@pytest.fixture()
+def sherlock_url() -> str:
+    """Sherlock Service URL."""
+    return _service_url("sherlock")
+
+
+@pytest.fixture()
+def cantina_url() -> str:
+    """Cantina Service URL."""
+    return _service_url("cantina")
+
+
+@pytest.fixture()
+def hats_url() -> str:
+    """Hats Finance Service URL."""
+    return _service_url("hats")
+
+
+@pytest.fixture()
+def source_starknet_url() -> str:
+    """StarkNet Source Service URL."""
+    return _service_url("source_starknet")
+
+
+@pytest.fixture()
+def scanner_cairo_url() -> str:
+    """Cairo Scanner Service URL."""
+    return _service_url("scanner_cairo")

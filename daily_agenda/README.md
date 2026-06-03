@@ -17,7 +17,7 @@
 | 05 | Each Bug Is Cases (Case Management) | ✅ CLOSED | CRITICAL | 04 | `05_each_bug_is_cases (closed).md` |
 | 06 | Confidence atas Temuan | 🔴 OPEN | HIGH | 05 | `06_confidence_atas_temuan.md` |
 | 07 | CI/CD Pipeline & Infrastructure Hardening | ✅ CLOSED | CRITICAL | — | `07_ci_cd_infrastructure_hardening_(closed).md` |
-| 08 | Comprehensive Test Suite (E2E + Integration) | 🔴 OPEN | CRITICAL | 07 | `08_comprehensive_test_suite_(closed).md` |
+| 08 | Comprehensive Test Suite (E2E + Integration) | 🔴 OPEN | CRITICAL | 07 | `08_comprehensive_test_suite.md` |
 | 09 | Security Hardening (No Auth) | ✅ CLOSED | HIGH | 07, 08 | `09_security_hardening_(closed).md` |
 | 10 | Observability, Monitoring & Agent Memory | ✅ CLOSED | CRITICAL | 09 | `10_observability_monitoring_memory_(closed).md` |
 | **11** | **Halmos Formal Verification (Pipeline Integration)** | **✅ CLOSED** | **CRITICAL** | **07, 10** | `11_halmos_formal_verification_(critical)(closed).md` |

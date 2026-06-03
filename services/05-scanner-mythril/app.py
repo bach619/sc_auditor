@@ -305,7 +305,7 @@ class AppState:
                 "SLITHER_URL", "http://04a-scanner-slither:8014"
             ),
             ai_url=os.environ.get(
-                "AI_URL", "http://06-ai:8004"
+                "AI_URL", "http://06-ai:8000"
             ),
             manticore_url=os.environ.get(
                 "MANTICORE_URL", "http://04e-scanner-manticore:8018"

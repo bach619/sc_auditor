@@ -11,7 +11,7 @@ from src.skills.base import BaseSkill
 
 log = structlog.get_logger()
 
-AI_URL = "http://06-ai:8004"
+AI_URL = "http://06-ai:8000"
 
 
 class AnalyzeFindingsSkill(BaseSkill):

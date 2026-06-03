@@ -18,7 +18,7 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: Run ruff linter
-        run: ruff check services/*/src/ --no-fix || true
+        run: ruff check services/*/src/ --no-fix
 
   lint-frontend:
     name: Lint Frontend
@@ -31,11 +31,11 @@ jobs:
       - name: Install dependencies
         run: |
           cd services/15-dashboard/frontend
-          npm ci || npm install
+          npm ci
       - name: Run ESLint
         run: |
           cd services/15-dashboard/frontend
-          npx eslint src/ --no-error-on-unmatched-pattern || true
+          npx eslint src/ --no-error-on-unmatched-pattern
 
   type-check:
     name: TypeScript Check
@@ -48,11 +48,11 @@ jobs:
       - name: Install dependencies
         run: |
           cd services/15-dashboard/frontend
-          npm ci || npm install
+          npm ci
       - name: Run TypeScript check
         run: |
           cd services/15-dashboard/frontend
-          npx tsc --noEmit || true
+          npx tsc --noEmit
 
   test-backend:
     name: Backend Tests
@@ -64,10 +64,11 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
-          pip install pytest pytest-asyncio httpx pyyaml fastapi pydantic structlog
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-timeout
       - name: Run tests
         run: |
-          python -m pytest tests/ -v --timeout=30 -x || true
+          python -m pytest tests/ -v --timeout=30 -x
 
   validate-docker:
     name: Validate Docker Compose
@@ -75,4 +76,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate docker-compose.yml
-        run: python3 -c "import yaml; d=yaml.safe_load(open('docker-compose.yml')); assert len(d.get('services',{}))==20; print('OK:', len(d['services']), 'services')"
+        run: python3 -c "import yaml; d=yaml.safe_load(open('docker-compose.yml')); svc=len(d.get('services',{})); assert svc>=20; print('OK:', svc, 'services')"

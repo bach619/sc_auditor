@@ -212,7 +212,7 @@ async def generate_draft(
     immunefi_message: str,
     intent: str,
     evidence: dict[str, Any],
-    ai_url: str = "http://06-ai:8004",
+    ai_url: str = "http://06-ai:8000",
     tone: str = "professional",
 ) -> str:
     """Generate a draft response using AI (primary) or template fallback."""

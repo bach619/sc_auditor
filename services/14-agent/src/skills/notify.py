@@ -11,7 +11,7 @@ from src.skills.base import BaseSkill
 
 log = structlog.get_logger()
 
-NOTIFIER_URL = "http://10-notifier:8008"
+NOTIFIER_URL = "http://10-notifier:8000"
 
 
 class NotifySkill(BaseSkill):

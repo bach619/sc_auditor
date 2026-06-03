@@ -1,4 +1,5 @@
 FROM python:3.12-slim
+ENV PIP_DEFAULT_TIMEOUT=200
 
 LABEL service="scanner-halmos"
 LABEL version="0.1.0"
@@ -23,7 +24,7 @@ WORKDIR /app
 
 # Install app deps
 COPY services/04d-scanner-halmos/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Copy shared library
 COPY services/shared/ ./shared/

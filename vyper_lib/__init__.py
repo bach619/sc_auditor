@@ -9,7 +9,9 @@ from vyper_lib.models import (
     Meta,
     ScanRequest,
     ScanResponse,
+    SourceFile,
     ToolInfo,
+    ToolInstallRequest,
     ToolResult,
 )
 from vyper_lib.models.bounty import (
@@ -62,7 +64,9 @@ __all__ = [
     "Meta",
     "ScanRequest",
     "ScanResponse",
+    "SourceFile",
     "ToolInfo",
+    "ToolInstallRequest",
     "ToolResult",
     # Bounty models
     "BountyContract",

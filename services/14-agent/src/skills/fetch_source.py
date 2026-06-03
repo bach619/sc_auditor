@@ -12,8 +12,8 @@ from src.skills.base import BaseSkill
 
 log = structlog.get_logger()
 
-SOURCE_URL = "http://03-source:8002"
-IMMUNEFI_URL = "http://02-immunefi:8001"
+SOURCE_URL = "http://03-source:8000"
+IMMUNEFI_URL = "http://02-immunefi:8000"
 
 MAX_FETCH_RETRIES = 3
 

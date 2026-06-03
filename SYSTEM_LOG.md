@@ -2,6 +2,45 @@
 
 ## 2026-06-03
 
+### `2026-06-03 22:07 | [FIX] | File: vyper_lib/models/__init__.py | Agent: lore-master | [package-fix] Resolve models.py vs models/ package conflict: create __init__.py with all core models + delete models.py file that shadowed the package (7 services crashing)`
+### `2026-06-03 21:53 | [CONFIG] | File: docker-compose.yml | Agent: lore-master | [docker-stability] Update resource limits: 04b-echidna (1CPU/2G), 04d-halmos (2CPU/4G), 04e-manticore (2CPU/4G), 08-exploit (1CPU/1G) + add AI_SERVICE_URL env var for exploit + add depends_on 04-scanner->all sub-scanners + depends_on 17-experience->01-config + add health checks for 18-23 (6 services) + add service URL env vars for 11-orchestrator and 14-agent`
+### `2026-06-03 21:46 | [MODIFY] | File: services/14-agent/SYSTEM_KNOWLEDGE.md | Agent: lore-master | [port-fix] Add CRITICAL port convention section + separate Host Port vs Internal Port columns for all 28 services`
+### `2026-06-03 21:46 | [FIX] | File: services/04a-scanner-slither/src/intelligence/ai_verifier.py | Agent: lore-master | [port-fix] Fix wrong AI_SERVICE_URL: :8004->:8000`
+### `2026-06-03 21:46 | [FIX] | File: services/05-scanner-mythril/app.py | Agent: lore-master | [port-fix] Fix wrong AI_URL default: :8004->:8000`
+### `2026-06-03 21:46 | [FIX] | File: services/16-submission/src/* | Agent: lore-master | [port-fix] Fix wrong ai_url defaults in evidence_collector, intent_classifier, draft_generator: :8004->:8000`
+### `2026-06-03 21:46 | [FIX] | File: services/16-submission/app.py | Agent: lore-master | [port-fix] Fix 3 wrong default URLs: immunefi:8001->:8000, ai:8004->:8000 (x2)`
+### `2026-06-03 21:46 | [FIX] | File: services/08-exploit/src/config.py | Agent: lore-master | [port-fix] Fix wrong ai_service_url default: :8004->:8000`
+### `2026-06-03 21:46 | [FIX] | File: services/08-exploit/src/planner.py | Agent: lore-master | [port-fix] Fix wrong AI_SERVICE_URL default: :8004->:8000`
+### `2026-06-03 21:46 | [FIX] | File: services/13-upkeep/src/metrics.py | Agent: lore-master | [port-fix] Fix wrong internal ports: exploit:8000->:8006, reporter:8000->:8007`
+### `2026-06-03 21:46 | [FIX] | File: services/15-dashboard/src/health_monitor.py | Agent: lore-master | [port-fix] Fix 10 wrong internal URLs in health monitor: immunefi:8001->:8000, slither:8000->:8014, echidna:8000->:8015, forge:8000->:8016, halmos:8000->:8017, mythril:8000->:8013, ai:8004->:8000, classifier:8005->:8000, notifier:8008->:8000, agent:8014->:8000`
+### `2026-06-03 21:46 | [FIX] | File: services/14-agent/src/llm.py | Agent: lore-master | [port-fix] Update VYPER_KNOWLEDGE port docs: add internal port column, clarify host vs container ports for all 28 services`
+### `2026-06-03 21:46 | [FIX] | File: services/14-agent/src/daemon.py | Agent: lore-master | [port-fix] Fix 2 wrong Immunefi URLs: :8001->:8000 in service health check and auto-hunt (host vs container port)`
+### `2026-06-03 21:46 | [FIX] | File: services/14-agent/src/skills/analyze_findings.py | Agent: lore-master | [port-fix] Fix wrong internal port: 06-ai:8004->:8000 (host vs container port)`
+### `2026-06-03 21:46 | [FIX] | File: services/14-agent/src/skills/classify_finding.py | Agent: lore-master | [port-fix] Fix wrong internal port: 07-classifier:8005->:8000 (host vs container port)`
+### `2026-06-03 21:45 | [FIX] | File: services/14-agent/src/skills/notify.py | Agent: lore-master | [port-fix] Fix wrong internal port: 10-notifier:8008->:8000 (host vs container port)`
+### `2026-06-03 21:45 | [FIX] | File: services/14-agent/src/skills/fetch_source.py | Agent: lore-master | [port-fix] Fix wrong internal ports: 03-source:8002->:8000, 02-immunefi:8001->:8000 (host vs container port confusion)`
+### `2026-06-03 21:19 | [MODIFY] | File: services/14-agent/src/memory/vector_store.py | Agent: lore-master | [antonio-knowledge] Add get_all() method to VectorMemory for knowledge endpoint retrieval`
+### `2026-06-03 21:19 | [MODIFY] | File: services/14-agent/app.py | Agent: lore-master | [antonio-knowledge] Add _load_system_knowledge() at startup: loads SYSTEM_KNOWLEDGE.md into vector memory as chunked entries + add GET /knowledge endpoint`
+### `2026-06-03 21:19 | [MODIFY] | File: services/14-agent/src/llm.py | Agent: lore-master | [antonio-knowledge] Update VYPER_KNOWLEDGE to current state: 28 services, 16 exploit types, 5 bounty platforms, multi-chain support, comprehensive platform stats`
+### `2026-06-03 21:19 | [CREATE] | File: services/14-agent/SYSTEM_KNOWLEDGE.md | Agent: lore-master | [antonio-knowledge] Create comprehensive system knowledge base for Antonio - 14 sections covering all 28 services, pipeline, exploits, multi-chain, LLM providers, memory, config, health checks`
+### `2026-06-03 21:06 | [DOCS] | File: daily_agenda/26_vyper_op_platform_roadmap/06_implementation_action_plan.md | Agent: lore-master | [agenda-26] Create actionable implementation plan from 5 roadmap docs: quick wins, phase 1 bets, prerequisites, risk mitigation, success criteria (agenda-26)`
+### `2026-06-03 21:06 | [DOCS] | File: daily_agenda/08_comprehensive_test_suite_(closed).md | Agent: lore-master | [agenda-08] Re-open agenda-08: add gap coverage report for 8 missing services + update test summary to 28/28 services (agenda-08)`
+### `2026-06-03 21:06 | [MODIFY] | File: tests/conftest.py | Agent: lore-master | [agenda-08] Add 8 URL fixtures for services 17-23 (experience, code4rena, sherlock, cantina, hats, source_starknet, scanner_cairo) (agenda-08)`
+### `2026-06-03 21:06 | [DELETE] | File: tests/services/test_agent_provider.py | Agent: lore-master | [agenda-08] Remove dead stub (redirect to services/14-agent/tests/) (agenda-08)`
+### `2026-06-03 21:06 | [CREATE] | File: tests/services/test_scanner_cairo.py | Agent: lore-master | [agenda-08] Add integration tests for 23-scanner-cairo (health + scan validation) (agenda-08)`
+### `2026-06-03 21:06 | [CREATE] | File: tests/services/test_source_starknet.py | Agent: lore-master | [agenda-08] Add integration tests for 22-source-starknet (health + fetch validation) (agenda-08)`
+### `2026-06-03 21:06 | [CREATE] | File: tests/services/test_hats.py | Agent: lore-master | [agenda-08] Add integration tests for 21-hats (health + bounties) (agenda-08)`
+### `2026-06-03 21:06 | [CREATE] | File: tests/services/test_cantina.py | Agent: lore-master | [agenda-08] Add integration tests for 20-cantina (health + contests) (agenda-08)`
+### `2026-06-03 21:06 | [CREATE] | File: tests/services/test_sherlock.py | Agent: lore-master | [agenda-08] Add integration tests for 19-sherlock (health + contests) (agenda-08)`
+### `2026-06-03 21:06 | [CREATE] | File: tests/services/test_code4rena.py | Agent: lore-master | [agenda-08] Add integration tests for 18-code4rena (health + contests) (agenda-08)`
+### `2026-06-03 21:06 | [CREATE] | File: tests/services/test_experience.py | Agent: lore-master | [agenda-08] Add integration tests for 17-experience (health + stats) (agenda-08)`
+### `2026-06-03 21:06 | [CREATE] | File: tests/services/test_scanner_manticore.py | Agent: lore-master | [agenda-08] Add integration tests for 04e-scanner-manticore (health + scan validation) (agenda-08)`
+### `2026-06-03 21:06 | [MODIFY] | File: vyper_lib/__init__.py | Agent: lore-master | [agenda-20] Add SourceFile, ToolInstallRequest exports (agenda-20)`
+### `2026-06-03 21:06 | [MODIFY] | File: vyper_lib/models.py | Agent: lore-master | [agenda-20] Add missing fields (metadata, coverage, tools, mythril_timeout, halmos_timeout, echidna_timeout, contract_type) + SourceFile + ToolInstallRequest models for scanner compatibility (agenda-20)`
+### `2026-06-03 21:06 | [REFACTOR] | File: services/04-scanner/src/slither_config.py | Agent: lore-master | [agenda-20] Replace duplicate SlitherConfigBuilder with re-export from vyper_lib (agenda-20)`
+### `2026-06-03 21:06 | [REFACTOR] | File: services/04-scanner/src/deps.py | Agent: lore-master | [agenda-20] Replace duplicate DependencyResolver with re-export from vyper_lib (agenda-20)`
+### `2026-06-03 21:06 | [REFACTOR] | File: services/04-scanner/src/solc_manager.py | Agent: lore-master | [agenda-20] Replace duplicate SolcManager with re-export from vyper_lib (agenda-20)`
+### `2026-06-03 21:06 | [REFACTOR] | File: services/04-scanner/src/models.py | Agent: lore-master | [agenda-20] Replace duplicate models with re-export from vyper_lib (agenda-20)`
 ### `2026-06-03 20:54 | [DELETE] | File: services/04b_scanner_echidna | Agent: lore-master | [debug-session] Hapus broken symlink/junction (underscore) - duplikat dari 04b-scanner-echidna (hyphen)`
 ### `2026-06-03 20:54 | [REFACTOR] | File: Dockerfile.base | Agent: lore-master | [debug-session] Hapus double pip install (hardcoded versions + requirements.txt) untuk menghindari version conflict dan mempercepat build`
 ### `2026-06-03 20:54 | [FIX] | File: scripts/entrypoint.sh | Agent: lore-master | [debug-session] Ubah chmod 777 → 755 untuk keamanan (least-privilege principle), perbaiki komentar`

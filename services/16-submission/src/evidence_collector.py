@@ -32,9 +32,9 @@ class EvidenceCollector:
 
     def __init__(
         self,
-        immunefi_url: str = "http://02-immunefi:8001",
-        source_url: str = "http://03-source:8000",
-        ai_url: str = "http://06-ai:8004",
+        immunefi_url: str = "http://02-immunefi:8000",
+        ...
+        ai_url: str = "http://06-ai:8000",
         exploit_url: str = "http://08-exploit:8006",
         orchestrator_url: str = "http://11-orchestrator:8000",
     ) -> None:

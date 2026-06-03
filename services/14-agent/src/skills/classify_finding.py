@@ -11,7 +11,7 @@ from src.skills.base import BaseSkill
 
 log = structlog.get_logger()
 
-CLASSIFIER_URL = "http://07-classifier:8005"
+CLASSIFIER_URL = "http://07-classifier:8000"
 
 
 class ClassifyFindingSkill(BaseSkill):

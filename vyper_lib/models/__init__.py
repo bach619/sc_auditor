@@ -2,6 +2,10 @@
 
 All request/response models follow the Vyper standard envelope:
   {"data": ..., "meta": {"status": "ok", "timestamp": "..."}}
+
+This package includes:
+- Core models: Finding, ScanRequest, ScanResponse, ApiResponse, etc.
+- Sub-packages: bounty, chain_adapter, ir
 """
 
 from __future__ import annotations
@@ -10,6 +14,11 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+# ── Sub-package re-exports ─────────────────────────────────────
+
+# These are imported lazily to avoid circular imports.
+# Use `from vyper_lib.models.bounty import ...` for direct access.
 
 
 # ── Finding ─────────────────────────────────────────────────
@@ -49,6 +58,10 @@ class Finding(BaseModel):
     confidence: float | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    class Config:
+        """Allow extra fields for forward compatibility."""
+        extra = "allow"
+
 
 # ── Scanners ─────────────────────────────────────────────────
 
@@ -72,6 +85,9 @@ class ToolResult(BaseModel):
     error: str | None = None
     duration_seconds: float = 0.0
     coverage: dict[str, Any] | None = None
+
+    class Config:
+        extra = "allow"
 
 
 class ForgeResult(BaseModel):
@@ -110,9 +126,41 @@ class ScanRequest(BaseModel):
     address: str
     sources: dict[str, str]
     compiler: str = "0.8.20"
+    tools: list[str] | None = None
     config_tier: str = "default"
     timeout: int = 600
+    mythril_timeout: int = 300
+    halmos_timeout: int = 600
+    echidna_timeout: int = 600
     contract_name: str | None = None
+
+    class Config:
+        extra = "allow"
+
+
+class SourceFile(BaseModel):
+    """A single source file to scan.
+
+    Attributes:
+        path: Relative file path (e.g. "contracts/Token.sol").
+        content: Full Solidity source code.
+    """
+
+    path: str
+    content: str
+
+    class Config:
+        extra = "allow"
+
+
+class ToolInstallRequest(BaseModel):
+    """Request body for POST /tools/install.
+
+    Attributes:
+        tools: List of tools to install or update.
+    """
+
+    tools: list[str]
 
 
 class BuildRequest(BaseModel):
@@ -165,6 +213,9 @@ class ScanResponse(BaseModel):
     high_count: int = 0
     duration_seconds: float = 0.0
     contract_type: str = "Unknown"
+
+    class Config:
+        extra = "allow"
 
 
 class ToolInfo(BaseModel):
@@ -242,7 +293,7 @@ class HealthData(BaseModel):
     solc_versions: list[str] = Field(default_factory=list)
 
 
-# ── Legacy vyper_lib models ──────────────────────────────────
+# ── Legacy models ────────────────────────────────────────────
 
 
 class HealthResponse(BaseModel):

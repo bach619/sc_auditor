@@ -30,7 +30,7 @@ import structlog
 log = structlog.get_logger()
 
 # Default 06-AI service URL
-AI_SERVICE_URL = "http://06-ai:8004"
+AI_SERVICE_URL = "http://06-ai:8000"
 
 # Local cache for AI verdicts (survives restarts)
 CACHE_DIR = Path("/data/scanner-slither/ai_cache")

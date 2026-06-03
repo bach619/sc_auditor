@@ -213,8 +213,7 @@ async def sse_events(request: Request) -> StreamingResponse:
 # ── Internal SSE broadcast (for other services) ─────────────────
 
 @app.post("/api/sse/broadcast")
-@limiter.limit("200/minute")
-async def api_sse_broadcast(body: dict) -> JSONResponse:
+async def api_sse_broadcast(request: Request, body: dict) -> JSONResponse:
     """Internal endpoint for backend services to broadcast SSE events.
 
     Called by orchestrator pipeline at each stage transition.

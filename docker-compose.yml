@@ -62,7 +62,14 @@ services:
       dockerfile: services/04-scanner/Dockerfile
     ports: ["8003:8000"]
     volumes: [vyper_scanner:/data/scanner]
-    depends_on: [01-config]
+    depends_on:
+      - 01-config
+      - 05-scanner-mythril
+      - 04a-scanner-slither
+      - 04b-scanner-echidna
+      - 04c-scanner-forge
+      - 04d-scanner-halmos
+      - 04e-scanner-manticore
     environment:
       - CONFIG_URL=http://01-config:8000
       - MYTHRIL_URL=http://05-scanner-mythril:8013
@@ -97,6 +104,14 @@ services:
     ports: ["8015:8015"]
     volumes: [vyper_scanner_echidna:/data/scanner-echidna]
     depends_on: [01-config]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "768M"
+        reservations:
+          cpus: "0.3"
+          memory: "256M"
     environment:
       - CONFIG_URL=http://01-config:8000
 
@@ -119,6 +134,14 @@ services:
     ports: ["8017:8017"]
     volumes: [vyper_scanner_halmos:/data/scanner-halmos]
     depends_on: [01-config]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+        reservations:
+          cpus: "0.5"
+          memory: "512M"
     environment:
       - CONFIG_URL=http://01-config:8000
 
@@ -130,6 +153,14 @@ services:
     ports: ["8020:8018"]
     volumes: [vyper_scanner_manticore:/data/scanner-manticore]
     depends_on: [04a-scanner-slither]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+        reservations:
+          cpus: "0.5"
+          memory: "512M"
     environment:
       - CONFIG_URL=http://01-config:8000
       - SLITHER_URL=http://04a-scanner-slither:8014
@@ -185,8 +216,17 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - vyper_kb:/data/knowledge
     depends_on: [01-config]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
     environment:
       - CONFIG_URL=http://01-config:8000
+      - AI_SERVICE_URL=http://06-ai:8000
     privileged: false
     # Run exploit container as root so it can access the mounted Docker
     # socket at /var/run/docker.sock (needed by docker-py to create Anvil
@@ -243,8 +283,15 @@ services:
       - 01-config
     environment:
       - CONFIG_URL=http://01-config:8000
-      # Scanner URLs (defaults in config.py already point to correct services)
-      # These can be overridden via env if needed
+      - AI_URL=http://06-ai:8000
+      - DASHBOARD_URL=http://15-dashboard:8000
+      - SCANNER_URL=http://04-scanner:8000
+      - CLASSIFIER_URL=http://07-classifier:8000
+      - EXPLOIT_URL=http://08-exploit:8006
+      - REPORTER_URL=http://09-reporter:8007
+      - NOTIFIER_URL=http://10-notifier:8000
+      - IMMUNEFI_URL=http://02-immunefi:8000
+      - SOURCE_URL=http://03-source:8000
 
   12-webhook:
     <<: *service-base
@@ -287,6 +334,14 @@ services:
       - 10-notifier
     environment:
       - CONFIG_URL=http://01-config:8000
+      - IMMUNEFI_URL=http://02-immunefi:8000
+      - SOURCE_URL=http://03-source:8000
+      - AI_URL=http://06-ai:8000
+      - CLASSIFIER_URL=http://07-classifier:8000
+      - EXPLOIT_URL=http://08-exploit:8006
+      - REPORTER_URL=http://09-reporter:8007
+      - NOTIFIER_URL=http://10-notifier:8000
+      - ORCHESTRATOR_URL=http://11-orchestrator:8000
 
   15-dashboard:
     <<: *service-base
@@ -339,6 +394,9 @@ services:
       dockerfile: services/17-experience/Dockerfile
     ports: ["8019:8019"]
     volumes: [vyper_experience:/data/experience]
+    depends_on: [01-config]
+    environment:
+      - CONFIG_URL=http://01-config:8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8019/health"]
       interval: 10s
@@ -361,6 +419,11 @@ services:
     ports: ["8022:8000"]
     volumes: [vyper_code4rena:/data/code4rena]
     depends_on: [01-config]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
 
@@ -372,6 +435,11 @@ services:
     ports: ["8023:8000"]
     volumes: [vyper_sherlock:/data/sherlock]
     depends_on: [01-config]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
 
@@ -383,6 +451,11 @@ services:
     ports: ["8024:8000"]
     volumes: [vyper_cantina:/data/cantina]
     depends_on: [01-config]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
 
@@ -394,6 +467,11 @@ services:
     ports: ["8025:8000"]
     volumes: [vyper_hats:/data/hats]
     depends_on: [01-config]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
 
@@ -410,6 +488,11 @@ services:
     ports: ["8026:8000"]
     volumes: [vyper_starknet_source:/data/starknet-source]
     depends_on: [01-config]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
 
@@ -426,6 +509,11 @@ services:
     ports: ["8028:8000"]
     volumes: [vyper_scanner_cairo:/data/scanner-cairo]
     depends_on: [01-config, 22-source-starknet]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
       - SOURCE_STARKNET_URL=http://22-source-starknet:8000

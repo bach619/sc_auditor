@@ -187,7 +187,7 @@ class AgentDaemon:
         services = {
             "config": "http://01-config:8000/health",
             "orchestrator": "http://11-orchestrator:8000/health",
-            "immunefi": "http://02-immunefi:8001/health",
+            "immunefi": "http://02-immunefi:8000/health",
         }
 
         for name, url in services.items():
@@ -268,7 +268,7 @@ class AgentDaemon:
         try:
             # Fetch recent programs from Immunefi
             resp = await self.http_client.get(
-                "http://02-immunefi:8001/programs?limit=10&sort=reward",
+                "http://02-immunefi:8000/programs?limit=10&sort=reward",
                 timeout=30.0,
             )
             if resp.status_code != 200:

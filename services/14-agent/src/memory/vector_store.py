@@ -183,3 +183,7 @@ class VectorMemory(BaseMemory):
 
     async def count(self) -> int:
         return len(self.entries)
+
+    async def get_all(self) -> list[MemoryEntry]:
+        """Return all entries in the vector store (no filtering)."""
+        return list(self.entries)

@@ -1,4 +1,5 @@
 FROM python:3.11-slim
+ENV PIP_DEFAULT_TIMEOUT=200
 
 WORKDIR /app
 
@@ -8,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+COPY vyper_lib/ /app/vyper_lib/
 COPY services/04-scanner/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip 'setuptools<60' wheel && \
     pip install --no-cache-dir -r requirements.txt

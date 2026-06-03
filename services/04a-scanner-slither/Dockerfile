@@ -1,4 +1,5 @@
 FROM python:3.11-slim
+ENV PIP_DEFAULT_TIMEOUT=200
 
 WORKDIR /app
 

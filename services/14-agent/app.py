@@ -11,6 +11,7 @@ Endpoints:
   GET  /memory               → Get memory contents
   POST /memory/search        → Search across memory stores
   GET  /memory/stats         → Get memory store statistics
+  GET  /knowledge            → Get loaded system knowledge (SYSTEM_KNOWLEDGE.md)
   POST /daemon/start         → Start autonomous daemon (14-agent)
   POST /daemon/stop          → Stop autonomous daemon (14-agent)
   GET  /daemon/status        → Get daemon status (14-agent)
@@ -259,6 +260,70 @@ async def _load_config(client: httpx.AsyncClient) -> dict[str, Any]:
     return defaults
 
 
+# ── System Knowledge Loading ───────────────────────────────
+
+
+async def _load_system_knowledge(memory: AgentMemory) -> int:
+    """Load SYSTEM_KNOWLEDGE.md into vector memory at startup.
+
+    Splits the markdown document by heading sections and stores each
+    as a separate vector memory entry for semantic retrieval.
+    Returns the number of chunks stored.
+    """
+    import re
+    from pathlib import Path
+    from src.memory.base import MemoryEntry
+
+    knowledge_path = Path(__file__).parent / "SYSTEM_KNOWLEDGE.md"
+    if not knowledge_path.exists():
+        log.warning("system_knowledge_not_found", path=str(knowledge_path))
+        return 0
+
+    content = knowledge_path.read_text(encoding="utf-8")
+    if not content.strip():
+        return 0
+
+    # Split by ## heading sections (skip title/intro)
+    sections = re.split(r"\n(?=## )", content)
+
+    chunk_count = 0
+    for i, section in enumerate(sections):
+        section = section.strip()
+        if not section or len(section) < 20:
+            continue
+
+        # Extract heading for metadata
+        heading_match = re.match(r"^## (.+)", section)
+        heading = heading_match.group(1).strip() if heading_match else f"section_{i}"
+
+        entry = MemoryEntry(
+            content=section,
+            metadata={
+                "source": "system_knowledge",
+                "type": "documentation",
+                "heading": heading,
+                "section_index": i,
+            },
+        )
+
+        try:
+            await memory.vector_store.store(entry)
+            chunk_count += 1
+        except Exception as exc:
+            log.warning(
+                "knowledge_chunk_store_failed",
+                heading=heading,
+                error=str(exc),
+            )
+
+    log.info(
+        "system_knowledge_loaded",
+        file=str(knowledge_path),
+        chunks=chunk_count,
+    )
+    return chunk_count
+
+
 # ── Lifespan ───────────────────────────────────────────────
 
 
@@ -342,6 +407,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Init Feedback Learner
     state.learner = FeedbackLearner(memory=state.agent.memory)
 
+    # Load system knowledge into vector memory
+    knowledge_count = await _load_system_knowledge(state.agent.memory)
+
     # Count configured providers
     configured_providers = state.llm.configured_providers() if state.llm else []
 
@@ -353,6 +421,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         team_members=persona_count,
         preferred_provider=preferred,
         configured_providers=configured_providers,
+        knowledge_chunks=knowledge_count,
     )
 
     yield
@@ -893,6 +962,42 @@ async def memory_stats() -> ApiResponse:
         raise _err("Service not initialized", 503)
 
     return _ok(state.agent.memory.get_all_stats())
+
+
+# ── Knowledge Endpoint ─────────────────────────────────────
+
+
+@app.get("/knowledge")
+async def get_knowledge() -> ApiResponse:
+    """Get system knowledge loaded from SYSTEM_KNOWLEDGE.md.
+
+    Returns all knowledge chunks currently in vector memory
+    that have metadata.source == 'system_knowledge'.
+    """
+    if state is None or state.agent is None:
+        raise _err("Service not initialized", 503)
+
+    try:
+        entries = state.agent.memory.vector_store.get_all()
+        knowledge_entries = [
+            e.to_dict()
+            for e in entries
+            if e.metadata.get("source") == "system_knowledge"
+        ]
+
+        return _ok({
+            "total_chunks": len(knowledge_entries),
+            "chunks": sorted(knowledge_entries, key=lambda e: e.get("metadata", {}).get("section_index", 0)),
+            "source": "SYSTEM_KNOWLEDGE.md",
+            "note": "Antonio uses this knowledge in MODE 1 (direct answers) and for semantic search during audits.",
+        })
+    except Exception as exc:
+        log.warning("knowledge_retrieval_failed", error=str(exc))
+        return _ok({
+            "total_chunks": 0,
+            "chunks": [],
+            "error": str(exc),
+        })
 
 
 # ── Team Endpoints ───────────────────────────────────────────

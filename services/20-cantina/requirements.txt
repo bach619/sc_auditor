@@ -5,3 +5,4 @@ pydantic==2.*
 structlog==24.*
 python-dateutil==2.*
 prometheus-client==0.21.*
+tenacity==8.5.0

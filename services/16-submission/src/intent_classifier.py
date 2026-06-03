@@ -187,7 +187,7 @@ async def _ai_classify(text: str, ai_url: str, bug_category: BugCategory | None 
 
 async def classify_intent(
     message_text: str,
-    ai_url: str = "http://06-ai:8004",
+    ai_url: str = "http://06-ai:8000",
     bug_category: BugCategory | None = None,
 ) -> IntentClassification:
     """Two-layer intent classification: rule-based → AI fallback."""

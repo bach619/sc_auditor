@@ -19,7 +19,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Vyper Team",
     python_requires=">=3.10",
-    packages=find_packages(include=["services", "services.*"]),
+    packages=find_packages(include=["services", "services.*", "vyper_lib", "vyper_lib.*"]),
     install_requires=[
         "httpx>=0.27.0",
         "pyyaml>=6.0",

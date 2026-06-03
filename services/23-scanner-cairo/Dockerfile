@@ -1,8 +1,9 @@
 FROM python:3.11-slim
+ENV PIP_DEFAULT_TIMEOUT=200
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl git && rm -rf /var/lib/apt/lists/*
 COPY services/23-scanner-cairo/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 COPY services/23-scanner-cairo/ .
 COPY services/shared/ shared/
 COPY vyper_lib/ vyper_lib/

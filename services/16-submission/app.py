@@ -45,13 +45,13 @@ class AppState:
     def __init__(self) -> None:
         self.storage = SubmissionStorage(DATA_DIR)
         self.evidence = EvidenceCollector(
-            immunefi_url=os.environ.get("IMMUNEFI_URL", "http://02-immunefi:8001"),
+            immunefi_url=os.environ.get("IMMUNEFI_URL", "http://02-immunefi:8000"),
             source_url=os.environ.get("SOURCE_URL", "http://03-source:8000"),
-            ai_url=os.environ.get("AI_URL", "http://06-ai:8004"),
+            ai_url=os.environ.get("AI_URL", "http://06-ai:8000"),
             exploit_url=os.environ.get("EXPLOIT_URL", "http://08-exploit:8006"),
             orchestrator_url=os.environ.get("ORCHESTRATOR_URL", "http://11-orchestrator:8000"),
         )
-        self.ai_url = os.environ.get("AI_URL", "http://06-ai:8004")
+        self.ai_url = os.environ.get("AI_URL", "http://06-ai:8000")
         self.agent = SubmissionAgent(
             storage=self.storage,
             evidence=self.evidence,
