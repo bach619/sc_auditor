@@ -2,6 +2,7 @@
 
 ## 2026-06-03
 
+### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/twap_manipulation.py | Agent: lore-master | [agenda-26] Tier 2: TWAP manipulation primitive (multi-block oracle manipulation)`
 ### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/bad_debt.py | Agent: lore-master | [agenda-26] Tier 2: Bad debt primitive (create and exploit bad debt in lending protocols)`
 ### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/frontrun.py | Agent: lore-master | [agenda-26] Tier 2: Frontrun primitive (generic transaction frontrunning with gas priority)`
 ### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/slippage_drain.py | Agent: lore-master | [agenda-26] Tier 2: Slippage drain primitive (AMM slippage exploitation)`
