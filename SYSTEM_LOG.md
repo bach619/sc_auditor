@@ -2,6 +2,7 @@
 
 ## 2026-06-03
 
+### `2026-06-03 20:54 | [DELETE] | File: services/04b_scanner_echidna | Agent: lore-master | [debug-session] Hapus broken symlink/junction (underscore) - duplikat dari 04b-scanner-echidna (hyphen)`
 ### `2026-06-03 20:54 | [REFACTOR] | File: Dockerfile.base | Agent: lore-master | [debug-session] Hapus double pip install (hardcoded versions + requirements.txt) untuk menghindari version conflict dan mempercepat build`
 ### `2026-06-03 20:54 | [FIX] | File: scripts/entrypoint.sh | Agent: lore-master | [debug-session] Ubah chmod 777 → 755 untuk keamanan (least-privilege principle), perbaiki komentar`
 ### `2026-06-03 20:54 | [FIX] | File: .github/workflows/ci.yml | Agent: lore-master | [debug-session] Hapus semua || true masking (ruff, eslint, tsc, pytest), tambah pytest-timeout, ganti npm ci || npm install → npm ci ketat, perbaiki assert service count 20→>=20`
