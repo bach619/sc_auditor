@@ -2,6 +2,9 @@
 
 ## 2026-06-03
 
+### `2026-06-03 20:54 | [REFACTOR] | File: Dockerfile.base | Agent: lore-master | [debug-session] Hapus double pip install (hardcoded versions + requirements.txt) untuk menghindari version conflict dan mempercepat build`
+### `2026-06-03 20:54 | [FIX] | File: scripts/entrypoint.sh | Agent: lore-master | [debug-session] Ubah chmod 777 → 755 untuk keamanan (least-privilege principle), perbaiki komentar`
+### `2026-06-03 20:54 | [FIX] | File: .github/workflows/ci.yml | Agent: lore-master | [debug-session] Hapus semua || true masking (ruff, eslint, tsc, pytest), tambah pytest-timeout, ganti npm ci || npm install → npm ci ketat, perbaiki assert service count 20→>=20`
 ### `2026-06-03 20:54 | [FIX] | File: setup.py | Agent: lore-master | [debug-session] Tambahkan vyper_lib dan vyper_lib.* ke find_packages (sebelumnya hanya services - menyebabkan ModuleNotFoundError)`
 ### `2026-06-03 20:45 | [MODIFY] | File: docker-compose.yml | Agent: lore-master | Fix 3 dashboard env var bugs penyebab 4 service "tidak online": (1) REPORTER_URL: 8000→8007 (09-reporter container listen di 8007 bukan 8000); (2) Tambah WEBHOOK_URL=http://12-webhook:8000 (sebelumnya missing → fallback ke localhost); (3) Tambah UPKEEP_URL=http://13-upkeep:8000 (sebelumnya missing → fallback ke localhost). 04-scanner: konfigurasi sudah benar (SCANNER_URL=http://04-scanner:8000) — jika tetap offline cek container crash via 'docker compose logs 04-scanner'.`
 
