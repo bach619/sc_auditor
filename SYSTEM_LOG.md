@@ -2,6 +2,7 @@
 
 ## 2026-06-03
 
+### `2026-06-03 16:15 | [CREATE] | File: services/08-exploit/src/primitives/proxy_init_frontrun.py | Agent: lore-master | [agenda-26] Tier 3: Proxy init frontrun primitive (frontrun proxy initialization to steal ownership)`
 ### `2026-06-03 16:15 | [CREATE] | File: services/08-exploit/src/primitives/timelock_bypass.py | Agent: lore-master | [agenda-26] Tier 3: Timelock bypass primitive (bypass governance timelock delays)`
 ### `2026-06-03 16:15 | [CREATE] | File: services/08-exploit/src/primitives/governance_attack.py | Agent: lore-master | [agenda-26] Tier 3: Governance attack primitive (flash loan voting, proposal flooding)`
 ### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/impermanent_loss_attack.py | Agent: lore-master | [agenda-26] Tier 2: Impermanent loss attack primitive (IL exploitation + arbitrage)`
