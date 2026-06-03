@@ -2,6 +2,7 @@
 
 ## 2026-06-03
 
+### `2026-06-03 16:15 | [CREATE] | File: services/08-exploit/src/primitives/paymaster_exploit.py | Agent: lore-master | [agenda-26] Tier 4: Paymaster exploit primitive (ERC-4337 paymaster validation bypass, gas grief)`
 ### `2026-06-03 16:15 | [CREATE] | File: services/08-exploit/src/primitives/eip712_bypass.py | Agent: lore-master | [agenda-26] Tier 4: EIP-712 bypass primitive (typed data signature replay, permit frontrun)`
 ### `2026-06-03 16:15 | [CREATE] | File: services/08-exploit/src/primitives/bridge_forgery.py | Agent: lore-master | [agenda-26] Tier 4: Bridge forgery primitive (cross-chain message forgery, validator collusion)`
 ### `2026-06-03 16:15 | [CREATE] | File: services/08-exploit/src/primitives/proxy_init_frontrun.py | Agent: lore-master | [agenda-26] Tier 3: Proxy init frontrun primitive (frontrun proxy initialization to steal ownership)`
