@@ -174,9 +174,36 @@ export function useChat() {
       }
       setMessages((prev) => [...prev, assistantMsg])
     } catch (err: any) {
+      const rawMessage: string = err?.message || 'Gagal terhubung ke Antonio'
+
+      // Provide user-friendly suggestions based on error type
+      let suggestion = ''
+      if (
+        rawMessage.includes('502') ||
+        rawMessage.includes('Bad Gateway') ||
+        rawMessage.includes('Unable to reach') ||
+        rawMessage.includes('ConnectError')
+      ) {
+        suggestion =
+          '\n\n💡 **Tips:** Antonio service mungkin belum siap. ' +
+          'Tunggu beberapa detik dan coba lagi. ' +
+          'Pastikan service `14-agent` berjalan di Docker.'
+      } else if (
+        rawMessage.includes('401') ||
+        rawMessage.includes('403') ||
+        rawMessage.includes('Authentication') ||
+        rawMessage.includes('API key')
+      ) {
+        suggestion =
+          '\n\n💡 **Tips:** Periksa konfigurasi API key di **Settings > AI Providers**. ' +
+          'Pastikan setidaknya satu provider memiliki API key yang valid.'
+      }
+
+      const errorContent = `Maaf, terjadi error: ${rawMessage}${suggestion}`
+
       const errorMsg: ChatMessageData = {
         role: 'assistant',
-        content: `Maaf, terjadi error: ${err?.message || 'Gagal terhubung ke Antonio'}`,
+        content: errorContent,
         timestamp: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, errorMsg])

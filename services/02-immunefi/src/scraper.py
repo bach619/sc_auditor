@@ -159,12 +159,25 @@ class ImmunefiScraper:
         - GitHub mirror: assets[] with {url, type, description}
         - Live API: contracts[] with {address, chain, name}
         - Raw: list of address strings
+        - GitHub source URLs (no on-chain address): stored as contract references
 
         Only returns assets where type='smart_contract' (in-scope).
         Detects chain from explorer URL when available.
         """
         contracts: list[dict[str, str]] = []
         seen: set[str] = set()
+
+        # Format 0: Already-extracted contracts from provider (use these first)
+        pre_extracted = detail.get("contracts", [])
+        if isinstance(pre_extracted, list) and pre_extracted:
+            for c in pre_extracted:
+                if isinstance(c, dict):
+                    addr = c.get("address", "")
+                    if addr:
+                        seen.add(addr.lower())
+                        contracts.append(dict(c))
+            if contracts:
+                return contracts  # Provider already did the work
 
         # Format 1: assets[] (GitHub mirror format)
         raw_assets = detail.get("assets", [])
@@ -194,6 +207,19 @@ class ImmunefiScraper:
                             "chain": chain,
                             "name": name,
                         })
+                    elif not addr and "github.com" in url.lower():
+                        # GitHub source URL — no on-chain address
+                        # Store as contract reference with source_type=github
+                        parsed = ImmunefiScraper._parse_github_asset(url, asset)
+                        key = f"github:{parsed.get('repo','')}:{parsed.get('file','')}"
+                        if key not in seen:
+                            seen.add(key)
+                            contracts.append({
+                                "address": parsed.get("source_url", url),
+                                "chain": parsed.get("chain", "ethereum"),
+                                "name": str(asset.get("description", "") or asset.get("name", "") or parsed.get("file", "")),
+                                "source_type": "github",
+                            })
 
         # Format 2: contracts[] (API format)
         raw_contracts = detail.get("contracts", [])
@@ -260,6 +286,56 @@ class ImmunefiScraper:
         if "scrollscan.com" in domain:
             return "scroll"
         return "unknown"
+
+    @staticmethod
+    def _parse_github_asset(url: str, asset: dict[str, Any]) -> dict[str, str]:
+        """Parse a GitHub file URL from an Immunefi asset into structured data.
+
+        Input url:  https://github.com/Synthetixio/synthetix-v3/blob/main/contracts/Proxy.sol
+        Input asset: {"type": "smart_contract", "url": "...", "description": "Proxy.sol"}
+
+        Returns: {"repo": "Synthetixio/synthetix-v3", "file": "contracts/Proxy.sol",
+                   "branch": "main", "source_url": "https://raw.githubusercontent.com/...",
+                   "chain": "ethereum"}
+        """
+        result: dict[str, str] = {
+            "repo": "",
+            "file": "",
+            "branch": "main",
+            "source_url": "",
+            "chain": "ethereum",
+        }
+
+        # Pattern: github.com/{owner}/{repo}/blob/{branch}/{path}
+        match = re.match(
+            r"https?://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)",
+            url,
+            re.IGNORECASE,
+        )
+        if match:
+            owner = match.group(1)
+            repo = match.group(2)
+            branch = match.group(3)
+            path = match.group(4)
+            repo = re.sub(r"\.git$", "", repo)
+
+            result["repo"] = f"{owner}/{repo}"
+            result["file"] = path
+            result["branch"] = branch
+            result["source_url"] = (
+                f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+            )
+
+        # Try to detect chain from asset description or repo name
+        name = (asset.get("description") or asset.get("name") or "").lower()
+        if "optimism" in name or "optimism" in result["repo"].lower():
+            result["chain"] = "optimism"
+        elif "arbitrum" in name or "arbitrum" in result["repo"].lower():
+            result["chain"] = "arbitrum"
+        elif "polygon" in name or "polygon" in result["repo"].lower():
+            result["chain"] = "polygon"
+
+        return result
 
     @staticmethod
     def parse_social_links(detail: dict[str, Any]) -> list[str]:

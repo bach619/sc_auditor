@@ -16,7 +16,7 @@ import { Check, X, Save, Eye, EyeOff, Loader2, Key, Cpu, Sliders } from 'lucide-
 const PROVIDERS = [
   { id: 'openai', name: 'OpenAI', icon: 'O', color: '#10a37f',
     docUrl: 'https://platform.openai.com/api-keys',
-    apiKeyField: 'provider_openai_api_key', baseUrlField: 'provider_openai_base_url',
+    apiKeyField: 'provider_openai_api_key', baseUrlField: 'provider_openai_base_url', modelField: 'provider_openai_model',
     variants: [
       { id: 'gpt-5.4-pro', name: 'GPT-5.4 Pro' },
       { id: 'gpt-5.4-pro-mini', name: 'GPT-5.4 Pro Mini' },
@@ -24,7 +24,7 @@ const PROVIDERS = [
     ] },
   { id: 'anthropic', name: 'Anthropic', icon: 'A', color: '#d97757',
     docUrl: 'https://console.anthropic.com/settings/keys',
-    apiKeyField: 'provider_anthropic_api_key', baseUrlField: 'provider_anthropic_base_url',
+    apiKeyField: 'provider_anthropic_api_key', baseUrlField: 'provider_anthropic_base_url', modelField: 'provider_anthropic_model',
     variants: [
       { id: 'claude-opus-4-7', name: 'Claude Opus 4.7' },
       { id: 'claude-sonnet-4-7', name: 'Claude Sonnet 4.7' },
@@ -32,28 +32,28 @@ const PROVIDERS = [
     ] },
   { id: 'google', name: 'Google AI', icon: 'G', color: '#4285f4',
     docUrl: 'https://aistudio.google.com/app/apikey',
-    apiKeyField: 'provider_google_api_key', baseUrlField: 'provider_google_base_url',
+    apiKeyField: 'provider_google_api_key', baseUrlField: 'provider_google_base_url', modelField: 'provider_google_model',
     variants: [
       { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro Preview' },
       { id: 'gemini-3.1-flash', name: 'Gemini 3.1 Flash' },
     ] },
   { id: 'deepseek', name: 'DeepSeek', icon: 'D', color: '#4f46e5',
     docUrl: 'https://platform.deepseek.com/api_keys',
-    apiKeyField: 'provider_deepseek_api_key', baseUrlField: 'provider_deepseek_base_url',
+    apiKeyField: 'provider_deepseek_api_key', baseUrlField: 'provider_deepseek_base_url', modelField: 'provider_deepseek_model',
     variants: [
       { id: 'deepseek-v4-pro', name: 'DeepSeek V4-Pro' },
       { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
     ] },
   { id: 'xai', name: 'xAI (Grok)', icon: 'X', color: '#1a1a2e',
     docUrl: 'https://console.x.ai/',
-    apiKeyField: 'provider_xai_api_key', baseUrlField: 'provider_xai_base_url',
+    apiKeyField: 'provider_xai_api_key', baseUrlField: 'provider_xai_base_url', modelField: 'provider_xai_model',
     variants: [
       { id: 'grok-4.20-expert', name: 'Grok-4.20 Expert' },
       { id: 'grok-4.20-base', name: 'Grok-4.20 Base' },
     ] },
   { id: 'openrouter', name: 'OpenRouter', icon: '◆', color: '#8b5cf6',
     docUrl: 'https://openrouter.ai/keys',
-    apiKeyField: 'provider_openrouter_api_key', baseUrlField: 'provider_openrouter_base_url',
+    apiKeyField: 'provider_openrouter_api_key', baseUrlField: 'provider_openrouter_base_url', modelField: 'provider_openrouter_model',
     variants: [
       // ── Free Router (auto-select) ───────
       { id: 'openrouter/free', name: '✨ Free Router (auto best)' },
@@ -101,7 +101,7 @@ const PROVIDERS = [
     ] },
   { id: 'huggingface', name: 'HuggingFace', icon: '🤗', color: '#fbbf24',
     docUrl: 'https://huggingface.co/settings/tokens',
-    apiKeyField: 'provider_huggingface_api_key', baseUrlField: 'provider_huggingface_base_url',
+    apiKeyField: 'provider_huggingface_api_key', baseUrlField: 'provider_huggingface_base_url', modelField: 'provider_huggingface_model',
     variants: [
       // ── Mistral ──────────────────────────
       { id: 'mistralai/Mistral-7B-Instruct-v0.3', name: 'Mistral 7B Instruct' },
@@ -170,6 +170,7 @@ export default function Settings() {
   const [config, setConfig] = useState<Record<string, any>>({})
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({})
+  const [models, setModels] = useState<Record<string, string>>({})
   const [useCaseSelections, setUseCaseSelections] = useState<Record<string, string>>({})
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -184,12 +185,15 @@ export default function Settings() {
         setConfig(cfg)
         const initialKeys: Record<string, string> = {}
         const initialUrls: Record<string, string> = {}
+        const initialModels: Record<string, string> = {}
         for (const p of PROVIDERS) {
           initialKeys[p.id] = cfg[p.apiKeyField] || ''
           initialUrls[p.id] = cfg[p.baseUrlField] || ''
+          initialModels[p.id] = cfg[p.modelField] || (p.variants[0]?.id || '')
         }
         setApiKeys(initialKeys)
         setBaseUrls(initialUrls)
+        setModels(initialModels)
         const initialSelections: Record<string, string> = {}
         for (const uc of USE_CASES) {
           initialSelections[uc.id] = cfg[uc.id] || uc.default
@@ -216,6 +220,7 @@ export default function Settings() {
     for (const p of PROVIDERS) {
       if ((apiKeys[p.id] || '') !== (config[p.apiKeyField] || '')) return true
       if ((baseUrls[p.id] || '') !== (config[p.baseUrlField] || '')) return true
+      if ((models[p.id] || '') !== (config[p.modelField] || '')) return true
     }
     for (const uc of USE_CASES) {
       if ((useCaseSelections[uc.id] || uc.default) !== (config[uc.id] || uc.default)) return true
@@ -231,6 +236,7 @@ export default function Settings() {
       for (const p of PROVIDERS) {
         payload[p.apiKeyField] = apiKeys[p.id] || ''
         payload[p.baseUrlField] = baseUrls[p.id] || ''
+        payload[p.modelField] = models[p.id] || (p.variants[0]?.id || '')
       }
       for (const uc of USE_CASES) payload[uc.id] = useCaseSelections[uc.id] || uc.default
       await api.setBulkConfig(payload)
@@ -274,6 +280,7 @@ export default function Settings() {
                 <TableHead>Provider</TableHead>
                 <TableHead>API Key</TableHead>
                 <TableHead>Base URL</TableHead>
+                <TableHead>Model</TableHead>
                 <TableHead className="text-center w-20">Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -309,6 +316,17 @@ export default function Settings() {
                       placeholder="https://api.openai.com"
                       className="font-mono text-xs max-w-xs"
                     />
+                  </TableCell>
+                  <TableCell>
+                    <select
+                      value={models[p.id] || (p.variants[0]?.id || '')}
+                      onChange={e => setModels(prev => ({ ...prev, [p.id]: e.target.value }))}
+                      className="w-full max-w-[180px] rounded-md border dark:border-[#1a1a28] light:border-[#e4e4e7] dark:bg-[#0a0a12] light:bg-white px-2.5 py-1.5 text-xs font-mono dark:text-[#d4d4dc] light:text-[#09090b] focus:outline-none focus:ring-2 focus:ring-vyper-400/50"
+                    >
+                      {p.variants.map(v => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </select>
                   </TableCell>
                   <TableCell className="text-center">
                     {hasKey(p.id)

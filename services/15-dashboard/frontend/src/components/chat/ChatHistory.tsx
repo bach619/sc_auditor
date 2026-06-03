@@ -1,4 +1,4 @@
-import { Trash2, MessageSquareText, Clock, History, Trash } from 'lucide-react'
+import { Trash2, MessageSquareText, Clock, History, Trash, Copy } from 'lucide-react'
 import type { ChatSession } from './useChat'
 
 interface Props {
@@ -28,6 +28,47 @@ function formatTime(iso: string): string {
   }
 }
 
+function formatSessionForExport(session: ChatSession): string {
+  const lines: string[] = []
+  lines.push(`=== ${session.title} (${session.messages.length} messages) ===`)
+  lines.push(`   Session: ${session.sessionId || session.id}`)
+  lines.push(`   Created: ${session.createdAt}`)
+  lines.push('')
+  for (const msg of session.messages) {
+    const role = msg.role === 'user' ? 'User' : 'Antonio'
+    lines.push(`[${role}] ${msg.content}`)
+  }
+  return lines.join('\n')
+}
+
+function handleCopyAll(sessions: ChatSession[]) {
+  const header = [
+    '╔═══════════════════════════════════════╗',
+    '║  VYPER — Chat Sessions Export         ║',
+    `║  ${new Date().toISOString().slice(0, 16).replace('T', ' ')}              ║`,
+    '╚═══════════════════════════════════════╝',
+    '',
+  ].join('\n')
+
+  const body = sessions
+    .map((s) => formatSessionForExport(s))
+    .join('\n\n' + '─'.repeat(40) + '\n\n')
+
+  const full = header + body
+
+  navigator.clipboard.writeText(full).catch(() => {
+    // Fallback: select text method
+    const ta = document.createElement('textarea')
+    ta.value = full
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+  })
+}
+
 export function ChatHistory({ sessions, activeSessionId, onSelect, onDelete, onClearAll }: Props) {
   return (
     <div className="w-72 flex-shrink-0 flex flex-col min-h-0 dark:bg-[#0a0a12] light:bg-white rounded-xl border dark:border-[#1a1a28] light:border-[#e4e4e7] overflow-hidden">
@@ -38,15 +79,26 @@ export function ChatHistory({ sessions, activeSessionId, onSelect, onDelete, onC
           <span className="text-sm font-medium dark:text-[#d4d4dc] light:text-[#09090b]">History</span>
           <span className="text-[10px] dark:text-[#68687a] text-gray-400">{sessions.length}</span>
         </div>
-        {sessions.length > 0 && (
-          <button
-            onClick={onClearAll}
-            title="Clear all history"
-            className="p-1 rounded-lg dark:text-[#68687a] text-gray-400 hover:dark:bg-[#1a1a28] hover:light:bg-gray-100 transition-colors"
-          >
-            <Trash className="w-3.5 h-3.5" />
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {sessions.length > 0 && (
+            <>
+              <button
+                onClick={() => handleCopyAll(sessions)}
+                title="Copy all sessions"
+                className="p-1 rounded-lg dark:text-[#68687a] text-gray-400 hover:dark:bg-[#1a1a28] hover:light:bg-gray-100 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={onClearAll}
+                title="Clear all history"
+                className="p-1 rounded-lg dark:text-[#68687a] text-gray-400 hover:dark:bg-[#1a1a28] hover:light:bg-gray-100 transition-colors"
+              >
+                <Trash className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* List */}
@@ -88,16 +140,29 @@ export function ChatHistory({ sessions, activeSessionId, onSelect, onDelete, onC
                         </span>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDelete(s.id)
-                      }}
-                      title="Hapus"
-                      className="p-1 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 hover:dark:bg-[#1a1a28] hover:light:bg-gray-100 dark:text-[#68687a] text-gray-400 transition-opacity"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const text = formatSessionForExport(s)
+                          navigator.clipboard.writeText(text).catch(() => {})
+                        }}
+                        title="Copy session"
+                        className="p-1 rounded hover:dark:bg-[#1a1a28] hover:light:bg-gray-100 dark:text-[#68687a] text-gray-400"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onDelete(s.id)
+                        }}
+                        title="Hapus"
+                        className="p-1 rounded hover:dark:bg-[#1a1a28] hover:light:bg-gray-100 dark:text-[#68687a] text-gray-400"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </button>
               )

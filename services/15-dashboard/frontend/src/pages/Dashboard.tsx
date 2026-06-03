@@ -11,11 +11,12 @@ import { StatCard } from '../components/StatCard'
 import { StatusBadge } from '../components/StatusBadge'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorBanner } from '../components/ErrorBanner'
+import { AuditErrorAlert } from '../components/AuditErrorAlert'
 import { PageHeader } from '../components/PageHeader'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog'
 import { formatDuration, formatDate, shortId } from '../lib/utils'
-import { Play, Square, RefreshCw, Loader2 } from 'lucide-react'
+import { Play, Square, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react'
 
 const CHAINS = [
   { value: 'ethereum', label: 'Ethereum' },
@@ -43,6 +44,7 @@ export default function Dashboard() {
   const [modalError, setModalError] = useState('')
   const [clock, setClock] = useState('')
   const [actionError, setActionError] = useState('')
+  const [actionSuccess, setActionSuccess] = useState('')
 
   useEffect(() => {
     const update = () => setClock(new Date().toLocaleString('en-US', {
@@ -117,22 +119,45 @@ export default function Dashboard() {
     e.preventDefault()
     setModalLoading(true)
     setModalError('')
+    setActionError('')
+    setActionSuccess('')
     const form = e.currentTarget
     const data = new FormData(form)
+    const chain = String(data.get('chain') || 'ethereum')
+    const address = String(data.get('address') || '')
+    const program = String(data.get('program') || '')
+
     try {
-      await api.startAudit({
-        chain: String(data.get('chain') || 'ethereum'),
-        address: String(data.get('address') || ''),
-        program: String(data.get('program') || ''),
+      const result = await api.startAudit({
+        chain,
+        address,
+        program: program || undefined,
         priority: Number(data.get('priority')) || 5,
       })
+      // Audit created successfully — refresh data before closing modal
+      const auditId = (result as any)?.data?.audit_id || ''
+      try {
+        const [auditsRes, statsRes] = await Promise.all([
+          api.getAudits({ limit: 10 }),
+          api.getStats(),
+        ])
+        setAudits(auditsRes.data || [])
+        setStats(statsRes.data || null)
+      } catch {
+        // Refresh failed but audit was created — still show success
+      }
       setModalOpen(false)
-      const [auditsRes, statsRes] = await Promise.all([api.getAudits({ limit: 10 }), api.getStats()])
-      setAudits(auditsRes.data || [])
-      setStats(statsRes.data || null)
+      setActionSuccess(
+        auditId
+          ? `Audit ${auditId.slice(0, 12)}... started for ${address.slice(0, 10)}... on ${chain}`
+          : `Audit started for ${address.slice(0, 10)}... on ${chain}. Check the list below.`
+      )
     } catch (err: any) {
-      setModalError(err?.message || 'Failed to start audit')
-    } finally { setModalLoading(false) }
+      const msg = err?.message || 'Failed to start audit'
+      setModalError(msg)
+    } finally {
+      setModalLoading(false)
+    }
   }
 
   const tpRate = metrics?.true_positive_rate ?? 0
@@ -142,6 +167,15 @@ export default function Dashboard() {
       <PageHeader title="Welcome to Vyper" description={`Smart contract bug hunting platform — ${clock}`} />
 
       {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError('')} />}
+      {actionSuccess && (
+        <div className="rounded-xl p-4 bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex items-start gap-2">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="flex-1">{actionSuccess}</span>
+          <button onClick={() => setActionSuccess('')} className="text-green-400/70 hover:text-green-400 transition-colors">
+            <span className="sr-only">Dismiss</span>✕
+          </button>
+        </div>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -281,7 +315,7 @@ export default function Dashboard() {
                 <Input type="number" name="priority" defaultValue={5} min={0} max={10} />
               </div>
             </div>
-            {modalError && <p className="mt-3 text-sm text-red-400">{modalError}</p>}
+            <AuditErrorAlert message={modalError} onDismiss={() => setModalError('')} />
             <DialogFooter className="mt-6">
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)} disabled={modalLoading}>Cancel</Button>
               <Button type="submit" disabled={modalLoading}>

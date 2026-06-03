@@ -210,6 +210,21 @@ async def sse_events(request: Request) -> StreamingResponse:
     )
 
 
+# ── Internal SSE broadcast (for other services) ─────────────────
+
+@app.post("/api/sse/broadcast")
+@limiter.limit("200/minute")
+async def api_sse_broadcast(body: dict) -> JSONResponse:
+    """Internal endpoint for backend services to broadcast SSE events.
+
+    Called by orchestrator pipeline at each stage transition.
+    Body: {"event_type": "audit_progress", "data": {"audit_id": "...", "state": "...", ...}}
+    """
+    event_type = body.get("event_type", "audit_progress")
+    data = body.get("data", {})
+    await sse_manager.send_event(event_type, data)
+    return _ok(data={"broadcast": "ok", "recipients": sse_manager.active_connections})
+
 
 
 
@@ -567,6 +582,17 @@ async def api_agent_health() -> JSONResponse:
         return _err("Agent unreachable", status_code=502)
 
 
+@app.get("/api/agent/provider-status")
+async def api_agent_provider_status() -> JSONResponse:
+    """Agent LLM provider configuration status."""
+    try:
+        result = await proxy.get_agent_provider_status()
+        return _ok(data=result)
+    except Exception as e:
+        logger.error("Agent provider status failed", error=str(e))
+        return _err(f"Provider status unavailable: {e}", status_code=502)
+
+
 @app.post("/api/agent/team/run")
 async def api_agent_team_run(body: dict) -> JSONResponse:
     """Run a team-based audit."""
@@ -673,8 +699,13 @@ async def api_agent_chat(body: dict) -> JSONResponse:
         )
         return _ok(data=result.get("data"))
     except Exception as e:
-        logger.error("Agent chat failed", error=str(e))
-        return _err(f"Chat failed: {e}", status_code=502)
+        err_msg = str(e).strip() or type(e).__name__
+        logger.error("Agent chat failed", error=err_msg)
+        return _err(
+            f"Chat failed: {err_msg}. "
+            "Check AI provider configuration in Settings > AI Providers.",
+            status_code=502,
+        )
 
 
 # ── Daemon (from Dashboard API, additional) ─────────────────────

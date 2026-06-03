@@ -68,7 +68,14 @@ class FetchProgramSkill(BaseSkill):
             resp = await self._client.get(f"{IMMUNEFI_URL}/programs", params=params)
             resp.raise_for_status()
             data = resp.json()
-            return {"programs": data.get("data", []), "count": len(data.get("data", []))}
+            programs_list = data.get("data", [])
+            total = data.get("total", len(programs_list))
+            return {
+                "programs": programs_list,
+                "count": len(programs_list),
+                "_total_count": total,
+                "_summary": f"Returned {len(programs_list)} of {total} programs. Use search or filter to narrow down."
+            }
 
         elif action == "search":
             query = kwargs.get("query", "")
@@ -77,7 +84,14 @@ class FetchProgramSkill(BaseSkill):
             resp = await self._client.get(f"{IMMUNEFI_URL}/programs", params={"search": query})
             resp.raise_for_status()
             data = resp.json()
-            return {"programs": data.get("data", []), "count": len(data.get("data", []))}
+            programs_list = data.get("data", [])
+            total = data.get("total", len(programs_list))
+            return {
+                "programs": programs_list,
+                "count": len(programs_list),
+                "_total_count": total,
+                "_summary": f"Found {len(programs_list)} programs matching '{query}' out of {total} total."
+            }
 
         elif action == "detail":
             slug = kwargs.get("slug", "")

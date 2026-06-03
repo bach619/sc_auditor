@@ -297,7 +297,7 @@ services:
     volumes:
       - vyper_dashboard:/data/dashboard
       - vyper_learning:/data/learning
-    depends_on: [11-orchestrator, 01-config]
+    depends_on: [11-orchestrator, 01-config, 14-agent]
     environment:
       - CONFIG_URL=http://01-config:8000
       - ORCHESTRATOR_URL=http://11-orchestrator:8000
@@ -308,9 +308,12 @@ services:
       - CLASSIFIER_URL=http://07-classifier:8000
       - IMMUNEFI_URL=http://02-immunefi:8000
       - SOURCE_URL=http://03-source:8000
-      - REPORTER_URL=http://09-reporter:8000
+      - REPORTER_URL=http://09-reporter:8007
       - NOTIFIER_URL=http://10-notifier:8000
       - EXPLOIT_URL=http://08-exploit:8006
+      - WEBHOOK_URL=http://12-webhook:8000
+      - UPKEEP_URL=http://13-upkeep:8000
+      - SUBMISSION_URL=http://16-submission:8000
       - AGENT_URL=http://14-agent:8000
 
   16-submission:
@@ -323,9 +326,9 @@ services:
     depends_on: [01-config, 02-immunefi, 03-source, 06-ai, 08-exploit, 11-orchestrator]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - IMMUNEFI_URL=http://02-immunefi:8001
+      - IMMUNEFI_URL=http://02-immunefi:8000
       - SOURCE_URL=http://03-source:8000
-      - AI_URL=http://06-ai:8004
+      - AI_URL=http://06-ai:8000
       - EXPLOIT_URL=http://08-exploit:8006
       - ORCHESTRATOR_URL=http://11-orchestrator:8000
 
@@ -342,6 +345,91 @@ services:
       timeout: 3s
       retries: 3
 
+  # ═══════════════════════════════════════════════════════════════
+  # Bounty Platform Integrations (18–21)
+  # ═══════════════════════════════════════════════════════════════
+  # 18 = Code4rena (audit contests via GraphQL)
+  # 19 = Sherlock  (audit contests via REST API)
+  # 20 = Cantina   (audit contests via REST API)
+  # 21 = Hats Finance (audit vaults via REST API)
+
+  18-code4rena:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: services/18-code4rena/Dockerfile
+    ports: ["8022:8000"]
+    volumes: [vyper_code4rena:/data/code4rena]
+    depends_on: [01-config]
+    environment:
+      - CONFIG_URL=http://01-config:8000
+
+  19-sherlock:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: services/19-sherlock/Dockerfile
+    ports: ["8023:8000"]
+    volumes: [vyper_sherlock:/data/sherlock]
+    depends_on: [01-config]
+    environment:
+      - CONFIG_URL=http://01-config:8000
+
+  20-cantina:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: services/20-cantina/Dockerfile
+    ports: ["8024:8000"]
+    volumes: [vyper_cantina:/data/cantina]
+    depends_on: [01-config]
+    environment:
+      - CONFIG_URL=http://01-config:8000
+
+  21-hats:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: services/21-hats/Dockerfile
+    ports: ["8025:8000"]
+    volumes: [vyper_hats:/data/hats]
+    depends_on: [01-config]
+    environment:
+      - CONFIG_URL=http://01-config:8000
+
+  # ═══════════════════════════════════════════════════════════════
+  # Multi-Chain Source Fetchers (22)
+  # ═══════════════════════════════════════════════════════════════
+  # 22 = StarkNet/Cairo source fetcher (Voyager + Starkscan)
+
+  22-source-starknet:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: services/22-source-starknet/Dockerfile
+    ports: ["8026:8000"]
+    volumes: [vyper_starknet_source:/data/starknet-source]
+    depends_on: [01-config]
+    environment:
+      - CONFIG_URL=http://01-config:8000
+
+  # ═══════════════════════════════════════════════════════════════
+  # Multi-Chain Scanners (23)
+  # ═══════════════════════════════════════════════════════════════
+  # 23 = Cairo/StarkNet scanner (pattern-based detectors)
+
+  23-scanner-cairo:
+    <<: *service-base
+    build:
+      context: .
+      dockerfile: services/23-scanner-cairo/Dockerfile
+    ports: ["8028:8000"]
+    volumes: [vyper_scanner_cairo:/data/scanner-cairo]
+    depends_on: [01-config, 22-source-starknet]
+    environment:
+      - CONFIG_URL=http://01-config:8000
+      - SOURCE_STARKNET_URL=http://22-source-starknet:8000
+
 volumes:
   vyper_agent:
   vyper_dashboard:
@@ -351,6 +439,12 @@ volumes:
   vyper_scanner_forge:
   vyper_scanner_halmos:
   vyper_scanner_manticore:
+  vyper_cantina:
+  vyper_hats:
+  vyper_starknet_source:
+  vyper_scanner_cairo:
+  vyper_code4rena:
+  vyper_sherlock:
   vyper_immunefi:
   vyper_source:
   vyper_scanner:

@@ -14,14 +14,17 @@ Memory integration:
 
 from __future__ import annotations
 
+import json
+import os
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 import httpx
 import structlog
 
-from src.llm import AgentReasoningClient, CHAT_SYSTEM_PROMPT
+from src.llm import AgentReasoningClient, CHAT_SYSTEM_PROMPT, VYPER_KNOWLEDGE, _unescape_text
 from src.memory import AgentMemory
 from src.models import (
     AgentResponse,
@@ -64,7 +67,17 @@ class AgentLoop:
         self.planner = Planner()
         self.http_client = http_client
         self._sessions: dict[str, AgentSession] = {}
+        # Chat sessions: persistent (file) + in-memory cache
+        chat_path_env = os.environ.get("CHAT_SESSIONS_PATH", "")
+        if chat_path_env:
+            self._chat_storage_path = Path(chat_path_env)
+        else:
+            # Docker: use /data/agent/ volume; local dev: use ~/.sc_auditor/learning/
+            docker_path = Path("/data/agent/chat_sessions.json")
+            self._chat_storage_path = docker_path if docker_path.parent.exists() else Path.home() / ".sc_auditor" / "learning" / "chat_sessions.json"
+        self._chat_storage_path.parent.mkdir(parents=True, exist_ok=True)
         self._chat_sessions: dict[str, list[dict[str, str]]] = {}
+        self._load_chat_sessions()
 
     # ── Public API ─────────────────────────────────────────
 
@@ -213,12 +226,13 @@ class AgentLoop:
 
             # ── FINAL ANSWER? ──
             if action_name == "FINAL_ANSWER":
+                cleaned_final = _unescape_text(final_answer or "Task completed.")
                 step.status = AgentState.COMPLETED
-                step.observation = final_answer or "Task completed."
+                step.observation = cleaned_final
                 session.steps.append(step)
                 session.status = AgentState.COMPLETED
                 session.output_data = {
-                    "summary": final_answer or "Audit completed successfully.",
+                    "summary": cleaned_final,
                     "findings": self.memory.get_working("analyzed_findings", []),
                     "reports": self.memory.get_working("reports", []),
                 }
@@ -429,10 +443,12 @@ class AgentLoop:
             # New session
             history: list[dict[str, str]] = []
             self._chat_sessions[sid] = history
+            self._save_chat_sessions()
             goal = message
 
         # Add user message to history
         history.append({"role": "user", "content": message})
+        self._save_chat_sessions()
         self.memory.set_working("chat_history", history)
 
         # Init working memory for this chat turn
@@ -466,9 +482,27 @@ class AgentLoop:
             step_count = step_num
             skills_desc = self.registry.format_for_prompt()
 
+            # ── Build system prompt ──
+            # Full prompt includes VYPER_KNOWLEDGE for broad question answering.
+            # If step > 1 or we already tried MODE 1 and failed, skip knowledge
+            # to keep prompt lean for skill-calling mode.
+            if step_num == 1:
+                full_prompt = CHAT_SYSTEM_PROMPT.replace("{s Skills}", skills_desc).replace("{vyper_knowledge}", VYPER_KNOWLEDGE)
+                prompt_label = "full"
+            else:
+                # Subsequent steps: lean prompt without platform knowledge
+                # (we already tried MODE 1 direct answer if appropriate)
+                lean_prompt = CHAT_SYSTEM_PROMPT.replace("{s Skills}", skills_desc).replace("{vyper_knowledge}", "")
+                full_prompt = lean_prompt
+                prompt_label = "lean"
+
+            # Log prompt size for debugging
+            prompt_len = len(full_prompt)
+            log.debug("chat_prompt_size", step=step_num, label=prompt_label, chars=prompt_len)
+
             # Use chat-specific system prompt
             decision = await self.llm.reason_custom(
-                system_prompt=CHAT_SYSTEM_PROMPT.replace("{s Skills}", skills_desc),
+                system_prompt=full_prompt,
                 context=context,
                 skills_desc="",  # Already in system prompt
             )
@@ -480,10 +514,85 @@ class AgentLoop:
 
             # FINAL ANSWER
             if action_name == "FINAL_ANSWER":
-                response_text = final_answer or "Done."
+                # ── Detect error fallback from exhausted LLM retries ──
+                # If reason_custom exhausted all retries, it returns a
+                # fallback with "Error: Could not process request" prefix.
+                is_error_fallback = (
+                    final_answer
+                    and final_answer.startswith("Error: Could not process request")
+                )
+                if is_error_fallback:
+                    # ── Smart retry: full prompt may have timed out ──
+                    # Try once more with a LEAN prompt (no VYPER_KNOWLEDGE)
+                    if prompt_label == "full":
+                        log.warning(
+                            "chat_full_prompt_failed_retrying_lean",
+                            session_id=sid,
+                            error=final_answer[:100],
+                        )
+                        lean_prompt = CHAT_SYSTEM_PROMPT.replace("{s Skills}", skills_desc).replace("{vyper_knowledge}", "")
+                        try:
+                            decision = await self.llm.reason_custom(
+                                system_prompt=lean_prompt,
+                                context=context,
+                                skills_desc="",
+                            )
+                            action_name = decision.get("action", "FINAL_ANSWER")
+                            final_answer = decision.get("final_answer")
+                            # If lean prompt succeeded, use its response
+                            if action_name == "FINAL_ANSWER" and final_answer and not final_answer.startswith("Error: Could not process request"):
+                                response_text = _unescape_text(final_answer)
+                                history.append({"role": "assistant", "content": response_text})
+                                self._chat_sessions[sid] = history
+                                self._save_chat_sessions()
+                                log.info("chat_completed_lean_fallback", session_id=sid, response_length=len(response_text))
+                                return ChatResponse(
+                                    session_id=sid,
+                                    response=response_text,
+                                    steps_taken=step_count,
+                                    status=AgentState.COMPLETED,
+                                )
+                        except Exception:
+                            pass  # Both attempts failed, fall through to friendly message
+
+                    log.error(
+                        "chat_llm_exhausted",
+                        session_id=sid,
+                        steps=step_count,
+                        error=final_answer,
+                    )
+                    # Build graceful Indonesian response (or English for English users)
+                    # Check if conversation is in Indonesian
+                    is_indonesian = any(
+                        word in message.lower()
+                        for word in ("apa", "ini", "bagaimana", "saya", "kamu", "anda",
+                                     "adalah", "yang", "dengan", "untuk", "tolong")
+                    )
+                    if is_indonesian:
+                        friendly = (
+                            "Maaf, saya sedang mengalami kendala teknis saat menghubungi "
+                            "layanan AI. Beberapa penyebab umum:\n\n"
+                            "1. **API key belum dikonfigurasi** — Buka Settings > AI Providers\n"
+                            "2. **Provider sedang sibuk** — Coba lagi dalam beberapa detik\n"
+                            "3. **Koneksi jaringan bermasalah** — Periksa koneksi internet\n\n"
+                            "Silakan coba lagi, atau periksa konfigurasi AI Provider di Settings."
+                        )
+                    else:
+                        friendly = (
+                            "Sorry, I'm experiencing technical difficulties connecting to "
+                            "the AI service. Common causes:\n\n"
+                            "1. **API key not configured** — Check Settings > AI Providers\n"
+                            "2. **Provider is busy** — Try again in a few seconds\n"
+                            "3. **Network issues** — Check your internet connection\n\n"
+                            "Please try again, or verify your AI Provider settings."
+                        )
+                    response_text = friendly
+                else:
+                    response_text = _unescape_text(final_answer or "Done.")
                 # Add to history
                 history.append({"role": "assistant", "content": response_text})
                 self._chat_sessions[sid] = history
+                self._save_chat_sessions()
 
                 log.info(
                     "chat_completed",
@@ -541,6 +650,7 @@ class AgentLoop:
         )
         history.append({"role": "assistant", "content": fallback})
         self._chat_sessions[sid] = history
+        self._save_chat_sessions()
 
         return ChatResponse(
             session_id=sid,
@@ -623,6 +733,43 @@ class AgentLoop:
         }
         return goals.get(task_type, "Execute audit task")
 
+    # ── Chat Session Persistence ─────────────────────────────
+
+    def _load_chat_sessions(self) -> None:
+        """Load chat sessions from local JSON file into in-memory cache."""
+        if self._chat_storage_path.exists():
+            try:
+                data: dict = json.loads(self._chat_storage_path.read_text())
+                # Validate structure: {session_id: [{role, content}, ...]}
+                if isinstance(data, dict):
+                    for sid, msgs in data.items():
+                        if isinstance(msgs, list) and all(
+                            isinstance(m, dict) and "role" in m and "content" in m
+                            for m in msgs
+                        ):
+                            self._chat_sessions[sid] = msgs
+                    log.info(
+                        "chat_sessions.loaded",
+                        path=str(self._chat_storage_path),
+                        count=len(self._chat_sessions),
+                    )
+                else:
+                    log.warning("chat_sessions.invalid_format", path=str(self._chat_storage_path))
+            except (json.JSONDecodeError, OSError) as e:
+                log.warning("chat_sessions.load_failed", error=str(e))
+        else:
+            log.info("chat_sessions.no_file", path=str(self._chat_storage_path))
+
+    def _save_chat_sessions(self) -> None:
+        """Save all chat sessions from in-memory cache to local JSON file."""
+        try:
+            self._chat_storage_path.write_text(
+                json.dumps(self._chat_sessions, indent=2, ensure_ascii=False)
+            )
+            log.debug("chat_sessions.saved", path=str(self._chat_storage_path))
+        except OSError as e:
+            log.error("chat_sessions.save_failed", error=str(e))
+
     # ── Session Management ─────────────────────────────────
 
     def get_session(self, session_id: str) -> AgentSession | None:
@@ -639,6 +786,17 @@ class AgentLoop:
         if status:
             sessions = [s for s in sessions if s.status.value == status]
         return sessions[:limit]
+
+    def list_chat_sessions(self) -> list[dict[str, Any]]:
+        """Return all chat sessions as a list of {id, messages, message_count}."""
+        return [
+            {
+                "session_id": sid,
+                "messages": msgs,
+                "message_count": len(msgs),
+            }
+            for sid, msgs in self._chat_sessions.items()
+        ]
 
     @property
     def active_sessions(self) -> int:

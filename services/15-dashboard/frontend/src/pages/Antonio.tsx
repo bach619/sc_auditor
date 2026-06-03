@@ -9,13 +9,15 @@ import { StatCard } from '../components/StatCard'
 import { LoadingState } from '../components/LoadingState'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorBanner } from '../components/ErrorBanner'
+import { AuditErrorAlert } from '../components/AuditErrorAlert'
 import { PageHeader } from '../components/PageHeader'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog'
 
 import { formatDate } from '../lib/utils'
-import { Bot, Play, Loader2, Users, Brain, Search, Cpu, Activity, Server } from 'lucide-react'
+import { Bot, Play, Loader2, Users, Brain, Search, Cpu, Activity, Server, Terminal, CheckCircle2 } from 'lucide-react'
+import { Terminal as TerminalComponent } from '../components/Terminal'
 
 interface TeamMember {
   name: string; role: string; skills: string[]; status?: string
@@ -68,6 +70,7 @@ export default function Antonio() {
   const [modalOpen, setModalOpen] = useState(false)
   const [genLoading, setGenLoading] = useState(false)
   const [genError, setGenError] = useState('')
+  const [genSuccess, setGenSuccess] = useState('')
 
   // Service agents health
   const [serviceStatuses, setServiceStatuses] = useState<Record<string, ServiceStatus>>({})
@@ -113,17 +116,26 @@ export default function Antonio() {
     e.preventDefault()
     setGenLoading(true)
     setGenError('')
+    setGenSuccess('')
     const form = e.currentTarget
     const data = new FormData(form)
+    const address = String(data.get('address') || '')
+    const chain = String(data.get('chain') || 'ethereum')
+    const goal = String(data.get('goal') || '')
     try {
       await api.runTeamAudit({
-        address: String(data.get('address') || ''),
-        chain: String(data.get('chain') || 'ethereum'),
-        goal: String(data.get('goal') || ''),
-      } as any)
+        task_type: 'full_audit',
+        input_data: { address, chain },
+        goal: goal || undefined,
+        max_delegations: 15,
+      })
+      // Refresh sessions before closing modal
+      try {
+        const res = await api.getTeamSessions({ limit: 10 })
+        setSessions(Array.isArray(res.data) ? res.data : [])
+      } catch { /* refresh best-effort */ }
       setModalOpen(false)
-      const res = await api.getTeamSessions({ limit: 10 })
-      setSessions(Array.isArray(res.data) ? res.data : [])
+      setGenSuccess(`Team audit started for ${address.slice(0, 10)}... on ${chain}`)
     } catch (err: any) {
       setGenError(err?.message || 'Failed to run audit')
     } finally { setGenLoading(false) }
@@ -155,6 +167,15 @@ export default function Antonio() {
       <PageHeader title="Antonio" description="AI Agent Commander — orchestrates all service agents via natural language" />
 
       {error && <ErrorBanner message={error} onDismiss={() => setError('')} />}
+      {genSuccess && (
+        <div className="rounded-xl p-4 bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex items-start gap-2">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="flex-1">{genSuccess}</span>
+          <button onClick={() => setGenSuccess('')} className="text-green-400/70 hover:text-green-400 transition-colors">
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Service Agents Status */}
       <Card>
@@ -187,6 +208,7 @@ export default function Antonio() {
           <TabsTrigger value="skills"><Cpu className="w-3.5 h-3.5" /> Skills</TabsTrigger>
           <TabsTrigger value="memory"><Brain className="w-3.5 h-3.5" /> Memory</TabsTrigger>
           <TabsTrigger value="sessions"><Activity className="w-3.5 h-3.5" /> Sessions</TabsTrigger>
+          <TabsTrigger value="terminal"><Terminal className="w-3.5 h-3.5" /> Terminal</TabsTrigger>
         </TabsList>
 
         {/* ═══════ TEAM TAB ═══════ */}
@@ -367,6 +389,11 @@ export default function Antonio() {
             )}
           </Card>
         </TabsContent>
+
+        {/* ═══════ TERMINAL TAB ═══════ */}
+        <TabsContent value="terminal">
+          <TerminalComponent />
+        </TabsContent>
       </Tabs>
 
       {/* Run Audit Modal */}
@@ -397,7 +424,7 @@ export default function Antonio() {
                 <Input name="goal" placeholder="e.g., Find all reentrancy vulnerabilities" />
               </div>
             </div>
-            {genError && <p className="mt-3 text-sm text-red-400">{genError}</p>}
+            <AuditErrorAlert message={genError} onDismiss={() => setGenError('')} />
             <DialogFooter className="mt-6">
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)} disabled={genLoading}>Cancel</Button>
               <Button type="submit" disabled={genLoading}>

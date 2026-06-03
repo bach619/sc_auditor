@@ -25,6 +25,7 @@ from src.models import (
     AgentStep,
     SubAgentState,
     TeamSession,
+    to_serializable,
 )
 from src.organization import (
     delegation_skills_for_prompt,
@@ -428,7 +429,6 @@ class LeadAuditor:
 
         all_findings = self.memory.get_working("all_findings", [])
         if all_findings:
-            from src.models import to_serializable
             parts.append(f"\n=== ACCUMULATED FINDINGS ({len(all_findings)}) ===")
             parts.append(f"{to_serializable(all_findings[-10:])}")  # Last 10
 

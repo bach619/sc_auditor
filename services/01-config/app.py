@@ -178,6 +178,45 @@ async def reset_config(request: Request) -> ConfigResponse:
     return ConfigResponse(data=defaults)
 
 
+@app.post("/config/reset-providers", response_model=ConfigResponse)
+async def reset_providers(request: Request) -> ConfigResponse:
+    """Reset only the LLM provider configuration keys to factory defaults.
+
+    Clears API keys, base URLs, and models for all AI providers
+    (openai, anthropic, deepseek, xai, openrouter, google, huggingface).
+    Other config keys (scanner, RPC, etc.) are NOT affected.
+    """
+    mgr: ConfigManager = request.app.state.vyper.manager
+
+    provider_keys = [
+        # OpenAI
+        "provider_openai_api_key", "provider_openai_base_url", "provider_openai_model",
+        # Anthropic
+        "provider_anthropic_api_key", "provider_anthropic_base_url", "provider_anthropic_model",
+        # DeepSeek
+        "provider_deepseek_api_key", "provider_deepseek_base_url", "provider_deepseek_model",
+        # xAI
+        "provider_xai_api_key", "provider_xai_base_url", "provider_xai_model",
+        # OpenRouter
+        "provider_openrouter_api_key", "provider_openrouter_base_url", "provider_openrouter_model",
+        # Google
+        "provider_google_api_key", "provider_google_base_url", "provider_google_model",
+        # HuggingFace
+        "provider_huggingface_api_key", "provider_huggingface_base_url", "provider_huggingface_model",
+    ]
+
+    cleared = 0
+    for key in provider_keys:
+        if mgr.delete(key):
+            cleared += 1
+
+    log.info("config_providers_reset", cleared=cleared)
+    return ConfigResponse(data={
+        "message": f"Cleared {cleared} provider config keys. Re-enter API keys in Settings.",
+        "cleared_keys": cleared,
+    })
+
+
 @app.get("/config/{key:path}", response_model=ConfigResponse)
 async def get_config_value(request: Request, key: str) -> ConfigResponse:
     """Retrieve a single configuration value by key.

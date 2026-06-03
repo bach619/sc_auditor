@@ -238,8 +238,9 @@ class ImmunefiMirrorProvider:
         - contracts[] (API format): has address, chain, name
         - targets[] (alternative): has address, chain, name
 
-        Only includes smart_contract type assets with valid 0x addresses.
-        Extracts address from the URL if no direct address field exists.
+        Only includes smart_contract type assets.
+        For GitHub source URLs (no on-chain address), stores the file
+        as a contract reference so the Source service can fetch it.
         """
         import re  # noqa: PLC0415
 
@@ -272,19 +273,81 @@ class ImmunefiMirrorProvider:
                 if addr_match:
                     addr = addr_match.group(0)
 
+            name = str(c.get("description", "") or c.get("name", "") or "").strip()
+
             if addr and len(addr) == 42 and addr not in seen:
                 seen.add(addr)
-                # Detect chain from URL if not explicit
                 chain = str(c.get("chain", "") or "")
                 if not chain:
                     url = str(c.get("url", "") or "")
                     chain = self._detect_chain_from_url(url)
-                name = str(c.get("description", "") or c.get("name", "") or "")
                 result.append({
                     "address": addr,
                     "chain": chain,
-                    "name": name.strip(),
+                    "name": name,
                 })
+            elif not addr:
+                # No on-chain address — check for GitHub source URL
+                url = str(c.get("url", "") or "")
+                if "github.com" in url.lower():
+                    # Store as GitHub-based contract reference
+                    repo_info = self._parse_github_url(url)
+                    git_key = f"github:{repo_info['repo']}:{repo_info['file']}"
+                    if git_key not in seen:
+                        seen.add(git_key)
+                        chain = str(c.get("chain", "") or "") or repo_info.get("chain", "ethereum")
+                        result.append({
+                            "address": repo_info["source_url"] or url,
+                            "chain": chain,
+                            "name": name or repo_info["file"],
+                            "source_type": "github",
+                            "repo": repo_info["repo"],
+                            "file": repo_info["file"],
+                        })
+
+        return result
+
+    @staticmethod
+    def _parse_github_url(url: str) -> dict[str, str]:
+        """Parse a GitHub file URL into repo, file path, and raw source URL.
+
+        Input: https://github.com/Synthetixio/synthetix-v3/blob/main/contracts/Proxy.sol
+        Output: {"repo": "Synthetixio/synthetix-v3", "file": "contracts/Proxy.sol",
+                  "branch": "main", "source_url": "https://raw.githubusercontent.com/...",
+                  "chain": "ethereum"}
+        """
+        import re  # noqa: PLC0415
+
+        result: dict[str, str] = {
+            "repo": "",
+            "file": "",
+            "branch": "main",
+            "source_url": "",
+            "chain": "ethereum",
+        }
+
+        # Pattern: github.com/{owner}/{repo}/blob/{branch}/{path}
+        match = re.match(
+            r"https?://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)",
+            url,
+            re.IGNORECASE,
+        )
+        if match:
+            owner = match.group(1)
+            repo = match.group(2)
+            branch = match.group(3)
+            path = match.group(4)
+
+            # Strip .git suffix if present
+            repo = re.sub(r"\.git$", "", repo)
+
+            result["repo"] = f"{owner}/{repo}"
+            result["file"] = path
+            result["branch"] = branch
+            # Raw GitHub URL for direct download
+            result["source_url"] = (
+                f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+            )
 
         return result
 

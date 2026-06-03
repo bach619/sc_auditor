@@ -145,27 +145,51 @@ class ServiceProxy:
 
     async def _get(self, url: str, params: Optional[Dict[str, Any]] = None) -> Any:
         resp = await self.client.get(url, params=params)
+        if resp.status_code >= 400:
+            try:
+                body = resp.text[:500]
+            except Exception:
+                body = "(unreadable)"
+            logger.error("upstream_error", method="GET", url=url, status=resp.status_code, body=body)
         resp.raise_for_status()
-        return resp.json()
+        return self._safe_json(resp, url)
 
     async def _post(
         self, url: str, json: Optional[Dict[str, Any]] = None
     ) -> Any:
         resp = await self.client.post(url, json=json)
+        if resp.status_code >= 400:
+            try:
+                body = resp.text[:500]
+            except Exception:
+                body = "(unreadable)"
+            logger.error("upstream_error", method="POST", url=url, status=resp.status_code, body=body)
         resp.raise_for_status()
-        return resp.json()
+        return self._safe_json(resp, url)
+
+    def _safe_json(self, resp: httpx.Response, url: str) -> Any:
+        """Try to parse JSON, fallback to text on failure."""
+        try:
+            return resp.json()
+        except Exception:
+            logger.warning("non_json_response", url=url, status=resp.status_code, text=resp.text[:200])
+            return {"data": None, "meta": {"status": "error", "error": f"Non-JSON response ({resp.status_code})"}}
 
     async def _put(
         self, url: str, json: Optional[Dict[str, Any]] = None
     ) -> Any:
         resp = await self.client.put(url, json=json)
+        if resp.status_code >= 400:
+            logger.error("upstream_error", method="PUT", url=url, status=resp.status_code, body=resp.text[:500])
         resp.raise_for_status()
-        return resp.json()
+        return self._safe_json(resp, url)
 
     async def _delete(self, url: str) -> Any:
         resp = await self.client.delete(url)
+        if resp.status_code >= 400:
+            logger.error("upstream_error", method="DELETE", url=url, status=resp.status_code, body=resp.text[:500])
         resp.raise_for_status()
-        return resp.json()
+        return self._safe_json(resp, url)
 
     # ═══════════════════════════════════════════════════════════
     # Orchestrator Service
@@ -427,14 +451,97 @@ class ServiceProxy:
     async def get_agent_health(self) -> Dict[str, Any]:
         return await self._get(f"{self.urls.agent}/health")
 
+    async def get_agent_provider_status(self) -> Dict[str, Any]:
+        """Get Antonio's LLM provider configuration status.
+
+        Aggregates health, provider defaults, and circuit breaker status.
+        """
+        try:
+            health = await self._get(f"{self.urls.agent}/health")
+        except Exception:
+            health = {}
+        try:
+            defaults = await self._get(f"{self.urls.agent}/agent/provider-defaults")
+        except Exception:
+            defaults = {}
+        try:
+            breakers = await self._get(f"{self.urls.agent}/circuit-breakers")
+        except Exception:
+            breakers = {}
+
+        return {
+            "health": health.get("data", {}),
+            "provider_defaults": defaults.get("data", {}),
+            "circuit_breakers": breakers.get("data", {}),
+            "note": "Check provider_defaults for expected base URLs. Circuit breakers show skill health."
+        }
+
     async def send_chat_message(
         self, message: str, session_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Send a chat message to Antonio and get response."""
+        """Send a chat message to Antonio and get response.
+
+        Retries up to 2 times with backoff on connection errors,
+        since 14-agent may still be starting up when dashboard is ready.
+        Uses a longer timeout (120s) because LLM reasoning with
+        large prompts can take 60-90 seconds.
+        """
         body: Dict[str, Any] = {"message": message}
         if session_id:
             body["session_id"] = session_id
-        return await self._post(f"{self.urls.agent}/agent/chat", json=body)
+
+        url = f"{self.urls.agent}/agent/chat"
+        last_error: Optional[Exception] = None
+
+        for attempt in range(3):
+            try:
+                # Override timeout for chat — LLM may need 60-90s
+                resp = await self.client.post(url, json=body, timeout=120.0)
+                if resp.status_code >= 400:
+                    try:
+                        resp_body = resp.text[:500]
+                    except Exception:
+                        resp_body = "(unreadable)"
+                    logger.error("upstream_error", method="POST", url=url, status=resp.status_code, body=resp_body)
+                resp.raise_for_status()
+                return self._safe_json(resp, url)
+            except (httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError) as exc:
+                # Connection-level errors — agent may be starting up, retry with backoff
+                last_error = exc
+                if attempt < 2:
+                    wait = min(2 ** attempt, 4)  # 1s, 2s, capped 4s
+                    logger.warning(
+                        "chat_proxy_retry",
+                        attempt=attempt + 1,
+                        error=str(exc),
+                        wait_seconds=wait,
+                    )
+                    await asyncio.sleep(wait)
+                else:
+                    logger.error(
+                        "chat_proxy_exhausted",
+                        attempts=3,
+                        error=str(exc),
+                    )
+            except httpx.HTTPStatusError as exc:
+                # Upstream returned an error (4xx/5xx) — don't retry, let caller handle
+                logger.error(
+                    "chat_proxy_upstream_error",
+                    status=exc.response.status_code,
+                    url=url,
+                )
+                raise
+            except Exception as exc:
+                # Unknown error — don't retry
+                logger.error("chat_proxy_unexpected", error=str(exc))
+                raise
+
+        # All retries exhausted — raise with user-friendly message
+        raise httpx.ConnectError(
+            f"Unable to reach Antonio agent at {self.urls.agent} after 3 attempts. "
+            f"Last error: {last_error}. "
+            f"Is the 14-agent service running?"
+        )
 
     # ═══════════════════════════════════════════════════════════
     # Health Check All Services
@@ -461,6 +568,7 @@ class ServiceProxy:
             "12-webhook": f"{self.urls.webhook}/health",
             "13-upkeep": f"{self.urls.upkeep}/health",
             "14-agent": f"{self.urls.agent}/health",
+            "16-submission": f"{self.urls.submission}/health",
         }
 
         async def _check_one(name: str, url: str) -> tuple[str, dict]:

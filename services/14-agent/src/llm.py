@@ -1,8 +1,17 @@
-"""LLM Client for Agent Reasoning — calls OpenAI/Anthropic for Think step."""
+"""LLM Client for Agent Reasoning — multi-provider support.
+
+Supports any provider via Settings:
+- OpenAI-compatible (OpenAI, DeepSeek, xAI/Grok, OpenRouter, HuggingFace, etc.)
+- Anthropic (native API format)
+
+Provider config is loaded from Config Service at startup.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import json
+import re
 from typing import Any
 
 import httpx
@@ -10,9 +19,120 @@ import structlog
 
 log = structlog.get_logger()
 
-OPENAI_BASE_URL = "https://api.openai.com/v1"
-ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
-DEFAULT_TIMEOUT = 30.0
+DEFAULT_TIMEOUT = 90.0  # Increased from 30s — large system prompts need more time
+
+# ── Safety helper: ensure we always have a meaningful error string ──
+# Some exceptions (e.g. httpx.ConnectError) can produce empty str(exc),
+# which causes confusing empty "Chat failed: " messages in the frontend.
+def _safe_error(exc: BaseException) -> str:
+    """Return a non-empty error string from any exception."""
+    s = str(exc).strip() if exc else ""
+    if s:
+        return s
+    # Try to build a meaningful message from the exception class + context
+    cls_name = type(exc).__name__
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"HTTP {exc.response.status_code} from {exc.request.url}"
+    if isinstance(exc, httpx.RequestError):
+        return f"Request error ({cls_name})"
+    if isinstance(exc, OSError):
+        # e.g. ConnectionRefusedError, TimeoutError
+        return f"{cls_name}: {getattr(exc, 'strerror', 'network error')}"
+    return cls_name
+
+# ── Provider default base URLs ──────────────────────────────
+# These match the apiKeyField / baseUrlField in frontend Settings.tsx
+
+PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
+    "openai": {
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o",
+        "api_type": "openai_compatible",
+    },
+    "anthropic": {
+        "base_url": "https://api.anthropic.com/v1",
+        "model": "claude-3-5-sonnet-20241022",
+        "api_type": "anthropic",
+    },
+    "deepseek": {
+        "base_url": "https://api.deepseek.com",
+        "model": "deepseek-chat",
+        "api_type": "openai_compatible",
+    },
+    "xai": {
+        "base_url": "https://api.x.ai/v1",
+        "model": "grok-4.20-expert",
+        "api_type": "openai_compatible",
+    },
+    "openrouter": {
+        "base_url": "https://openrouter.ai/api/v1",
+        "model": "openrouter/free",
+        "api_type": "openai_compatible",
+    },
+    "google": {
+        "base_url": "https://generativelanguage.googleapis.com/v1",
+        "model": "gemini-3.1-pro",
+        "api_type": "openai_compatible",
+    },
+    "huggingface": {
+        "base_url": "https://api-inference.huggingface.co/v1",
+        "model": "mistralai/Mistral-7B-Instruct-v0.3",
+        "api_type": "openai_compatible",
+    },
+}
+
+# Providers that use OpenAI /chat/completions format
+OPENAI_COMPATIBLE_PROVIDERS = {
+    k for k, v in PROVIDER_DEFAULTS.items()
+    if v["api_type"] == "openai_compatible"
+}
+
+# ── Text Cleaning ──────────────────────────────────────────
+
+# Pattern: double-escaped unicode like \\u201c or \\u2014 (backslash + u + 4 hex digits)
+_UNICODE_ESC_RE = re.compile(r"\\u([0-9a-fA-F]{4})")
+
+# Pattern: common JSON double-escapes like \\n, \\t, \\"
+_COMMON_ESC_RE = re.compile(r"\\([nrt\"\\])")
+
+_ESC_MAP: dict[str, str] = {
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+    '"': '"',
+    "\\": "\\",
+}
+
+
+def _unescape_text(text: str) -> str:
+    """Clean escape sequences from LLM response text.
+
+    Handles two cases:
+    1. Unicode escapes  → actual Unicode chars  (e.g. ``\\u201c`` → ``"``)
+    2. Common escapes   → actual control chars   (e.g. ``\\n`` → newline)
+
+    Only processes sequences that were NOT already decoded by JSON parser
+    (i.e. where the backslash appears literally in the string).
+    """
+    # 1. Unicode escapes: \u201c → "  (LEFT DOUBLE QUOTATION MARK)
+    text = _UNICODE_ESC_RE.sub(lambda m: chr(int(m.group(1), 16)), text)
+
+    # 2. Common escapes: \n → newline, \" → quote, etc.
+    text = _COMMON_ESC_RE.sub(lambda m: _ESC_MAP.get(m.group(1), m.group(0)), text)
+
+    return text
+
+
+def _deep_unescape(obj: Any) -> Any:
+    """Recursively unescape all string values in a JSON-like structure."""
+    if isinstance(obj, str):
+        return _unescape_text(obj)
+    if isinstance(obj, dict):
+        return {k: _deep_unescape(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_deep_unescape(v) for v in obj]
+    return obj
+
 
 # ── ReAct System Prompt ────────────────────────────────────
 
@@ -57,79 +177,237 @@ For the final step, set action to "FINAL_ANSWER" and provide summary in final_an
 """
 
 
+# ── Vyper Platform Knowledge ─────────────────────────────────
+# Embedded knowledge so Antonio can answer broad/strategic questions
+# about the platform itself without needing to call any skills.
+
+VYPER_KNOWLEDGE = """
+## Vyper Platform Knowledge
+
+You are the AI controller of **Vyper**, an automated smart contract security audit platform.
+Here is what you know about the platform:
+
+### What Vyper Is
+- A microservice-based audit platform running locally via Docker Compose
+- 20+ microservices (Python FastAPI) communicating via HTTP/REST
+- Designed for **personal use** — scan Immunefi bounty contracts, find true-positive bugs, generate reports
+- Dashboard at http://localhost:8000, all services in one `docker-compose.yml`
+
+### Architecture
+- **01-config**: Stores all runtime config (API keys, provider settings, preferences)
+- **02-immunefi**: Fetches bounty programs & scope contracts from Immunefi API
+- **03-source**: Fetches Solidity source code from Etherscan/block explorers
+- **04-scanner** + **04a-slither** + **04b-echidna** + **04c-forge** + **04d-halmos** + **04e-manticore** + **05-mythril**: Static analysis, fuzzing, symbolic execution
+- **06-ai**: LLM-based vulnerability TP/FP classification
+- **07-classifier**: ML-based finding classifier
+- **08-exploit**: PoC exploit generation (Docker socket, Anvil fork)
+- **09-reporter**: Generates Immunefi-format audit reports
+- **10-notifier**: Telegram/notification service
+- **11-orchestrator**: Pipeline state machine — coordinates all stages
+- **12-webhook**: Webhook receiver for external triggers
+- **13-upkeep**: Maintenance (disk cleanup, cache)
+- **14-agent**: You (Antonio) — ReAct agent with skills + chat
+- **15-dashboard**: React SPA frontend + API gateway + SSE event hub
+- **16-submission**: Immunefi bug report submission agent
+- **17-experience**: Learning & skill improvement tracking
+
+### Pipeline Flow
+`PENDING → FETCHING_PROGRAM → FETCHING_SOURCE → SCANNING → AI_ANALYSIS → CLASSIFYING → EXPLOITING → REPORTING → NOTIFYING → COMPLETED`
+
+### Current Limitations (honest assessment)
+1. **Solidity-only** — No Vyper, Rust/ink!, or Move support yet
+2. **External tool dependency** — Relies on Slither, Mythril, Echidna (containerized)
+3. **False positives/negatives** — AI triage reduces but doesn't eliminate
+4. **No formal verification** — Only static analysis + fuzzing (Halmos symbolic testing added)
+5. **5 exploit types only** — Reentrancy, access control, arithmetic, oracle manipulation, flash loan
+6. **No human review** — AI can misunderstand business logic context
+7. **Immunefi-only** — Bug bounty programs limited to Immunefi platform
+8. **Computation heavy** — Large contracts may be slow to analyze
+
+### Smart Contract Security Knowledge (your expertise)
+You are an expert in:
+- **Vulnerability classes**: Reentrancy, integer overflow/underflow, access control flaws, oracle manipulation, flash loan attacks, front-running, MEV, unchecked return values, tx.origin auth, delegatecall injection, storage collision, signature replay, DoS, unchecked external calls
+- **Audit methodology**: Static analysis → fuzzing → symbolic execution → manual review → exploit PoC
+- **DeFi protocols**: Lending, AMM/DEX, staking, yield aggregators, bridges, oracles, derivatives, stablecoins
+- **EVM/Solidity specifics**: Storage layout, delegatecall/proxy patterns, CREATE2, inline assembly, gas optimization
+- **Web3 security landscape**: Common exploits by TVL, bug bounty platforms, audit firms, tooling ecosystem
+
+### Strategic Recommendations for Vyper (when asked)
+When users ask how to improve Vyper, suggest these priorities:
+1. **Add multi-language support** (Vyper lang, Rust ink!, Solana) — highest ROI
+2. **Build in-house detectors** — reduce Slither/Mythril dependency
+3. **Add formal verification** — integrate with Certora or build custom prover
+4. **Expand exploit types** — add reentrancy variants, governance attacks, proxy bugs
+5. **Multi-chain source fetching** — beyond Ethereum/EVM chains
+6. **Bug bounty platform expansion** — add HackenProof, Code4rena, Sherlock
+7. **Team/community features** — multi-user, shared findings, leaderboard
+8. **Real-time monitoring** — watch contracts for new transactions, upgrades, anomalies
+9. **CI/CD integration** — GitHub Actions, pre-commit hooks for developers
+10. **Performance optimization** — parallel scanning, caching, incremental analysis
+"""
+
+
 # ── Chat System Prompt ──────────────────────────────────────
 
-CHAT_SYSTEM_PROMPT = """You are Antonio, an expert smart contract security AI agent and the absolute controller of the Vyper audit platform.
+CHAT_SYSTEM_PROMPT = """You are Antonio, the AI controller of Vyper — an automated smart contract security audit platform.
 
-Your role is to help users with smart contract security audits in a conversational way. You have access to powerful SKILLS that you can call.
+## Your Identity
+- You are the central AI agent of Vyper, a microservice-based audit platform
+- You are an expert in smart contract security, DeFi vulnerabilities, and Web3 security
+- You speak conversationally, match the user's language, and are helpful but honest
 
-## How to Think (ReAct Pattern)
+{vyper_knowledge}
 
-For each step, follow this format:
-1. THINK — Understand what the user wants and decide what to do
-2. ACT — Call a skill if needed (audit, scan, search memory, etc.)
-3. OBSERVE — Process the skill result
-4. REPEAT until you can answer the user
-5. FINAL_ANSWER — Respond to the user in natural language
+## How You Work — TWO MODES
 
-## Available Skills
+You operate in two modes. **Always default to MODE 1** unless the user explicitly asks for something that requires platform data.
+
+### MODE 1: Direct Answer (GENERAL KNOWLEDGE) — USE THIS BY DEFAULT
+Use this mode for ANY question that does NOT require calling platform services:
+- Questions about Vyper itself (architecture, roadmap, capabilities, limitations)
+- Questions about smart contract security (vulnerability types, attack vectors, best practices)
+- Strategic recommendations (how to improve Vyper, what tools to use)
+- Web3/DeFi knowledge (how protocols work, recent exploits, security trends)
+- Troubleshooting help (configuration, setup, error explanations)
+- "What is X?", "How does Y work?", "Why is Z?", "Give me recommendations for..."
+- ANY conversational question, greeting, or general discussion
+
+**In MODE 1:** Immediately set action to "FINAL_ANSWER" and provide a thorough, knowledgeable response.
+Do NOT call any skills. Answer from your own expertise.
+This should be your FIRST step — don't loop.
+
+### MODE 2: Skill-Based (PLATFORM DATA) — ONLY when truly needed
+Use this mode ONLY when the user explicitly wants you to:
+- Audit a specific contract: "audit 0x1234..."
+- Fetch programs: "show me Immunefi programs"
+- Scan code: "scan this contract"
+- Generate a report: "generate report for audit_xxx"
+- Search memory: "what did we find in the last audit?"
+- Run exploit tests: "test reentrancy on 0x..."
+- Check daemon/health: "is the daemon running?"
+
+**In MODE 2:** Use the ReAct pattern:
+1. THINK — what does the user want?
+2. ACT — call the right skill with parameters
+3. OBSERVE — process the result
+4. REPEAT if needed, then FINAL_ANSWER
+
+## Available Skills (for MODE 2 only)
 
 {s Skills}
 
-## Guidelines
+## Critical Rules
 
-1. Understand user intent:
-   - "audit 0x1234" → run audit skills
-   - "what did we find?" → search memory
-   - "show programs" → fetch program list
-   - "help" → explain capabilities
-   - general questions → answer from knowledge
+1. **DEFAULT TO MODE 1**: If you're unsure whether to use a skill, DON'T. Answer directly.
+2. **LANGUAGE MATCHING**: Always respond in the same language the user used.
+   - Indonesian user → Indonesian response
+   - English user → English response
+3. **BE HONEST**: If you don't know something, say so. Don't fabricate audit results.
+4. **BE CONVERSATIONAL**: You're having a chat, not running a script. Be warm and helpful.
+5. **NO SKILL FORCING**: Never call a skill just because it exists. Only call when the user's intent clearly maps to it.
+6. **ONE STEP FOR DIRECT ANSWERS**: For MODE 1 questions, always answer in step 1 with FINAL_ANSWER.
+7. **PROVIDE CONTEXT**: When answering broad questions, be thorough. Give examples. Suggest next steps.
 
-2. Always respond in the SAME LANGUAGE the user used
-   - User speaks Indonesian → you answer in Indonesian
-   - User speaks English → you answer in English
+## When Using Skills (MODE 2 data integrity rules)
 
-3. Be conversational but professional:
-   - Explain what you're doing before calling skills
-   - Summarize results clearly
-   - Ask clarifying questions if needed
-
-4. When calling skills, explain briefly what you're doing
-5. After getting skill results, summarize them for the user
-6. If a skill fails, explain the error and suggest alternatives
+When you call a skill and receive a result with counts, lists, or totals:
+- ALWAYS report the ACTUAL count from the skill's output, not a curated subset
+- If a skill returns `_total_count`, include it: "Found X of Y programs"
+- If a skill returns `_summary`, use that as the primary data point
+- When user asks to "list all" or "show all", report the actual data from the skill
+- Do NOT summarize to only well-known programs unless the user asks for that explicitly
+- If the result is too large, tell the user: "Returned X items. Use filters to narrow down."
 
 ## Output Format
 
 You MUST respond with valid JSON:
 {{
-  "thought": "your reasoning here",
+  "thought": "your reasoning here (explain which mode and why)",
   "action": "skill_name or FINAL_ANSWER",
   "action_input": {{ "param": "value" or null }},
   "final_answer": "your conversational response or null"
 }}
 
-For the final step, set action to "FINAL_ANSWER" and provide a natural language response in final_answer.
+For MODE 1: action = "FINAL_ANSWER", final_answer = your detailed response.
+For MODE 2: follow the ReAct pattern, then FINAL_ANSWER with a summary.
 """
 
 
 class AgentReasoningClient:
-    """LLM client khusus untuk agent reasoning (ReAct think step)."""
+    """Multi-provider LLM client for agent reasoning (ReAct think step).
+
+    Fully provider-agnostic: reads all provider configs from a dict.
+    Supports any provider configured via Settings UI.
+
+    Provider types:
+    - ``openai_compatible``: Uses /chat/completions endpoint (OpenAI, DeepSeek, xAI, etc.)
+    - ``anthropic``: Uses Anthropic Messages API
+    """
 
     def __init__(
         self,
-        openai_key: str = "",
-        anthropic_key: str = "",
-        openai_model: str = "gpt-4o",
-        anthropic_model: str = "claude-3-5-sonnet-20241022",
-        preferred_provider: str = "openai",
+        providers: dict[str, dict[str, str]] | None = None,
+        preferred_provider: str = "",
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
-        self.openai_key = openai_key
-        self.anthropic_key = anthropic_key
-        self.openai_model = openai_model
-        self.anthropic_model = anthropic_model
-        self.preferred_provider = preferred_provider
+        """Initialize the LLM client.
+
+        Args:
+            providers: Dict of provider_id -> {api_key, base_url, model}.
+                       If None, loaded from PROVIDER_DEFAULTS without keys.
+            preferred_provider: The provider to use first (e.g. "deepseek", "openai").
+            http_client: Shared httpx client for connection pooling.
+        """
+        self.providers: dict[str, dict[str, str]] = {}
+        self.preferred_provider = preferred_provider or ""
         self._http_client = http_client
+
+        # Merge defaults with actual config
+        if providers:
+            for pid, cfg in providers.items():
+                defaults = PROVIDER_DEFAULTS.get(pid, {})
+                api_key = cfg.get("api_key") or ""
+                base_url_cfg = cfg.get("base_url") or ""
+                base_url_default = defaults.get("base_url", "")
+
+                # Use default base_url if config value is empty
+                base_url = (base_url_cfg or base_url_default).rstrip("/")
+
+                # Warn if API key is set but base_url was empty (common misconfig)
+                if api_key and not base_url_cfg:
+                    log.warning(
+                        "provider_base_url_empty_using_default",
+                        provider=pid,
+                        default_base_url=base_url_default,
+                        hint="Set base_url in Settings > AI Providers to avoid relying on defaults",
+                    )
+
+                self.providers[pid] = {
+                    "api_key": api_key,
+                    "base_url": base_url,
+                    "model": cfg.get("model") or defaults.get("model", "unknown"),
+                    "api_type": defaults.get("api_type", "openai_compatible"),
+                }
+
+        # Debug: log all configured providers with their effective URLs
+        for pid, p in self.providers.items():
+            if p.get("api_key"):
+                log.info(
+                    "llm_provider_configured",
+                    provider=pid,
+                    model=p.get("model", "?"),
+                    base_url=p.get("base_url", "?"),
+                )
+
+    # ── Public API ──────────────────────────────────────────
+
+    def is_configured(self) -> bool:
+        """Check if at least one provider has an API key set."""
+        return any(p.get("api_key") for p in self.providers.values())
+
+    def configured_providers(self) -> list[str]:
+        """Return list of provider IDs that have API keys."""
+        return [pid for pid, p in self.providers.items() if p.get("api_key")]
 
     # ── Core Reasoning ─────────────────────────────────────
 
@@ -167,13 +445,28 @@ class AgentReasoningClient:
 
                 return result
 
-            except (ValueError, json.JSONDecodeError) as exc:
-                last_error = str(exc)
+            except Exception as exc:
+                last_error = _safe_error(exc)
                 log.warning(
-                    "agent_reason_parse_retry",
+                    "agent_reason_retry",
                     attempt=attempt + 1,
                     error=last_error,
+                    exc_info=True,
                 )
+                # Skip retry on auth errors — retrying won't fix bad credentials
+                is_auth = (
+                    "Authentication failed" in last_error
+                    or "API key may be invalid" in last_error
+                    or "No AI provider configured" in last_error
+                )
+                if is_auth:
+                    log.error("agent_reason_auth_fatal", error=last_error)
+                    break
+                # Exponential backoff: 1s, 2s, 4s, ... between retries
+                if attempt < max_retries - 1:
+                    wait = min(2 ** attempt, 16)  # cap at 16s
+                    log.debug("agent_reason_backoff", wait_seconds=wait)
+                    await asyncio.sleep(wait)
                 continue
 
         # Fallback: return error action
@@ -184,24 +477,116 @@ class AgentReasoningClient:
             "final_answer": f"Error: Could not process request - {last_error}",
         }
 
-    async def _call_llm(self, system: str, user: str) -> str:
-        """Call LLM API (OpenAI or Anthropic)."""
-        if self.preferred_provider == "anthropic" and self.anthropic_key:
-            return await self._call_anthropic(system, user)
-        return await self._call_openai(system, user)
+    # ── LLM Router ──────────────────────────────────────────
 
-    async def _call_openai(self, system: str, user: str) -> str:
-        if not self.openai_key:
-            raise RuntimeError("OpenAI API key not configured")
+    async def _call_llm(self, system: str, user: str) -> str:
+        """Call the preferred LLM provider, with fallback if unavailable.
+
+        Each provider is tried with up to 2 retries (3 total attempts)
+        before moving to the next configured provider.
+        """
+        # Build ordered list: preferred first, then all other configured providers
+        ordered: list[str] = []
+        if self.preferred_provider and self.providers.get(self.preferred_provider, {}).get("api_key"):
+            ordered.append(self.preferred_provider)
+        for pid in self.providers:
+            if pid not in ordered and self.providers[pid].get("api_key"):
+                ordered.append(pid)
+
+        if not ordered:
+            raise RuntimeError(
+                "No AI provider configured. "
+                "Go to Settings > AI Providers, set at least one API key, "
+                "then set 'Preferred Provider' to the provider ID (e.g. 'deepseek')."
+            )
+
+        errors: list[str] = []
+
+        for pid in ordered:
+            provider = self.providers[pid]
+            # Per-provider retry with backoff (max 3 attempts per provider)
+            for attempt in range(3):
+                try:
+                    result = await self._call_provider(provider, system, user)
+                    if pid != ordered[0]:
+                        log.info("llm_fallback_success", from_provider=ordered[0], to_provider=pid)
+                    return result
+                except Exception as exc:
+                    err_msg = _safe_error(exc)
+                    # Skip retry on auth errors — retrying with bad key won't help
+                    is_auth_error = (
+                        isinstance(exc, RuntimeError)
+                        and ("Authentication failed" in err_msg
+                             or "API key may be invalid" in err_msg
+                             or "API key missing" in err_msg)
+                    )
+                    if is_auth_error:
+                        log.error(
+                            "llm_auth_error",
+                            provider=pid,
+                            error=err_msg,
+                        )
+                        errors.append(f"{pid}: {err_msg}")
+                        break  # Stop retrying this provider, try next one
+
+                    if attempt < 2:  # more retries remain
+                        wait = min(2 ** attempt, 8)  # 1s, 2s, 4s max
+                        log.warning(
+                            "llm_call_retry",
+                            provider=pid,
+                            attempt=attempt + 1,
+                            error=err_msg,
+                            wait_seconds=wait,
+                        )
+                        await asyncio.sleep(wait)
+                    else:
+                        log.error(
+                            "llm_call_exhausted",
+                            provider=pid,
+                            error=err_msg,
+                            exc_info=True,
+                        )
+                        errors.append(f"{pid}: {err_msg}")
+
+        # All providers exhausted
+        error_summary = "; ".join(errors) if errors else "Unknown error"
+        raise RuntimeError(
+            f"All LLM providers failed: {error_summary}. "
+            f"Check your API keys, network connectivity, and provider status."
+        )
+
+    async def _call_provider(self, provider: dict[str, str], system: str, user: str) -> str:
+        """Route to the correct API caller based on provider type."""
+        if provider.get("api_type") == "anthropic":
+            return await self._call_anthropic(provider, system, user)
+        return await self._call_openai_compatible(provider, system, user)
+
+    # ── OpenAI-Compatible Caller ────────────────────────────
+
+    async def _call_openai_compatible(
+        self, provider: dict[str, str], system: str, user: str
+    ) -> str:
+        """Call any OpenAI-compatible /chat/completions endpoint.
+
+        Works with: OpenAI, DeepSeek, xAI/Grok, OpenRouter, HuggingFace, etc.
+        """
+        api_key = provider.get("api_key", "")
+        base_url = provider.get("base_url", "")
+        model = provider.get("model", "")
+
+        if not api_key:
+            raise RuntimeError(f"API key missing for provider at {base_url}")
         if self._http_client is None:
             raise RuntimeError("HTTP client not initialized")
+        if not base_url:
+            raise RuntimeError(f"base_url not configured for provider with model '{model}'")
 
         headers = {
-            "Authorization": f"Bearer {self.openai_key}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
         body = {
-            "model": self.openai_model,
+            "model": model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -210,42 +595,127 @@ class AgentReasoningClient:
             "temperature": 0.2,
         }
 
-        resp = await self._http_client.post(
-            f"{OPENAI_BASE_URL}/chat/completions",
-            headers=headers,
-            json=body,
+        url = f"{base_url}/chat/completions"
+        log.info(
+            "llm_call_openai_compatible",
+            model=model,
+            base_url=base_url,
         )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
 
-    async def _call_anthropic(self, system: str, user: str) -> str:
-        if not self.anthropic_key:
-            raise RuntimeError("Anthropic API key not configured")
+        try:
+            resp = await self._http_client.post(
+                url,
+                headers=headers,
+                json=body,
+                timeout=DEFAULT_TIMEOUT,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            try:
+                return data["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError) as exc:
+                raise RuntimeError(
+                    f"Unexpected API response from {base_url}: {exc}. "
+                    f"Response keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}"
+                ) from exc
+        except httpx.TimeoutException:
+            raise RuntimeError(
+                f"LLM request timed out after {DEFAULT_TIMEOUT}s to {base_url}. "
+                f"The provider may be overloaded or unreachable."
+            )
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            detail = ""
+            try:
+                detail = exc.response.text[:500]
+            except Exception:
+                pass
+            if status == 429:
+                raise RuntimeError(
+                    f"Rate limited by {base_url} (HTTP 429). "
+                    f"Retry will happen automatically with backoff."
+                )
+            if status in (401, 403):
+                raise RuntimeError(
+                    f"Authentication failed for {base_url} (HTTP {status}). "
+                    f"Your API key may be invalid or expired. Check Settings > AI Providers."
+                )
+            raise RuntimeError(
+                f"HTTP {status} from {base_url}: {detail or exc.response.reason_phrase}"
+            )
+
+    # ── Anthropic Caller ────────────────────────────────────
+
+    async def _call_anthropic(
+        self, provider: dict[str, str], system: str, user: str
+    ) -> str:
+        """Call Anthropic Messages API."""
+        api_key = provider.get("api_key", "")
+        base_url = provider.get("base_url", "")
+        model = provider.get("model", "")
+
+        if not api_key:
+            raise RuntimeError("Anthropic API key missing")
         if self._http_client is None:
             raise RuntimeError("HTTP client not initialized")
+        if not base_url:
+            raise RuntimeError(f"base_url not configured for Anthropic provider with model '{model}'")
 
         headers = {
-            "x-api-key": self.anthropic_key,
+            "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
             "Content-Type": "application/json",
         }
         body = {
-            "model": self.anthropic_model,
+            "model": model,
             "system": system,
             "messages": [{"role": "user", "content": user}],
             "max_tokens": 2048,
             "temperature": 0.2,
         }
 
-        resp = await self._http_client.post(
-            f"{ANTHROPIC_BASE_URL}/messages",
-            headers=headers,
-            json=body,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["content"][0]["text"]
+        url = f"{base_url}/messages"
+        try:
+            resp = await self._http_client.post(
+                url,
+                headers=headers,
+                json=body,
+                timeout=DEFAULT_TIMEOUT,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            try:
+                return data["content"][0]["text"]
+            except (KeyError, IndexError, TypeError) as exc:
+                raise RuntimeError(
+                    f"Unexpected Anthropic response from {base_url}: {exc}. "
+                    f"Response keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}"
+                ) from exc
+        except httpx.TimeoutException:
+            raise RuntimeError(
+                f"Anthropic request timed out after {DEFAULT_TIMEOUT}s. "
+                f"The provider may be overloaded or unreachable."
+            )
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            detail = ""
+            try:
+                detail = exc.response.text[:500]
+            except Exception:
+                pass
+            if status == 429:
+                raise RuntimeError(
+                    f"Rate limited by Anthropic (HTTP 429). "
+                    f"Retry will happen automatically with backoff."
+                )
+            if status in (401, 403):
+                raise RuntimeError(
+                    f"Anthropic authentication failed (HTTP {status}). "
+                    f"Your API key may be invalid or expired. Check Settings > AI Providers."
+                )
+            raise RuntimeError(
+                f"Anthropic HTTP {status}: {detail or exc.response.reason_phrase}"
+            )
 
     # ── Parse ──────────────────────────────────────────────
 
@@ -254,13 +724,17 @@ class AgentReasoningClient:
 
         Attempts JSON parsing first, then falls back to
         text-based parsing for non-JSON responses.
+
+        All string values are cleaned of escape sequences
+        (\\n → newline, \\u201c → smart quote, etc.)
         """
         text = raw.strip()
 
         # Try JSON first
         if text.startswith("{"):
             try:
-                return json.loads(text)
+                result = json.loads(text)
+                return _deep_unescape(result)
             except json.JSONDecodeError:
                 pass
 
@@ -298,7 +772,9 @@ class AgentReasoningClient:
                 if isinstance(result.get(current_key), str):
                     result[current_key] += " " + line
 
-        return result
+        return _deep_unescape(result)
+
+    # ── Custom Reasoning ────────────────────────────────────
 
     async def reason_custom(
         self,
@@ -333,13 +809,28 @@ class AgentReasoningClient:
 
                 return result
 
-            except (ValueError, json.JSONDecodeError) as exc:
-                last_error = str(exc)
+            except Exception as exc:
+                last_error = _safe_error(exc)
                 log.warning(
                     "agent_reason_custom_retry",
                     attempt=attempt + 1,
                     error=last_error,
+                    exc_info=True,
                 )
+                # Skip retry on auth errors — retrying won't fix bad credentials
+                is_auth = (
+                    "Authentication failed" in last_error
+                    or "API key may be invalid" in last_error
+                    or "No AI provider configured" in last_error
+                )
+                if is_auth:
+                    log.error("agent_reason_custom_auth_fatal", error=last_error)
+                    break
+                # Exponential backoff: 1s, 2s, 4s, ... between retries
+                if attempt < max_retries - 1:
+                    wait = min(2 ** attempt, 16)  # cap at 16s
+                    log.debug("agent_reason_custom_backoff", wait_seconds=wait)
+                    await asyncio.sleep(wait)
                 continue
 
         return {
@@ -348,6 +839,8 @@ class AgentReasoningClient:
             "action_input": None,
             "final_answer": f"Error: Could not process request - {last_error}",
         }
+
+    # ── Reflection ──────────────────────────────────────────
 
     async def reflect(self, session_summary: str) -> str:
         """Agent反思: evaluate how the session went.

@@ -1,7 +1,7 @@
 # Daily Agenda — sc_auditor (Vyper)
 
 > **Project**: Smart Contract Bug Hunter — 20 microservices, Docker Compose, Python FastAPI
-> **Last Updated**: 2026-05-20
+> **Last Updated**: 2026-06-03
 
 ---
 
@@ -27,6 +27,15 @@
 | **15** | **Production Hardening & Performance Tuning** | **✅ CLOSED** | **HIGH** | **07, 10, 11-14** | `15_production_hardening_performance_(high)(closed).md` |
 | **16** | **Fix Port Conflict Agent Scanner Slither** | **✅ CLOSED** | **CRITICAL** | — | `16_fix_port_conflict_agent_scanner_slither_(critical)(closed).md` |
 | **17** | **Resolve vyper_lib Import Ambiguity** | **✅ CLOSED** | **CRITICAL** | — | `17_resolve_vyper_lib_import_ambiguity_(critical)(closed).md` |
+| 18 | Fix setup.py Missing vyper_lib | 🔴 OPEN | CRITICAL | — | `18_fix_setup_py_missing_vyper_lib_(critical)(open).md` |
+| 19 | Harden CI Remove True Masking | 🔴 OPEN | HIGH | 07 | `19_harden_ci_remove_true_masking_(high)(open).md` |
+| 20 | Refactor Duplicate Scanner Models | 🔴 OPEN | HIGH | — | `20_refactor_duplicate_scanner_models_(high)(open).md` |
+| 21 | Enhance Docker Security and Build | 🔴 OPEN | HIGH | 19 | `21_enhance_docker_security_and_build_(high)(open).md` |
+| 22 | Standardize API Response Format | 🔴 OPEN | MID | 20 | `22_standardize_api_response_format_(mid)(open).md` |
+| 23 | Add Unit Tests for vyper_lib | 🔴 OPEN | MID | — | `23_add_unit_tests_for_vyper_lib_(mid)(open).md` |
+| 24 | Add Technical Documentation | 🔴 OPEN | LOW | — | `24_add_technical_documentation_(low)(open).md` |
+| 25 | Clean Up Dead Code and Legacy Files | 🔴 OPEN | LOW | — | `25_clean_up_dead_code_and_legacy_files_(low)(open).md` |
+| **26** | **Vyper OP Platform Roadmap (Blueprint)** | **🔵 BRAINSTORM** | **CRITICAL** | **01–25, 12** | `26_vyper_op_platform_roadmap/README.md` |
 
 ---
 
@@ -42,9 +51,9 @@
 | CRITICAL | Blocker — harus dikerjakan sebelum yang lain |
 | HIGH | Penting — value tinggi, tapi tidak block dependensi |
 
----
+| 🔵 BRAINSTORM | Brainstorming selesai — menunggu planning/implementasi |
 
-## Execution Order (Recommended)
+---
 
 ```
 Phase 1: Foundation ✅ (07, 09, 11 completed)
@@ -62,6 +71,9 @@ Phase 3: Platform & Ecosystem
   ├── Agenda 13 — GitHub Actions (HIGH)                 ← After 11
   ├── Agenda 14 — Custom Detectors (HIGH)               ← After 11
   └── Agenda 15 — Production Hardening (HIGH)           ← After 14
+
+Phase 4: OP Dominator (Strategic Blueprint) 🔵
+  └── Agenda 26 — Vyper OP Platform Roadmap (CRITICAL)  ← Blueprint, jadi sub-agenda
 ```
 
 ---
@@ -73,4 +85,4 @@ Phase 3: Platform & Ecosystem
 
 ---
 
-*Dibuat: 2026-05-20 | 18 Agenda Total (14 CLOSED, 4 OPEN)*
+*Dibuat: 2026-05-20 | 26 Agenda Total (14 CLOSED, 11 OPEN, 1 BRAINSTORM)*

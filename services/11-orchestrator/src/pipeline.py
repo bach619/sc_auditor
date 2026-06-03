@@ -145,6 +145,13 @@ class Pipeline:
         if record.state in (PipelineState.PENDING,):
             record.state = PipelineState.FETCHING_PROGRAM
             self._save_audit_log()
+            # Broadcast initial transition
+            await self._broadcast_stage(
+                audit_id=audit_id,
+                state=PipelineState.FETCHING_PROGRAM,
+                progress=0.0,
+                message="Audit started — fetching program data",
+            )
 
         start_time = time.monotonic()
         task = asyncio.create_task(self._run_pipeline(record, start_time))
@@ -157,9 +164,43 @@ class Pipeline:
         except asyncio.TimeoutError:
             record.fail(PipelineState.TIMEOUT, "Pipeline global timeout exceeded")
             self._save_audit_log()
+            await self._broadcast_stage(
+                audit_id=audit_id,
+                state=PipelineState.TIMEOUT,
+                progress=0.0,
+                message="Pipeline global timeout exceeded",
+            )
             return record
         finally:
             self._running.pop(audit_id, None)
+
+    # ── Run pipeline ─────────────────────────────────────────
+
+    async def _broadcast_stage(
+        self,
+        audit_id: str,
+        state: PipelineState,
+        progress: float,
+        message: str = "",
+    ) -> None:
+        """Broadcast pipeline stage transition to dashboard SSE."""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    f"{config.dashboard_url}/api/sse/broadcast",
+                    json={
+                        "event_type": "audit_progress",
+                        "data": {
+                            "audit_id": audit_id,
+                            "state": state.value,
+                            "progress": progress,
+                            "message": message,
+                        },
+                    },
+                )
+        except Exception:
+            # Non-critical — don't block pipeline on SSE broadcast failure
+            pass
 
     async def _run_pipeline(self, record: AuditRecord, start_time: float) -> AuditRecord:
         """Walk through the WORKFLOW table executing each step."""
@@ -204,6 +245,15 @@ class Pipeline:
             record.add_step(step)
             self._save_audit_log()
 
+            # Broadcast stage start
+            total_steps = len(self.WORKFLOW)
+            await self._broadcast_stage(
+                audit_id=record.audit_id,
+                state=state,
+                progress=idx / total_steps,
+                message=f"Starting: {state.value}",
+            )
+
             try:
                 if tool_type:
                     async with await self._governor.acquire(tool_type):
@@ -217,12 +267,28 @@ class Pipeline:
                 record.updated_at = datetime.now(timezone.utc)
                 self._save_audit_log()
 
+                # Broadcast step completion
+                await self._broadcast_stage(
+                    audit_id=record.audit_id,
+                    state=state,
+                    progress=(idx + 1) / total_steps,
+                    message=f"Completed: {state.value} in {step.duration_seconds:.1f}s",
+                )
+
             except Exception as exc:
                 logger.exception("Step %s failed for audit %s", state.value, record.audit_id)
                 step.error = str(exc)
                 step.completed_at = datetime.now(timezone.utc)
                 record.fail(failure_state, str(exc))
                 self._save_audit_log()
+
+                # Broadcast failure
+                await self._broadcast_stage(
+                    audit_id=record.audit_id,
+                    state=failure_state,
+                    progress=(idx + 1) / total_steps,
+                    message=f"Failed: {state.value} — {str(exc)[:120]}",
+                )
 
                 # Saga compensation: rollback completed steps
                 await self._compensate(record, idx)
@@ -249,6 +315,17 @@ class Pipeline:
             record.complete(duration)
 
         self._save_audit_log()
+
+        # Broadcast final completion
+        final_state = record.state
+        findings_count = len(record.findings or {})
+        await self._broadcast_stage(
+            audit_id=record.audit_id,
+            state=final_state,
+            progress=1.0,
+            message=f"Audit {final_state.value} — {findings_count} findings — {duration:.1f}s",
+        )
+
         return record
 
     async def _execute_step(self, handler_name: str, record: AuditRecord) -> Any:

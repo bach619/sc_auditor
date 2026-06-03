@@ -103,30 +103,152 @@ class AppState:
 state: AppState | None = None
 
 
+# ── All supported provider config keys (matching Settings.tsx) ──
+
+PROVIDER_CONFIG_KEYS: list[dict[str, str]] = [
+    # provider_id: {api_key_config, base_url_config, model_config}
+    {"id": "openai",     "api_key": "provider_openai_api_key",     "base_url": "provider_openai_base_url",     "model": "provider_openai_model"},
+    {"id": "anthropic",  "api_key": "provider_anthropic_api_key",  "base_url": "provider_anthropic_base_url",  "model": "provider_anthropic_model"},
+    {"id": "deepseek",   "api_key": "provider_deepseek_api_key",   "base_url": "provider_deepseek_base_url",   "model": "provider_deepseek_model"},
+    {"id": "xai",        "api_key": "provider_xai_api_key",        "base_url": "provider_xai_base_url",        "model": "provider_xai_model"},
+    {"id": "openrouter", "api_key": "provider_openrouter_api_key", "base_url": "provider_openrouter_base_url", "model": "provider_openrouter_model"},
+    {"id": "google",     "api_key": "provider_google_api_key",     "base_url": "provider_google_base_url",     "model": "provider_google_model"},
+    {"id": "huggingface","api_key": "provider_huggingface_api_key","base_url": "provider_huggingface_base_url","model": "provider_huggingface_model"},
+]
+
+
+# ── Provider URL Validation ──────────────────────────────────
+
+# Known domain-to-provider mapping for validation
+KNOWN_PROVIDER_DOMAINS: dict[str, str] = {
+    "api.openai.com": "openai",
+    "api.anthropic.com": "anthropic",
+    "api.deepseek.com": "deepseek",
+    "api.x.ai": "xai",
+    "openrouter.ai": "openrouter",
+    "generativelanguage.googleapis.com": "google",
+    "api-inference.huggingface.co": "huggingface",
+}
+
+
+def _validate_provider_urls(providers: dict[str, dict[str, str]]) -> list[str]:
+    """Validate provider configurations for common mistakes.
+
+    Checks:
+    1. Provider's base_url domain should match its provider id
+       (e.g., anthropic provider using api.deepseek.com is an error)
+    2. Only checks providers that have an API key configured
+    3. Uses PROVIDER_DEFAULTS from src.llm for expected api_type
+
+    Returns:
+        List of validation error messages (empty = all good)
+    """
+    from src.llm import PROVIDER_DEFAULTS  # noqa: PLC0415
+
+    errors: list[str] = []
+
+    for pid, cfg in providers.items():
+        base_url = cfg.get("base_url", "")
+        api_key = cfg.get("api_key", "")
+
+        if not api_key:
+            continue  # Skip unconfigured providers
+
+        # Get expected defaults for this provider
+        defaults = PROVIDER_DEFAULTS.get(pid, {})
+        expected_api_type = defaults.get("api_type", "openai_compatible")
+
+        # Check 1: Anthropic api_type mismatch
+        if pid == "anthropic" and expected_api_type != "anthropic":
+            errors.append(
+                f"Provider '{pid}': expected api_type='anthropic' but "
+                f"PROVIDER_DEFAULTS has '{expected_api_type}'. "
+                f"Check src/llm.py PROVIDER_DEFAULTS."
+            )
+
+        # Check 2: Domain-provider mismatch (e.g., deepseek domain for anthropic)
+        if base_url:
+            for domain, expected_provider in KNOWN_PROVIDER_DOMAINS.items():
+                if domain in base_url and pid != expected_provider:
+                    errors.append(
+                        f"Provider '{pid}': base_url contains '{domain}' "
+                        f"which belongs to '{expected_provider}'. "
+                        f"Did you mean to use provider '{expected_provider}'?"
+                    )
+
+    return errors
+
+
+async def _load_providers(client: httpx.AsyncClient) -> dict[str, dict[str, str]]:
+    """Load all provider configs from Config Service.
+
+    Returns:
+        Dict like::
+            {
+                "deepseek": {"api_key": "sk-...", "base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
+                "openai": {"api_key": "", "base_url": "https://api.openai.com/v1", "model": "gpt-4o"},
+                ...
+            }
+    """
+    providers: dict[str, dict[str, str]] = {}
+
+    for pdef in PROVIDER_CONFIG_KEYS:
+        pid = pdef["id"]
+        providers[pid] = {"api_key": "", "base_url": "", "model": ""}
+
+        # Load each config key from Config Service
+        for cfg_key in (pdef["api_key"], pdef["base_url"], pdef["model"]):
+            try:
+                resp = await client.get(f"{CONFIG_URL}/config/{cfg_key}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("data") and cfg_key in data["data"]:
+                        value = data["data"][cfg_key]
+                        if cfg_key == pdef["api_key"]:
+                            providers[pid]["api_key"] = value or ""
+                        elif cfg_key == pdef["base_url"]:
+                            providers[pid]["base_url"] = value or ""
+                        elif cfg_key == pdef["model"]:
+                            providers[pid]["model"] = value or ""
+            except Exception:
+                pass  # non-blocking — defaults will be used
+
+        log.info(
+            "provider_loaded",
+            provider=pid,
+            has_key=bool(providers[pid]["api_key"]),
+            base_url=providers[pid]["base_url"] or "(default)",
+            model=providers[pid]["model"] or "(default)",
+        )
+
+    # ── Validate provider configs ──
+    validation_errors = _validate_provider_urls(providers)
+    if validation_errors:
+        log.warning(
+            "provider_config_issues",
+            errors=validation_errors,
+            action="Agent may fail to connect to LLM. Check Settings > AI Providers.",
+        )
+        for err in validation_errors:
+            log.warning("provider_config_error", detail=err)
+
+    return providers
+
+
 async def _load_config(client: httpx.AsyncClient) -> dict[str, Any]:
     """Load agent config from Config Service."""
     defaults = {
-        "openai_model": "gpt-4o",
-        "anthropic_model": "claude-3-5-sonnet-20241022",
         "preferred_provider": "openai",
-        "openai_api_key": "",
-        "anthropic_api_key": "",
         "max_steps": 25,
     }
 
     try:
-        for key in (
-            "openai_model", "anthropic_model", "preferred_provider",
-            "provider_openai_api_key", "provider_anthropic_api_key",
-            "agent_max_steps",
-        ):
+        for key in ("preferred_provider", "agent_max_steps"):
             resp = await client.get(f"{CONFIG_URL}/config/{key}")
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("data") and key in data["data"]:
-                    config_key = key.replace("provider_openai_api_key", "openai_api_key")
-                    config_key = config_key.replace("provider_anthropic_api_key", "anthropic_api_key")
-                    config_key = config_key.replace("agent_", "")
+                    config_key = key.replace("agent_", "")
                     if config_key == "max_steps":
                         defaults["max_steps"] = int(data["data"][key])
                     else:
@@ -151,16 +273,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         limits=httpx.Limits(max_keepalive_connections=10, max_connections=30),
     )
 
-    # Load config (API keys dari Config Service, diset via frontend)
+    # Load provider configs (API keys, base URLs, models from Config Service)
+    providers = await _load_providers(state.http_client)
+
+    # Load general agent config (preferred_provider, max_steps)
     config = await _load_config(state.http_client)
 
-    # Init LLM client
+    preferred = config.get("preferred_provider", "openai")
+
+    # Init LLM client — fully provider-agnostic
     state.llm = AgentReasoningClient(
-        openai_key=config["openai_api_key"],
-        anthropic_key=config["anthropic_api_key"],
-        openai_model=config["openai_model"],
-        anthropic_model=config["anthropic_model"],
-        preferred_provider=config["preferred_provider"],
+        providers=providers,
+        preferred_provider=preferred if preferred else "openai",
         http_client=state.http_client,
     )
 
@@ -218,15 +342,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Init Feedback Learner
     state.learner = FeedbackLearner(memory=state.agent.memory)
 
+    # Count configured providers
+    configured_providers = state.llm.configured_providers() if state.llm else []
+
     log.info(
         "agent_service_started",
         service=SERVICE_NAME,
         version=SERVICE_VERSION,
         skills=registry.count,
         team_members=persona_count,
-        provider=config["preferred_provider"],
-        openai_configured=bool(config["openai_api_key"]),
-        anthropic_configured=bool(config["anthropic_api_key"]),
+        preferred_provider=preferred,
+        configured_providers=configured_providers,
     )
 
     yield
@@ -287,6 +413,21 @@ async def health() -> ApiResponse:
             memory_entries=state.agent.memory.total_entries,
         )
     )
+
+
+@app.get("/agent/provider-defaults")
+async def agent_provider_defaults() -> ApiResponse:
+    """Get the default provider configuration values.
+
+    Returns the PROVIDER_DEFAULTS dict so the frontend can
+    reset misconfigured providers to known-good values.
+    """
+    from src.llm import PROVIDER_DEFAULTS  # noqa: PLC0415
+
+    return _ok({
+        "defaults": PROVIDER_DEFAULTS,
+        "note": "Set base_url and api_type to these defaults to fix misconfiguration",
+    })
 
 
 @app.get("/agent/manifest")
@@ -434,10 +575,32 @@ async def agent_chat(body: ChatRequest) -> ApiResponse:
             session_id=body.session_id,
         )
     except Exception as exc:
-        log.exception("agent.chat_failed")
-        raise _err(f"Chat failed: {exc}", 500)
+        err_msg = str(exc).strip() or type(exc).__name__
+        log.exception("agent.chat_failed", error=err_msg)
+        raise _err(
+            f"Chat failed: {err_msg}. "
+            "Check your AI provider configuration in Settings > AI Providers.",
+            500,
+        )
 
-    return _ok(result.__dict__)
+    return _ok(result.model_dump())
+
+
+@app.get("/agent/chat/sessions")
+async def list_chat_sessions() -> ApiResponse:
+    """List all chat sessions with full message history.
+
+    Returns all chat conversations that have been persisted
+    to local storage (~/.sc_auditor/learning/chat_sessions.json).
+    """
+    if state is None or state.agent is None:
+        raise _err("Service not initialized", 503)
+
+    sessions = state.agent.list_chat_sessions()
+    return _ok({
+        "sessions": sessions,
+        "total": len(sessions),
+    })
 
 
 @app.get("/agent/sessions")
@@ -763,7 +926,7 @@ async def run_team_audit(body: dict[str, Any]) -> ApiResponse:
     goal = body.get("goal", "")
     max_delegations = body.get("max_delegations", 15)
 
-    if not input_data:
+    if input_data is None:
         raise _err("input_data is required")
 
     log.info(
@@ -838,6 +1001,30 @@ async def list_team_sessions(
     })
 
 
+@app.get("/team/structure")
+async def get_team_structure() -> ApiResponse:
+    """Get the team organizational structure with all roles."""
+    if state is None or state.lead_auditor is None:
+        raise _err("Service not initialized", 503)
+
+    roles = []
+    for persona in get_all_personas():
+        sub = state.lead_auditor.get_sub_agent(persona.role) if persona.role != AgentRole.LEAD_AUDITOR else None
+        roles.append({
+            "role": persona.role.value,
+            "title": persona.title,
+            "expertise": persona.expertise,
+            "allowed_skills": persona.allowed_skills,
+            "registered": sub is not None if persona.role != AgentRole.LEAD_AUDITOR else True,
+            "skills_loaded": sub.registry.count if sub else 0,
+        })
+
+    return _ok({
+        "team_size": len(roles),
+        "roles": roles,
+    })
+
+
 @app.get("/team/{session_id}")
 async def get_team_session(session_id: str) -> ApiResponse:
     """Get team session details with all delegation steps."""
@@ -892,30 +1079,6 @@ async def get_team_session(session_id: str) -> ApiResponse:
         "error": session.error,
         "created_at": session.created_at,
         "updated_at": session.updated_at,
-    })
-
-
-@app.get("/team/structure")
-async def get_team_structure() -> ApiResponse:
-    """Get the team organizational structure with all roles."""
-    if state is None or state.lead_auditor is None:
-        raise _err("Service not initialized", 503)
-
-    roles = []
-    for persona in get_all_personas():
-        sub = state.lead_auditor.get_sub_agent(persona.role) if persona.role != AgentRole.LEAD_AUDITOR else None
-        roles.append({
-            "role": persona.role.value,
-            "title": persona.title,
-            "expertise": persona.expertise,
-            "allowed_skills": persona.allowed_skills,
-            "registered": sub is not None if persona.role != AgentRole.LEAD_AUDITOR else True,
-            "skills_loaded": sub.registry.count if sub else 0,
-        })
-
-    return _ok({
-        "team_size": len(roles),
-        "roles": roles,
     })
 
 

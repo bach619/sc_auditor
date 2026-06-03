@@ -36,6 +36,7 @@ class OrchestratorConfig(BaseSettings):
     reporter_url: str = "http://09-reporter:8007"
     notifier_url: str = "http://10-notifier:8000"
     upkeep_url: str = "http://13-upkeep:8000"
+    dashboard_url: str = "http://15-dashboard:8000"
 
     # --- Data Persistence ---
     data_dir: str = "/data/orchestrator"

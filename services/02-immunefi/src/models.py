@@ -11,10 +11,11 @@ from pydantic import BaseModel, Field
 # ── Contract ──────────────────────────────────────────────
 
 class Contract(BaseModel):
-    """On-chain contract associated with a program."""
+    """On-chain contract or GitHub source reference associated with a program."""
     address: str = ""
     chain: str = ""
     name: str = ""
+    source_type: str = "onchain"  # "onchain" | "github" | "raw"
 
 
 # ── Repository ────────────────────────────────────────────

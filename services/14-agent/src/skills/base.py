@@ -141,11 +141,32 @@ class BaseSkill(SharedBaseSkill):
         try:
             log.info("skill_executing", skill=self.name, params=kwargs)
 
-            # Circuit breaker check
-            cb = circuit_breaker(f"skill:{self.name}")
+            # ── Circuit breaker check ──
+            # Use higher thresholds for external API calls (network can be flaky)
+            skill_name = self.name
+            if skill_name in ("fetch_source", "fetch_program"):
+                cb = circuit_breaker(
+                    f"skill:{skill_name}",
+                    failure_threshold=10,      # default was 5
+                    recovery_timeout=60.0,     # default was 30s
+                    half_open_max_calls=3,
+                )
+            else:
+                cb = circuit_breaker(f"skill:{skill_name}")
+
             if cb.state == "OPEN":
                 if time.time() - cb.last_failure_time > cb.recovery_timeout:
                     cb.state = "HALF_OPEN"
+                elif skill_name in ("fetch_source", "fetch_program"):
+                    # Network services may have recovered — force HALF_OPEN to retry
+                    remaining = int(cb.recovery_timeout - (time.time() - cb.last_failure_time))
+                    log.warning(
+                        "circuit_breaker_open_but_retrying",
+                        skill=skill_name,
+                        remaining_s=remaining,
+                    )
+                    cb.state = "HALF_OPEN"
+                    cb._half_open_calls = 0
                 else:
                     remaining = int(cb.recovery_timeout - (time.time() - cb.last_failure_time))
                     raise Exception(

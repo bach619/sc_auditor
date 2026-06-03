@@ -1,4 +1,4 @@
-import { MessageSquareText, Trash2, Bot, Loader2 } from 'lucide-react'
+import { MessageSquareText, Trash2, Bot, Loader2, Copy } from 'lucide-react'
 import { ChatMessage, ChatInput, ChatHistory } from '../components/chat'
 import { useChat } from '../components/chat/useChat'
 
@@ -43,6 +43,21 @@ export default function ChatPage() {
                 {sessionId.slice(0, 12)}…
               </span>
             )}
+            <button
+              onClick={() => {
+                const text = messages
+                  .map(m => `[${m.role === 'user' ? 'User' : 'Antonio'}] ${m.content}`)
+                  .join('\n\n')
+                navigator.clipboard.writeText(text).catch(() => {})
+              }}
+              title="Copy current chat"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs
+                dark:text-[#68687a] text-gray-500
+                hover:dark:bg-[#1a1a28] hover:light:bg-gray-100
+                transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={handleNewChat}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs
