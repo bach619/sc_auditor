@@ -1,5 +1,12 @@
 # System Log — sc_auditor (Vyper)
 
+## 2026-06-04
+
+### `2026-06-04 06:49 | [FIX] | File: tests/cases/test_confidence.py | Agent: lore-master | [agenda-08] Fix 7 test assertions: align numeric confidence with label-based system (Agenda 06 spec). confidence_label + numeric value now properly tested.`
+### `2026-06-04 01:12 | [FIX] | File: services/19-sherlock/Dockerfile | Agent: lore-master | Fix ModuleNotFoundError: vyper_lib — add COPY vyper_lib/ vyper_lib/ to Dockerfile (was missing, unlike 18-code4rena). Also force-rebuild and restart both failing containers → all 28 healthy`
+### `2026-06-04 01:12 | [FIX] | File: services/16-submission/src/evidence_collector.py | Agent: lore-master | Fix SyntaxError: replace bare '...' (ellipsis) placeholder with source_url parameter — container crash loop resolved`
+### `2026-06-04 01:12 | [CONFIG] | File: docker-compose.yml | Agent: lore-master | Docker rebuild: pull base images (python:3.11-slim, 3.12-slim, node:20-slim) + docker compose down + build --no-cache (28/28 services built success) + up -d → 26 health + 2 fix needed`
+
 ## 2026-06-03
 
 ### `2026-06-03 22:07 | [FIX] | File: vyper_lib/models/__init__.py | Agent: lore-master | [package-fix] Resolve models.py vs models/ package conflict: create __init__.py with all core models + delete models.py file that shadowed the package (7 services crashing)`
