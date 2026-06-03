@@ -2,6 +2,7 @@
 
 ## 2026-06-03
 
+### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/slippage_drain.py | Agent: lore-master | [agenda-26] Tier 2: Slippage drain primitive (AMM slippage exploitation)`
 ### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/vault_inflation.py | Agent: lore-master | [agenda-26] Tier 2: Vault inflation primitive (ERC-4626 first depositor attack)`
 ### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/liquidation_trigger.py | Agent: lore-master | [agenda-26] Tier 2: Liquidation trigger primitive (force position into liquidation)`
 ### `2026-06-03 16:14 | [CREATE] | File: services/08-exploit/src/primitives/sandwich_frontrun.py | Agent: lore-master | [agenda-26] Tier 2: Sandwich frontrun primitive (MEV sandwich attack on AMM pools)`
