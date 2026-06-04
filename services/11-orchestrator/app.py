@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -62,14 +63,22 @@ scorer: PriorityScorer
 similarity: ContractSimilarity
 daemon: Daemon
 orchestrator_agent: OrchestratorAgent
+sqlite_store = None  # Initialized if STORAGE_ENGINE=sqlite|dual
 
 
 @app.on_event("startup")
 async def startup() -> None:
     """Initialise all components."""
-    global governor, pipeline, batch, scorer, similarity, daemon, orchestrator_agent
+    global governor, pipeline, batch, scorer, similarity, daemon, orchestrator_agent, sqlite_store
 
     logger.info("Starting Orchestrator Service")
+
+    # SQLite store initialization
+    storage_engine = os.environ.get("STORAGE_ENGINE", "json")
+    if storage_engine in ("sqlite", "dual"):
+        from src.store_sqlite import OrchestratorSQLiteStore
+        sqlite_store = OrchestratorSQLiteStore()
+        logger.info("SQLite store initialized", engine=storage_engine, health=sqlite_store.health())
 
     governor = ResourceGovernor(
         max_concurrent_scans=config.max_concurrent_scans,

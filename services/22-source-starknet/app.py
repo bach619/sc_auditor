@@ -6,6 +6,7 @@ Port: 8025 | Version: 0.1.0
 
 from __future__ import annotations
 
+import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -30,6 +31,7 @@ _results: dict[str, dict[str, Any]] = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("starknet_source.startup", service=SERVICE_NAME, version=SERVICE_VERSION)
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/source-starknet")
     yield
     await fetcher.close()
     log.info("starknet_source.shutdown", service=SERVICE_NAME)

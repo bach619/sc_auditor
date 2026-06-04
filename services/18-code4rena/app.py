@@ -9,6 +9,7 @@ Port: 8000 (mapped externally to 8022)
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 
 from fastapi import FastAPI, HTTPException, Query
@@ -43,6 +44,7 @@ app.add_middleware(
 )
 
 log = setup_observability(app, SERVICE_NAME, SERVICE_VERSION)
+from shared.storage import init_sqlite_store; init_sqlite_store("/data/code4rena")
 
 
 # ── Helper ─────────────────────────────────────────────────

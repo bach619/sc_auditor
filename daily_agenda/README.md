@@ -35,10 +35,13 @@
 | 23 | Add Unit Tests for vyper_lib | 🔴 OPEN | MID | — | `23_add_unit_tests_for_vyper_lib_(mid)(open).md` |
 | 24 | Add Technical Documentation | 🔴 OPEN | LOW | — | `24_add_technical_documentation_(low)(open).md` |
 | 25 | Clean Up Dead Code and Legacy Files | 🔴 OPEN | LOW | — | `25_clean_up_dead_code_and_legacy_files_(low)(open).md` |
-| **26** | **Vyper OP Platform Roadmap (Blueprint)** | **🔵 BRAINSTORM** | **CRITICAL** | **01–25, 12** | `26_vyper_op_platform_roadmap/README.md` |
+| **26** | **Vyper OP Platform Roadmap (Blueprint)** | **🔵 BRAINSTORM** | **CRITICAL** | **01–25, 12** | `26_vyper_op_platform_roadmap/` |
+| **27** | **SQLite Data Storage (JSON → SQLite Migration)** | **✅ CLOSED** | **HIGH** | **—** | `sqlite-data_storage (closed)/` |
+| **28** | **Scanner Overpower: Cangkul → Excavator** | **✅ CLOSED** | **CRITICAL** | **27** | `scanner-overpower (closed)/` |
+| **29** | **Quality Improvement: B- → A- Roadmap** | **🔴 OPEN** | **CRITICAL** | **27, 28** | `quality-improvement (open)/` |
 
 ---
-
+ 
 ## Legend
 
 | Status | Arti |
@@ -80,7 +83,12 @@ Phase 4: Ongoing
   ├── Agenda 24 — Technical Documentation (LOW)          🔴 OPEN
   └── Agenda 25 — Clean Up Dead Code (LOW)               🔴 OPEN
 
-Phase 5: Strategic Blueprint
+Phase 5: Data Foundation
+  ├── Agenda 27 — SQLite Data Storage (HIGH)             ✅ CLOSED
+  ├── Agenda 28 — Scanner Overpower (CRITICAL)           ✅ CLOSED
+  └── Agenda 29 — Quality Improvement Roadmap (CRITICAL)  🔴 OPEN
+
+Phase 6: Strategic Blueprint 🔵
   └── Agenda 26 — Vyper OP Platform Roadmap (CRITICAL)  🔵 BRAINSTORM
 ```
 
@@ -93,4 +101,4 @@ Phase 5: Strategic Blueprint
 
 ---
 
-*Dibuat: 2026-05-20 | 26 Agenda Total (21 CLOSED, 4 OPEN, 1 BRAINSTORM)*
+*Dibuat: 2026-05-20 | 29 Agenda Total (23 CLOSED, 5 OPEN, 1 BRAINSTORM)*

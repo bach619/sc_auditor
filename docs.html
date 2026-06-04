@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VYPER — Smart Contract Bug Hunter | Documentation</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   VYPER DOCS — Single-file portable documentation
+   Zero dependencies. Open in any browser. Works offline.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg: #ffffff; --bg2: #f8f9fa; --bg3: #e9ecef;
+  --text: #1a1a2e; --text2: #495057; --text3: #868e96;
+  --accent: #6c5ce7; --accent2: #a29bfe; --accent-bg: #f3f0ff;
+  --green: #00b894; --red: #e17055; --yellow: #fdcb6e; --blue: #0984e3;
+  --border: #dee2e6; --shadow: 0 1px 3px rgba(0,0,0,.08);
+  --radius: 8px; --sidebar-w: 280px;
+  --mono: 'SF Mono','Fira Code','Cascadia Code',monospace;
+  --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+[data-theme="dark"] {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+  --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  --accent: #7c6ff7; --accent2: #a29bfe; --accent-bg: #1c1638;
+  --border: #30363d; --shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7;display:flex;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.88em;background:var(--bg3);padding:.15em .4em;border-radius:4px}
+pre{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.2em;overflow-x:auto;font-size:.85em;line-height:1.6;margin:1em 0}
+pre code{background:0;padding:0;font-size:inherit}
+h1{font-size:2.2em;font-weight:800;margin:.4em 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.6em;font-weight:700;margin:2em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--border)}
+h3{font-size:1.2em;font-weight:600;margin:1.5em 0 .5em}
+h4{font-size:1.05em;font-weight:600;margin:1.2em 0 .4em}
+p{margin:.8em 0}
+ul,ol{padding-left:1.5em;margin:.6em 0}
+li{margin:.3em 0}
+table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.9em}
+th,td{border:1px solid var(--border);padding:.6em .8em;text-align:left}
+th{background:var(--bg2);font-weight:600}
+tr:hover{background:var(--bg2)}
+blockquote{border-left:3px solid var(--accent);padding:.5em 1em;margin:1em 0;background:var(--accent-bg);border-radius:0 var(--radius) var(--radius) 0}
+hr{border:0;border-top:1px solid var(--border);margin:2em 0}
+img{max-width:100%}
+
+/* Sidebar */
+#sidebar{width:var(--sidebar-w);height:100vh;position:fixed;left:0;top:0;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;z-index:100;transition:transform .3s;display:flex;flex-direction:column}
+#sidebar.closed{transform:translateX(-100%)}
+.sidebar-header{padding:1.2em;border-bottom:1px solid var(--border)}
+.sidebar-header .logo{font-weight:800;font-size:1.3em;color:var(--accent);display:flex;align-items:center;gap:.4em}
+.sidebar-header .ver{font-size:.7em;color:var(--text3);margin-top:.2em}
+#sidebar nav{padding:.8em 0;flex:1;overflow-y:auto}
+#sidebar nav a{display:block;padding:.45em 1.2em;color:var(--text2);font-size:.9em;border-left:3px solid transparent;transition:all .15s}
+#sidebar nav a:hover,#sidebar nav a.active{color:var(--accent);background:var(--accent-bg);border-left-color:var(--accent);text-decoration:none}
+#sidebar nav .nav-section{font-size:.75em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:.8em 1.6em .3em}
+.sidebar-footer{padding:.8em 1.2em;border-top:1px solid var(--border);font-size:.8em;color:var(--text3)}
+
+/* Main */
+#main{margin-left:var(--sidebar-w);flex:1;max-width:880px;padding:2em 3em 5em}
+#main.wide{margin-left:0;max-width:100%}
+
+/* Top bar (mobile) */
+#topbar{display:none;position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:.7em 1em;z-index:99;align-items:center;gap:.8em}
+#menu-btn{background:0;border:0;color:var(--text);font-size:1.4em;cursor:pointer;padding:.2em}
+#theme-btn{background:0;border:0;color:var(--text);font-size:1.2em;cursor:pointer;margin-left:auto;padding:.3em}
+#search-box{width:100%;padding:.6em 1em;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:.9em;outline:0;margin:.5em 0}
+#search-box:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+
+/* Cards */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1em;margin:1em 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.2em;transition:box-shadow .2s}
+.card:hover{box-shadow:var(--shadow)}
+.card h4{font-size:1em;margin:0 0 .3em;color:var(--accent)}
+.card p{font-size:.88em;color:var(--text2);margin:.2em 0}
+.card .badge{display:inline-block;font-size:.7em;font-weight:700;padding:.2em .6em;border-radius:12px;margin-right:.3em}
+.badge-green{background:#d4fceb;color:#007c4a}
+.badge-red{background:#ffe3dc;color:#c0392b}
+.badge-blue{background:#dceeff;color:#075e9e}
+.badge-purple{background:#f3f0ff;color:var(--accent)}
+[data-theme="dark"] .badge-green{background:#0d3326;color:#00b894}
+[data-theme="dark"] .badge-red{background:#3b1515;color:#e17055}
+[data-theme="dark"] .badge-blue{background:#0a2640;color:#74b9ff}
+[data-theme="dark"] .badge-purple{background:#1c1638;color:#a29bfe}
+
+/* Service table */
+.svc-table{font-size:.82em}
+.svc-table th,.svc-table td{padding:.4em .6em}
+.svc-table .port{font-family:var(--mono);font-size:.85em;color:var(--accent)}
+
+/* Pipeline diagram */
+.pipeline{font-family:var(--mono);font-size:.8em;line-height:1.5;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.5em;overflow-x:auto;white-space:pre}
+.arch-diagram{font-family:var(--mono);font-size:.72em;line-height:1.4;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.2em;overflow-x:auto;white-space:pre}
+
+/* Matrix */
+.matrix{display:grid;grid-template-columns:120px repeat(2,1fr);gap:0;margin:1em 0;font-size:.85em}
+.matrix div{padding:.6em .8em;border:1px solid var(--border);display:flex;align-items:center}
+.matrix .mh{background:var(--bg2);font-weight:600}
+.matrix .tp{background:#d4fceb;font-weight:700}
+.matrix .fp{background:#ffe3dc;font-weight:700}
+.matrix .tn{background:#dceeff;font-weight:700}
+.matrix .fn{background:#fff3dc;font-weight:700;color:#c0392b}
+[data-theme="dark"] .matrix .tp{background:#0d3326}
+[data-theme="dark"] .matrix .fp{background:#3b1515}
+[data-theme="dark"] .matrix .tn{background:#0a2640}
+[data-theme="dark"] .matrix .fn{background:#3b2e0a;color:#fdcb6e}
+
+/* ToC */
+.toc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1em 1.3em;margin:1.5em 0;font-size:.9em}
+.toc h4{margin:0 0 .6em}
+.toc ul{list-style:none;padding:0}
+.toc li{margin:.4em 0}
+.toc a{color:var(--text2)}
+
+/* Overlay */
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .4s ease-out}
+
+@media(max-width:900px){
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  #topbar{display:flex}
+  #main{margin-left:0;padding:1em 1.2em 4em}
+  .card-grid{grid-template-columns:1fr}
+  h1{font-size:1.7em}
+  #overlay.active{display:block}
+}
+
+/* Print */
+@media print{
+  #sidebar,#topbar,#overlay{display:none!important}
+  #main{margin-left:0!important;padding:0!important;max-width:100%!important}
+  body{font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- Overlay -->
+<div id="overlay" onclick="closeSidebar()"></div>
+
+<!-- Sidebar -->
+<aside id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">🛡️ VYPER <span style="font-weight:400;font-size:.7em;color:var(--text3)">Docs</span></div>
+    <div class="ver">v0.4.x · 28 services · June 2026</div>
+  </div>
+  <input type="text" id="search-box" placeholder="🔍 Search docs..." oninput="searchDocs()">
+  <nav>
+    <a href="#overview" class="active">Overview</a>
+    <a href="#quickstart">Quick Start</a>
+    <div class="nav-section">Architecture</div>
+    <a href="#architecture">Architecture Overview</a>
+    <a href="#service-catalog">Service Catalog (28)</a>
+    <a href="#communication">Communication</a>
+    <a href="#pipeline">Audit Pipeline</a>
+    <a href="#storage">Storage Architecture</a>
+    <div class="nav-section">Deep Dives</div>
+    <a href="#scanner-group">Scanner Group (7)</a>
+    <a href="#classification">Bug Classification</a>
+    <a href="#antonio">Antonio AI Agent</a>
+    <a href="#exploit-engine">Exploit Engine</a>
+    <div class="nav-section">Reference</div>
+    <a href="#api-reference">API Reference</a>
+    <a href="#configuration">Configuration</a>
+    <a href="#deployment">Deployment</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="sidebar-footer">
+    Generated by lore-master · Zero dependencies<br>
+    <button onclick="toggleTheme()" style="margin-top:.4em;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:.3em .8em;border-radius:4px;cursor:pointer;font-size:.85em">
+      🌓 Toggle Theme
+    </button>
+  </div>
+</aside>
+
+<!-- Top Bar (mobile) -->
+<div id="topbar">
+  <button id="menu-btn" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+  <strong style="color:var(--accent)">🛡️ VYPER Docs</strong>
+  <button id="theme-btn" onclick="toggleTheme()" aria-label="Theme">🌓</button>
+</div>
+
+<!-- Main Content -->
+<main id="main">
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- OVERVIEW -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="overview">
+<h1>🛡️ VYPER — Smart Contract Bug Hunter</h1>
+
+<p><strong>VYPER</strong> is a <strong>local-first smart contract security auditing platform</strong>. It runs <strong>28 microservices</strong> on a single laptop via Docker Compose. Scan Immunefi contracts, find True Positive bugs, generate exploit PoCs, and produce submission-ready reports — all in one automated pipeline.</p>
+
+<div class="card-grid">
+  <div class="card"><h4>🎯 Bug Bounty Hunter</h4><p>Scan 234+ Immunefi programs, detect True Positives, auto-generate submission-ready reports.</p></div>
+  <div class="card"><h4>🔬 Security Research</h4><p>Exploit findings with Anvil fork engine. Prove vulnerabilities with real on-chain execution.</p></div>
+  <div class="card"><h4>📊 Platform Metrics</h4><p>Track precision per tool (Slither, Mythril, Echidna, Halmos, Manticore). Learn from False Negatives.</p></div>
+  <div class="card"><h4>🤖 AI-Powered</h4><p>ANTONIO — the absolute AI agent controller with ReAct loop, vector memory, and autonomous hunting.</p></div>
+</div>
+
+<h3>Key Numbers</h3>
+<table>
+  <tr><th>Metric</th><th>Value</th></tr>
+  <tr><td>Services</td><td><strong>28</strong> microservices</td></tr>
+  <tr><td>Language</td><td>Python 3.11+ (27) + TypeScript (Dashboard)</td></tr>
+  <tr><td>Framework</td><td>FastAPI + React 18 + Tailwind v4 + Vite</td></tr>
+  <tr><td>Communication</td><td>HTTP/REST (httpx async)</td></tr>
+  <tr><td>Storage</td><td>JSON + Markdown files (Docker volumes)</td></tr>
+  <tr><td>Deployment</td><td><code>docker compose up --build -d</code></td></tr>
+  <tr><td>Dashboard</td><td><a href="http://localhost:8000" target="_blank">http://localhost:8000</a></td></tr>
+</table>
+
+<h3>Why Microservices?</h3>
+<table>
+  <tr><th>Factor</th><th>Monolith</th><th>VYPER (Microservice)</th></tr>
+  <tr><td>Isolation</td><td>Slither crash → all stops</td><td>Scanner crash → other services keep running</td></tr>
+  <tr><td>Scaling</td><td>One process</td><td><code>docker compose up --scale 04-scanner=3</code></td></tr>
+  <tr><td>Updates</td><td>Redeploy everything</td><td>Update Scanner v2 without touching AI</td></tr>
+  <tr><td>Debugging</td><td>Mixed logs</td><td><code>docker logs vyper-04-scanner-1</code></td></tr>
+  <tr><td>Dependencies</td><td>One requirements.txt</td><td>Each service has its own</td></tr>
+</table>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- QUICK START -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="quickstart">
+<h2>🚀 Quick Start</h2>
+
+<h3>Prerequisites</h3>
+<ul>
+  <li><strong>Docker</strong> & <strong>Docker Compose</strong> installed</li>
+  <li>4+ CPU cores, 8+ GB RAM, 20+ GB disk</li>
+</ul>
+
+<h3>1. Clone & Setup</h3>
+<pre><code>git clone &lt;repo-url&gt; sc_auditor
+cd sc_auditor
+cp .env.example .env   # Optional: add API keys (OpenAI, Anthropic, Etherscan)</code></pre>
+
+<h3>2. Start All Services</h3>
+<pre><code># Build & start all 28 services
+docker compose up --build -d
+
+# Check health
+docker compose ps
+
+# View logs
+docker compose logs -f 15-dashboard
+docker compose logs -f 11-orchestrator</code></pre>
+
+<h3>3. Access Dashboard</h3>
+<pre><code>http://localhost:8000</code></pre>
+
+<h3>4. Run an Audit</h3>
+<pre><code># Start audit via Orchestrator API
+curl -X POST http://localhost:8009/audit/start \
+  -H "Content-Type: application/json" \
+  -d '{"address": "0x4c9edd...", "chain": "ethereum"}'
+
+# Check status
+curl http://localhost:8009/audit/{audit_id}/status</code></pre>
+
+<h3>5. Scale Scanners</h3>
+<pre><code># Run 3 scanner instances in parallel
+docker compose up --scale 04-scanner=3 -d</code></pre>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ARCHITECTURE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="architecture">
+<h2>🏗️ Architecture Overview</h2>
+
+<p>VYPER follows a <strong>hub-and-spoke</strong> architecture. The <strong>Orchestrator (11)</strong> is the pipeline hub, <strong>Dashboard (15)</strong> is the user-facing API gateway, and <strong>Antonio (14-agent)</strong> is the AI brain. All services communicate via HTTP/REST.</p>
+
+<div class="arch-diagram">
+┌──────────────────────────────────────────────────────────────────────────┐
+│  USER                                                                     │
+│   │                                                                      │
+│   ▼                                                                      │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │  15-DASHBOARD (port 8000)  React SPA + API Gateway               │   │
+│  │  Proxy to all 28 backend services via ServiceProxy               │   │
+│  └────────┬─────────────────────────────────────────────────────────┘   │
+│           │                                                             │
+│           ▼                                                             │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │  11-ORCHESTRATOR (port 8009)  Pipeline Heart                      │   │
+│  │  Priority queue · State machine (8 stage) · HTTP/REST calls       │   │
+│  └──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──────────────────┘   │
+│     │  │  │  │  │  │  │  │  │  │  │  │  │  │  │  │                     │
+│     ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼                     │
+│  ┌─────── SCANNERS (7) ─────────────────────────────────────────────┐   │
+│  │ CFG│ IM │ SRC│SCN │SLS│ECH│FRG│HAL│MAN│MTH│ AI │CLS│EXP│RPT│NTF │   │
+│  │8011│8001│8002│8003│8014│8015│8016│8017│8020│8013│8004│8005│8006│8007│8008│  │
+│  └────┘└────┘└────┘└────┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘  │
+│     │    │    │    │                                                     │
+│     ▼    ▼    ▼    ▼                                                     │
+│  ┌────┐┌────┐┌────┐┌────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐│
+│  │WHK ││UPK ││SUB ││EXP.││AGNT  ││ C4R  ││ SHL  ││ CNT  ││ HAT  ││STRK ││
+│  │8010││8012││8018││8019││ 8021 ││ 8022 ││ 8023 ││ 8024 ││ 8025 ││ 8026 ││
+│  └────┘└────┘└────┘└────┘└──────┘└──────┘└──────┘└──────┘└──────┘└──────┘│
+│                                                        ┌──────┐           │
+│                                                        │CAIRO │           │
+│                                                        │ 8028 │           │
+│                                                        └──────┘           │
+└──────────────────────────────────────────────────────────────────────────┘
+</div>
+
+<h3>Service Groups</h3>
+<table>
+  <tr><th>Group</th><th>Count</th><th>Services</th></tr>
+  <tr><td>Infrastructure</td><td>2</td><td>01-config, 13-upkeep</td></tr>
+  <tr><td>Data Sources</td><td>2</td><td>02-immunefi, 03-source</td></tr>
+  <tr><td>Scanners</td><td>7</td><td>04-router, 04a-slither, 04b-echidna, 04c-forge, 04d-halmos, 04e-manticore, 05-mythril</td></tr>
+  <tr><td>Analysis</td><td>3</td><td>06-ai, 07-classifier, 08-exploit</td></tr>
+  <tr><td>Output</td><td>3</td><td>09-reporter, 10-notifier, 12-webhook</td></tr>
+  <tr><td>Orchestration & AI</td><td>2</td><td>11-orchestrator, 14-agent (ANTONIO)</td></tr>
+  <tr><td>Frontend</td><td>1</td><td>15-dashboard</td></tr>
+  <tr><td>Platform Features</td><td>2</td><td>16-submission, 17-experience</td></tr>
+  <tr><td>Bounty Platforms</td><td>4</td><td>18-code4rena, 19-sherlock, 20-cantina, 21-hats</td></tr>
+  <tr><td>Multi-Chain</td><td>2</td><td>22-source-starknet, 23-scanner-cairo</td></tr>
+</table>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SERVICE CATALOG -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="service-catalog">
+<h2>📋 Service Catalog — 28 Services</h2>
+
+<table class="svc-table">
+  <tr><th>#</th><th>Service</th><th>Host Port</th><th>Internal Port</th><th>Category</th><th>Depends On</th></tr>
+  <tr><td>01</td><td><strong>config</strong></td><td class="port">8011</td><td class="port">8000</td><td><span class="badge badge-purple">Infra</span></td><td>—</td></tr>
+  <tr><td>02</td><td><strong>immunefi</strong></td><td class="port">8001</td><td class="port">8000</td><td><span class="badge badge-blue">Data</span></td><td>01-config</td></tr>
+  <tr><td>03</td><td><strong>source</strong></td><td class="port">8002</td><td class="port">8000</td><td><span class="badge badge-blue">Data</span></td><td>01-config</td></tr>
+  <tr><td>04</td><td><strong>scanner</strong> (router)</td><td class="port">8003</td><td class="port">8000</td><td><span class="badge badge-purple">Scanner</span></td><td>01, 04a-e, 05</td></tr>
+  <tr><td>04a</td><td><strong>scanner-slither</strong></td><td class="port">8014</td><td class="port">8014</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>04b</td><td><strong>scanner-echidna</strong></td><td class="port">8015</td><td class="port">8015</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>04c</td><td><strong>scanner-forge</strong></td><td class="port">8016</td><td class="port">8016</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>04d</td><td><strong>scanner-halmos</strong></td><td class="port">8017</td><td class="port">8017</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>04e</td><td><strong>scanner-manticore</strong></td><td class="port">8020</td><td class="port">8018</td><td><span class="badge badge-purple">Scanner</span></td><td>04a-slither</td></tr>
+  <tr><td>05</td><td><strong>scanner-mythril</strong></td><td class="port">8013</td><td class="port">8013</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>06</td><td><strong>ai</strong></td><td class="port">8004</td><td class="port">8000</td><td><span class="badge badge-green">Analysis</span></td><td>01-config</td></tr>
+  <tr><td>07</td><td><strong>classifier</strong></td><td class="port">8005</td><td class="port">8000</td><td><span class="badge badge-green">Analysis</span></td><td>01-config</td></tr>
+  <tr><td>08</td><td><strong>exploit</strong></td><td class="port">8006</td><td class="port">8006</td><td><span class="badge badge-red">Analysis</span></td><td>01-config</td></tr>
+  <tr><td>09</td><td><strong>reporter</strong></td><td class="port">8007</td><td class="port">8007</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
+  <tr><td>10</td><td><strong>notifier</strong></td><td class="port">8008</td><td class="port">8000</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
+  <tr><td>11</td><td><strong>orchestrator</strong></td><td class="port">8009</td><td class="port">8000</td><td><span class="badge badge-purple">Orch</span></td><td>01–10</td></tr>
+  <tr><td>12</td><td><strong>webhook</strong></td><td class="port">8010</td><td class="port">8000</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
+  <tr><td>13</td><td><strong>upkeep</strong></td><td class="port">8012</td><td class="port">8000</td><td><span class="badge badge-purple">Infra</span></td><td>01-config</td></tr>
+  <tr><td>14</td><td><strong>agent (ANTONIO)</strong></td><td class="port">8021</td><td class="port">8000</td><td><span class="badge badge-red">AI Agent</span></td><td>01,02,03,04,06–10</td></tr>
+  <tr><td>15</td><td><strong>dashboard</strong></td><td class="port">8000</td><td class="port">8000</td><td><span class="badge badge-blue">Frontend</span></td><td>11,01,14</td></tr>
+  <tr><td>16</td><td><strong>submission</strong></td><td class="port">8018</td><td class="port">8000</td><td><span class="badge badge-green">Platform</span></td><td>01,02,03,06,08,11</td></tr>
+  <tr><td>17</td><td><strong>experience</strong></td><td class="port">8019</td><td class="port">8019</td><td><span class="badge badge-green">Learning</span></td><td>01-config</td></tr>
+  <tr><td>18</td><td><strong>code4rena</strong></td><td class="port">8022</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
+  <tr><td>19</td><td><strong>sherlock</strong></td><td class="port">8023</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
+  <tr><td>20</td><td><strong>cantina</strong></td><td class="port">8024</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
+  <tr><td>21</td><td><strong>hats</strong></td><td class="port">8025</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
+  <tr><td>22</td><td><strong>source-starknet</strong></td><td class="port">8026</td><td class="port">8000</td><td><span class="badge badge-purple">Multi-Chain</span></td><td>01-config</td></tr>
+  <tr><td>23</td><td><strong>scanner-cairo</strong></td><td class="port">8028</td><td class="port">8000</td><td><span class="badge badge-purple">Multi-Chain</span></td><td>01,22</td></tr>
+</table>
+
+<blockquote>
+<strong>⚠️ Port Convention:</strong> Services expose <strong>Host Port</strong> (what you access from browser) and <strong>Internal Port</strong> (what other containers use inside the Docker network). When services call each other, they use the <strong>internal port</strong> (usually 8000) + the Docker service name (e.g., <code>http://06-ai:8000</code>).
+</blockquote>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="scanner-group">
+<h2>🔬 Scanner Group — 7 Tools</h2>
+
+<table>
+  <tr><th>#</th><th>Service</th><th>Port</th><th>Tool</th><th>Method</th><th>Focus</th></tr>
+  <tr><td>04</td><td>scanner</td><td class="port">8003</td><td>Router</td><td>HTTP dispatch</td><td>Routes to appropriate tool service</td></tr>
+  <tr><td>04a</td><td>scanner-slither</td><td class="port">8014</td><td><strong>Slither</strong></td><td>Static Analysis</td><td>Control flow, inheritance, reentrancy</td></tr>
+  <tr><td>04b</td><td>scanner-echidna</td><td class="port">8015</td><td><strong>Echidna</strong></td><td>Fuzzing</td><td>Property-based testing, invariant checking</td></tr>
+  <tr><td>04c</td><td>scanner-forge</td><td class="port">8016</td><td><strong>Foundry Forge</strong></td><td>Build + Test</td><td>Compilation verification, test runner</td></tr>
+  <tr><td>04d</td><td>scanner-halmos</td><td class="port">8017</td><td><strong>Halmos</strong></td><td>Symbolic Exec</td><td>Formal verification, path exploration</td></tr>
+  <tr><td>04e</td><td>scanner-manticore</td><td class="port">8020</td><td><strong>Manticore</strong></td><td>Symbolic Exec</td><td>HIGH/CRITICAL severity focus</td></tr>
+  <tr><td>05</td><td>scanner-mythril</td><td class="port">8013</td><td><strong>Mythril</strong></td><td>Symbolic Exec</td><td>Deep path exploration, taint analysis</td></tr>
+</table>
+
+<h3>Scanner Isolation</h3>
+<p>Each scanner runs as an <strong>independent microservice</strong>. Benefits:</p>
+<ul>
+  <li><strong>Fault isolation:</strong> Slither crash doesn't affect Mythril or Echidna</li>
+  <li><strong>Independent scaling:</strong> Run 3 Slither instances for parallel scans</li>
+  <li><strong>Resource limits:</strong> Mythril (heavy) gets 2 CPU/4GB RAM, Forge (light) gets 0.5 CPU/512MB</li>
+  <li><strong>Independent updates:</strong> Upgrade Manticore without touching other scanners</li>
+</ul>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- COMMUNICATION -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="communication">
+<h2>🔗 Communication Patterns</h2>
+
+<h3>HTTP/REST (Primary)</h3>
+<p>All inter-service communication uses <strong>HTTP/REST</strong> via Python <code>httpx</code> (async). No message queues, no gRPC — pure HTTP for simplicity and debuggability.</p>
+
+<table>
+  <tr><th>Pattern</th><th>Use Case</th><th>Technology</th></tr>
+  <tr><td><strong>Sync REST</strong></td><td>Service-to-service API calls</td><td>httpx (async) + FastAPI</td></tr>
+  <tr><td><strong>SSE</strong></td><td>Real-time pipeline progress to UI</td><td>Server-Sent Events (Dashboard ↔ Orchestrator)</td></tr>
+  <tr><td><strong>Docker API</strong></td><td>Anvil container lifecycle</td><td>docker-py via <code>/var/run/docker.sock</code></td></tr>
+</table>
+
+<h3>Config Service Pattern</h3>
+<p>Every service reads configuration from <strong>01-config</strong> via HTTP at startup:</p>
+<pre><code>config = httpx.get("http://01-config:8000/config").json()</code></pre>
+<p>Config Service is the <strong>only shared dependency</strong>. No service reads another service's data directly — all access goes through APIs.</p>
+
+<h3>Orchestrator Dependency Graph</h3>
+<pre><code>11-orchestrator calls (via HTTP):
+  ├── 02-immunefi:8000    → sync programs
+  ├── 03-source:8000      → fetch source code
+  ├── 04-scanner:8000     → dispatch scans
+  ├── 06-ai:8000          → LLM analysis
+  ├── 07-classifier:8000  → TP/FP classification
+  ├── 08-exploit:8006     → PoC generation
+  ├── 09-reporter:8007    → report generation
+  └── 10-notifier:8000    → send alerts</code></pre>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PIPELINE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="pipeline">
+<h2>⚙️ Audit Pipeline</h2>
+
+<p>Each audit goes through <strong>8 stages</strong>, orchestrated by <strong>11-orchestrator</strong> with retry (3 attempts), saga pattern rollback, and configurable timeouts.</p>
+
+<div class="pipeline">
+                          ┌─────────────┐
+                          │  PENDING    │
+                          └──────┬──────┘
+                                 │ start
+                                 ▼
+                     ┌─────────────────────┐
+                     │  FETCHING_PROGRAM   │ ← 02-immunefi
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │  FETCHING_SOURCE    │ ← 03-source
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │  SCANNING           │ ← 04-router → 04a/b/c/d/e + 05
+                     │  Slither + Mythril  │   (all 6 tools in parallel)
+                     │  + Echidna + Halmos │
+                     │  + Manticore        │
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │  AI_ANALYSIS        │ ← 06-ai (LLM verdict)
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │  CLASSIFYING        │ ← 07-classifier (TP/FP)
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │  EXPLOITING         │ ← 08-exploit (Anvil)
+                     │  (only if TP        │
+                     │   critical/high)    │
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │  REPORTING          │ ← 09-reporter
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │  NOTIFYING          │ ← 10-notifier
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │  COMPLETED          │ ✓
+                     └─────────────────────┘
+
+  States: pending → fetching_program → fetching_source → scanning →
+  ai_analysis → classifying → exploiting? → reporting → notifying → completed
+</div>
+
+<h3>Time Estimates (per contract)</h3>
+<table>
+  <tr><th>Stage</th><th>Time</th></tr>
+  <tr><td>Source Fetch</td><td>~10s</td></tr>
+  <tr><td>Slither</td><td>~60s</td></tr>
+  <tr><td>Mythril</td><td>5–30 min</td></tr>
+  <tr><td>Echidna</td><td>5–15 min</td></tr>
+  <tr><td>Halmos</td><td>2–10 min</td></tr>
+  <tr><td>Manticore</td><td>5–20 min</td></tr>
+  <tr><td>AI Analysis</td><td>~30s</td></tr>
+  <tr><td>Exploit (if TP)</td><td>2–10 min</td></tr>
+  <tr><td><strong>Total (all tools)</strong></td><td><strong>15–60 min</strong></td></tr>
+</table>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- STORAGE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="storage">
+<h2>💾 Storage Architecture</h2>
+
+<h3>JSON File-Based Storage</h3>
+<p><strong>No database engines.</strong> All data stored as JSON files in Docker volumes. The only exception is <strong>17-experience</strong> which uses SQLite for structured learning data.</p>
+
+<pre><code>~/.vyper/
+├── config/config.json              # Global config
+├── immunefi/programs/{slug}.json   # Per program (234+)
+├── source/contracts/{chain}/{addr}/# Source cache
+├── scanner/results/{audit_id}/     # Scan results per tool
+├── ai/cache/{hash}.json            # LLM response cache
+├── classifier/metrics.json         # TP/FP/TN/FN metrics
+├── exploit/results/{id}/           # PoC scripts + results
+├── reporter/reports/{audit_id}/    # immunefi.md + full.md
+├── learning/feedback.json          # User feedback
+└── experience/*.db                 # SQLite (17-experience only)</code></pre>
+
+<h3>Why JSON, Not SQL?</h3>
+<table>
+  <tr><th>Factor</th><th>Database</th><th>JSON Files</th></tr>
+  <tr><td>Setup</td><td>Install, config, migrations</td><td><code>mkdir -p ~/.vyper/</code></td></tr>
+  <tr><td>Backup</td><td>Tool-specific</td><td><code>cp -r ~/.vyper/ backup/</code></td></tr>
+  <tr><td>Portability</td><td>Bound to version</td><td>Git, rsync, zip</td></tr>
+  <tr><td>Debugging</td><td>Need query tools</td><td><code>vim</code>, <code>grep</code>, <code>jq</code></td></tr>
+</table>
+
+<h3>Data Ownership Rules</h3>
+<ul>
+  <li>Each service has its own Docker volume</li>
+  <li>Services never read another service's files directly</li>
+  <li>Config read-only for all services (accessed via HTTP)</li>
+  <li>Shared volumes: <code>vyper_learning</code> (classifier + orchestrator), <code>vyper_kb</code> (classifier + exploit)</li>
+</ul>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- BUG CLASSIFICATION -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="classification">
+<h2>🏷️ Bug Classification System</h2>
+
+<h3>The 4-Quadrant Detection Matrix</h3>
+<p>Every finding is classified into 4 categories using the <strong>confusion matrix</strong> framework:</p>
+
+<div class="matrix">
+  <div></div>
+  <div class="mh">ACTUAL: YES (Bug)</div>
+  <div class="mh">ACTUAL: NO (Safe)</div>
+  <div class="mh">DETECTED: YES</div>
+  <div class="tp"><strong>TRUE POSITIVE (TP)</strong><br>✅ Real bug — Submit to Immunefi</div>
+  <div class="fp"><strong>FALSE POSITIVE (FP)</strong><br>❌ False alarm — Record, adjust patterns</div>
+  <div class="mh">DETECTED: NO</div>
+  <div class="fn"><strong>FALSE NEGATIVE (FN)</strong><br>⚠️ MISSED! — MOST IMPORTANT — Create new pattern</div>
+  <div class="tn"><strong>TRUE NEGATIVE (TN)</strong><br>✅ Correctly safe — Increase confidence</div>
+</div>
+
+<h3>Finding Lifecycle</h3>
+<ol>
+  <li><strong>RAW</strong> (from Scanner) → classification: unknown</li>
+  <li><strong>AI VERDICT</strong> (06-ai) → TP (confirmed) / FP (rejected)</li>
+  <li><strong>EXPLOIT TEST</strong> (08-exploit) → exploit success = TP confirmed</li>
+  <li><strong>HUMAN REVIEW</strong> (Dashboard) → final classification</li>
+  <li><strong>IMMUNEFI SUBMISSION</strong> → accepted = TP final / rejected = reclassify</li>
+  <li><strong>LEARNING LOOP</strong> → TP reinforces pattern, FN triggers new pattern creation</li>
+</ol>
+
+<h3>Dual Reporting</h3>
+<table>
+  <tr><th>Level</th><th>Audience</th><th>Content</th></tr>
+  <tr><td><strong>immunefi.md</strong></td><td>Bug bounty submission</td><td>TP-only, PoC required, Immunefi format</td></tr>
+  <tr><td><strong>full.md</strong></td><td>Internal learning</td><td>All classifications + confusion matrix + metrics</td></tr>
+</table>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ANTONIO -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="antonio">
+<h2>🤖 Antonio — AI Agent Controller</h2>
+
+<blockquote>
+<strong>Antonio (14-agent)</strong> is the <strong>single absolute AI agent controller</strong>. All services, all agents, all pipelines operate under Antonio's command. No other service has AI autonomy.
+</blockquote>
+
+<h3>Chain of Command</h3>
+<pre><code>LEVEL 0: USER (Human Operator)
+  │ Only communicates with ANTONIO
+  │ NO direct access to service agents
+  │ Input: "Antonio, audit contract 0x..."
+  ▼
+LEVEL 1: ANTONIO (14-agent) — ABSOLUTE CONTROLLER
+  │ Only AI Agent with full ReAct loop
+  │ Single owner of AgentRegistry
+  │ Controls all delegation (DelegateTaskSkill)
+  │ Centralized memory (vector + episodic + semantic + graph)
+  │ Central learning (FeedbackLearner)
+  ▼
+LEVEL 2: ORCHESTRATOR (11) — Antonio's subordinate
+  │ Pipeline state machine — NO AI autonomy
+  │ Daemon only active when Antonio/Dashboard enables it
+  ▼
+LEVEL 3: SERVICE AGENTS (02-23, except 14)
+  │ All are BaseAgents — receive delegation, no initiative
+  │ No access to Antonio's AgentRegistry
+  │ No AI ReAct loop — pure task executors</code></pre>
+
+<h3>Antonio Supremacy Rules (Unbreakable)</h3>
+<table>
+  <tr><th>Rule</th><th>Description</th><th>Status</th></tr>
+  <tr><td><strong>R1</strong></td><td>Antonio is the ONLY AI — no other service has LLM/ReAct</td><td>✅ Enforced</td></tr>
+  <tr><td><strong>R2</strong></td><td>AgentRegistry belongs to Antonio alone</td><td>✅ Enforced</td></tr>
+  <tr><td><strong>R3</strong></td><td>All delegation goes through Antonio</td><td>✅ Enforced</td></tr>
+  <tr><td><strong>R4</strong></td><td>No autonomy without Antonio's permission</td><td>✅ Enforced</td></tr>
+  <tr><td><strong>R5</strong></td><td>User only talks to Antonio (Dashboard has 1 AI chat)</td><td>✅ Enforced</td></tr>
+  <tr><td><strong>R6</strong></td><td>Memory & learning centralized in Antonio</td><td>✅ Enforced</td></tr>
+</table>
+
+<h3>Service 06-ai: Stripped to Pure Delegation</h3>
+<p><strong>06-ai was stripped (June 2, 2026)</strong> to comply with Antonio Supremacy:</p>
+<ul>
+  <li>❌ Removed: SkillRegistry, autonomous routing, severity-based strategy selection</li>
+  <li>✅ Kept: LLMClient as technical execution layer (no AI agency)</li>
+  <li>✅ Kept: REST endpoints for backward compatibility (Antonio controls when to call)</li>
+</ul>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- EXPLOIT ENGINE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="exploit-engine">
+<h2>💥 Exploit Engine</h2>
+
+<p>The Exploit Engine (08-exploit) manages <strong>ephemeral Anvil Docker containers</strong> to prove vulnerabilities through real on-chain execution.</p>
+
+<h3>Capabilities</h3>
+<ul>
+  <li><strong>Fork mainnet/testnet</strong> at any block number</li>
+  <li><strong>Impersonate accounts</strong> (owner, whale, governance)</li>
+  <li><strong>Snapshot/reset state</strong> for multiple exploit variants</li>
+  <li><strong>Manipulate</strong> balance, storage, timestamp</li>
+  <li><strong>Debug trace</strong> to opcode level</li>
+  <li><strong>Generate PoC scripts</strong> in Hardhat/Foundry format</li>
+</ul>
+
+<h3>Isolation Layers</h3>
+<table>
+  <tr><th>Layer</th><th>Mechanism</th></tr>
+  <tr><td>1. Network</td><td><code>--network=none</code> — no external access</td></tr>
+  <tr><td>2. Resource</td><td>cgroups (CPU/RAM limits)</td></tr>
+  <tr><td>3. Storage</td><td>Ephemeral, tmpfs (RAM disk)</td></tr>
+  <tr><td>4. Secrets</td><td>No private keys persisted</td></tr>
+  <tr><td>5. Logging</td><td>stdout only, no external sink</td></tr>
+</table>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- API REFERENCE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="api-reference">
+<h2>📡 API Reference</h2>
+
+<p>All services expose REST endpoints. The Dashboard (port 8000) acts as an API gateway, proxying requests to all backend services.</p>
+
+<h3>Core Endpoints</h3>
+<table>
+  <tr><th>Service</th><th>Endpoint</th><th>Method</th><th>Description</th></tr>
+  <tr><td>Dashboard</td><td><code>/api/*</code></td><td>ALL</td><td>Gateway proxy to all services</td></tr>
+  <tr><td>Orchestrator</td><td><code>/audit/start</code></td><td>POST</td><td>Start new audit</td></tr>
+  <tr><td>Orchestrator</td><td><code>/audit/{id}/status</code></td><td>GET</td><td>Get audit status</td></tr>
+  <tr><td>Orchestrator</td><td><code>/audit/{id}/cancel</code></td><td>POST</td><td>Cancel running audit</td></tr>
+  <tr><td>Immunefi</td><td><code>/programs</code></td><td>GET</td><td>List all 234+ programs</td></tr>
+  <tr><td>Immunefi</td><td><code>/programs/{slug}</code></td><td>GET</td><td>Get program details</td></tr>
+  <tr><td>Source</td><td><code>/fetch</code></td><td>POST</td><td>Fetch contract source</td></tr>
+  <tr><td>Scanner</td><td><code>/scan</code></td><td>POST</td><td>Run scan with specified tools</td></tr>
+  <tr><td>AI</td><td><code>/analyze</code></td><td>POST</td><td>LLM analysis of findings</td></tr>
+  <tr><td>Classifier</td><td><code>/classify</code></td><td>POST</td><td>Classify findings (TP/FP)</td></tr>
+  <tr><td>Exploit</td><td><code>/exploit</code></td><td>POST</td><td>Execute exploit test</td></tr>
+  <tr><td>Reporter</td><td><code>/report</code></td><td>POST</td><td>Generate audit report</td></tr>
+  <tr><td>Config</td><td><code>/config</code></td><td>GET/PUT</td><td>Read/update configuration</td></tr>
+  <tr><td>Agent</td><td><code>/chat</code></td><td>POST</td><td>Chat with Antonio AI agent</td></tr>
+</table>
+
+<h3>Health Checks</h3>
+<pre><code># All services expose /health
+curl http://localhost:8000/health      # Dashboard
+curl http://localhost:8001/health      # Immunefi
+curl http://localhost:8002/health      # Source
+curl http://localhost:8003/health      # Scanner
+curl http://localhost:8004/health      # AI
+curl http://localhost:8005/health      # Classifier
+curl http://localhost:8006/health      # Exploit
+curl http://localhost:8007/health      # Reporter
+curl http://localhost:8008/health      # Notifier
+curl http://localhost:8009/health      # Orchestrator
+curl http://localhost:8010/health      # Webhook
+curl http://localhost:8011/health      # Config
+curl http://localhost:8012/health      # Upkeep
+curl http://localhost:8013/health      # Mythril
+curl http://localhost:8014/health      # Slither
+curl http://localhost:8015/health      # Echidna
+curl http://localhost:8016/health      # Forge
+curl http://localhost:8017/health      # Halmos
+curl http://localhost:8018/health      # Submission
+curl http://localhost:8019/health      # Experience
+curl http://localhost:8020/health      # Manticore
+curl http://localhost:8021/health      # Agent (Antonio)
+curl http://localhost:8022/health      # Code4rena
+curl http://localhost:8023/health      # Sherlock
+curl http://localhost:8024/health      # Cantina
+curl http://localhost:8025/health      # Hats
+curl http://localhost:8026/health      # Source Starknet
+curl http://localhost:8028/health      # Scanner Cairo</code></pre>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CONFIGURATION -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="configuration">
+<h2>⚙️ Configuration</h2>
+
+<h3>Environment Variables (.env)</h3>
+<pre><code># AI Providers
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Blockchain RPC
+ETH_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
+ARB_RPC_URL=https://arb-mainnet.g.alchemy.com/v2/YOUR_KEY
+
+# Notifications (optional)
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...</code></pre>
+
+<h3>Config Service (config.json)</h3>
+<pre><code>{
+  "rpc_endpoints": {
+    "ethereum": "https://eth.llamarpc.com",
+    "arbitrum": "https://arb1.arbitrum.io/rpc"
+  },
+  "scanner": {
+    "slither": { "enabled": true, "timeout": 300 },
+    "mythril": { "enabled": true, "timeout": 1800 },
+    "echidna": { "enabled": true, "timeout": 900 },
+    "halmos": { "enabled": true, "timeout": 600 },
+    "manticore": { "enabled": true, "timeout": 1200 }
+  },
+  "pipeline": {
+    "auto_exploit": true,
+    "max_concurrent_scans": 3,
+    "retry_attempts": 3
+  }
+}</code></pre>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- DEPLOYMENT -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="deployment">
+<h2>🚢 Deployment</h2>
+
+<h3>System Requirements</h3>
+<table>
+  <tr><th>Resource</th><th>Minimum</th><th>Recommended</th></tr>
+  <tr><td>CPU</td><td>4 core</td><td>8 core</td></tr>
+  <tr><td>RAM</td><td>8 GB</td><td>16 GB</td></tr>
+  <tr><td>Disk</td><td>20 GB</td><td>50 GB SSD</td></tr>
+  <tr><td>Docker</td><td>24 GB</td><td>50 GB</td></tr>
+</table>
+
+<h3>Commands</h3>
+<pre><code># Start all services
+docker compose up --build -d
+
+# Stop all services
+docker compose down
+
+# View all logs
+docker compose logs -f
+
+# View specific service logs
+docker compose logs -f 11-orchestrator
+
+# Rebuild specific service
+docker compose up --build -d 04a-scanner-slither
+
+# Scale scanners
+docker compose up --scale 04-scanner=3 -d</code></pre>
+
+<h3>Data Persistence</h3>
+<p>All data is stored in Docker volumes mounted from the host. To backup:</p>
+<pre><code>cp -r ~/.vyper/ ~/vyper-backup-$(date +%Y%m%d)/</code></pre>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- FAQ -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="faq">
+<h2>❓ FAQ</h2>
+
+<h4>Does VYPER need internet?</h4>
+<p>Partially. Services that need internet: <strong>AI</strong> (OpenAI/Anthropic API), <strong>Immunefi</strong> (GitHub sync), <strong>Source</strong> (Etherscan/GitHub fetch). All other services run <strong>fully offline</strong>.</p>
+
+<h4>Can it scan Arbitrum/Polygon/BSC contracts?</h4>
+<p>Yes. Source Service supports 5 providers: Etherscan, Sourcify, GitHub, Blockscout, and Manual upload. EVM chain support includes: Ethereum, Arbitrum, Optimism, Base, Polygon, BNB Chain, Avalanche, Fantom, Mantle.</p>
+
+<h4>How do I submit to Immunefi?</h4>
+<p>The pipeline generates <code>immunefi.md</code> — ImmuneFi-standard format with TP-only findings, severity classification, PoC, impact analysis, and fix recommendations. Ready to copy-paste to Immunefi dashboard. The <strong>16-submission</strong> service can also handle semi-automated submission.</p>
+
+<h4>Can I scale VYPER?</h4>
+<p>Yes. All services are stateless and scalable:</p>
+<pre><code>docker compose up --scale 04-scanner=3 -d</code></pre>
+
+<h4>What's the difference between the 6 scanners?</h4>
+<table>
+  <tr><th>Scanner</th><th>Best For</th></tr>
+  <tr><td>Slither</td><td>Fast static analysis — control flow, reentrancy, inheritance bugs</td></tr>
+  <tr><td>Mythril</td><td>Deep symbolic execution — complex path exploration</td></tr>
+  <tr><td>Echidna</td><td>Fuzzing — property-based testing, invariant checking</td></tr>
+  <tr><td>Halmos</td><td>Formal verification — mathematical proof of properties</td></tr>
+  <tr><td>Manticore</td><td>Symbolic execution focused on HIGH/CRITICAL severity</td></tr>
+  <tr><td>Forge</td><td>Build verification — compilation + test runner</td></tr>
+</table>
+
+<h4>What is Antonio?</h4>
+<p>Antonio is the <strong>sole AI agent controller</strong> (14-agent). It has a ReAct loop, vector memory, and controls all delegation. No other service has AI autonomy — Antonio is the single brain of VYPER.</p>
+
+<h4>Does VYPER support non-EVM chains?</h4>
+<p>Yes, <strong>StarkNet/Cairo</strong> support was added June 2026 via services <strong>22-source-starknet</strong> and <strong>23-scanner-cairo</strong>.</p>
+</section>
+
+<hr>
+
+<p style="text-align:center;color:var(--text3);font-size:.85em;margin-top:3em">
+  🛡️ VYPER v0.4.x — 28 microservices, 1 laptop, <code>docker compose up</code><br>
+  Documentation generated by <strong>lore-master</strong> · June 4, 2026<br>
+  <a href="https://github.com" target="_blank">GitHub</a> · 
+  <a href="http://localhost:8000" target="_blank">Dashboard</a>
+</p>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<script>
+// Sidebar toggle
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('active');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('active');
+}
+
+// Theme toggle
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('vyper-theme', next);
+}
+
+// Load saved theme
+(function() {
+  const saved = localStorage.getItem('vyper-theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+
+// Active nav tracking
+(function() {
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('#sidebar nav a');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`#sidebar nav a[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+})();
+
+// Search
+function searchDocs() {
+  const query = document.getElementById('search-box').value.toLowerCase();
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('#sidebar nav a');
+  
+  if (!query) {
+    sections.forEach(s => s.style.display = '');
+    navLinks.forEach(a => a.style.display = '');
+    return;
+  }
+  
+  sections.forEach(s => {
+    const text = s.textContent.toLowerCase();
+    const match = text.includes(query);
+    s.style.display = match ? '' : 'none';
+    const link = document.querySelector(`#sidebar nav a[href="#${s.id}"]`);
+    if (link) link.style.display = match ? '' : 'none';
+  });
+}
+
+// Close sidebar on nav click (mobile)
+document.querySelectorAll('#sidebar nav a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) closeSidebar();
+  });
+});
+
+// Close sidebar on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSidebar();
+});
+</script>
+
+</body>
+</html>

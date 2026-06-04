@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VYPER Quality Report — 2026-06-04 Baseline</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   VYPER QUALITY REPORT — Single-file, zero-dependency, offline-ready
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg:#fff; --bg2:#f8f9fa; --bg3:#e9ecef;
+  --text:#1a1a2e; --text2:#495057; --text3:#868e96;
+  --accent:#6c5ce7; --accent-bg:#f3f0ff;
+  --green:#00b894; --red:#e17055; --yellow:#fdcb6e; --blue:#0984e3; --orange:#f39c12;
+  --border:#dee2e6; --radius:8px;
+  --mono:'SF Mono','Fira Code','Cascadia Code',monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+[data-theme="dark"] {
+  --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+  --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+  --accent:#7c6ff7; --accent-bg:#1c1638;
+  --border:#30363d;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7;max-width:900px;margin:0 auto;padding:2em}
+a{color:var(--accent)}h1{font-size:1.8em;font-weight:800;margin:.3em 0}
+h2{font-size:1.3em;font-weight:700;margin:2em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--border)}
+h3{font-size:1.1em;font-weight:600;margin:1.5em 0 .4em}
+table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.88em}
+th,td{border:1px solid var(--border);padding:.5em .7em;text-align:left}
+th{background:var(--bg2);font-weight:600}tr:hover{background:var(--bg2)}
+code{font-family:var(--mono);font-size:.85em;background:var(--bg3);padding:.1em .4em;border-radius:3px}
+blockquote{border-left:3px solid var(--accent);padding:.5em 1em;margin:1em 0;background:var(--accent-bg);border-radius:0 var(--radius) var(--radius) 0}
+.score-hero{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.5em;text-align:center;margin:1em 0}
+.score-big{font-size:4em;font-weight:900;line-height:1}
+.score-grade{font-size:1.6em;font-weight:700;margin:.2em 0}
+.score-table td:first-child{font-weight:600;white-space:nowrap;width:240px}
+.bar{background:var(--bg3);border-radius:3px;height:8px;margin:.3em 0;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px}
+.check{color:var(--green);font-weight:700}.cross{color:var(--red);font-weight:700}
+.footer{text-align:center;padding:2em 0 0;color:var(--text3);font-size:.8em;border-top:1px solid var(--border);margin-top:3em}
+.theme-btn{position:fixed;top:1em;right:1em;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:.4em .8em;border-radius:var(--radius);cursor:pointer;font-size:.85em;z-index:999}
+@media(max-width:640px){body{padding:1em;font-size:15px}.score-big{font-size:3em}}
+@media print{.theme-btn{display:none}body{font-size:11pt}}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()" id="theme-btn">🌙 Dark</button>
+
+<a href="index.html">← Back to Dashboard</a>
+
+<h1>📊 Quality Assessment — 2026-06-04 (Baseline)</h1>
+<p style="color:var(--text2)">VYPER (sc_auditor) &bull; v0.4.0 &bull; lore-master &bull; 12-dimension backend-adjusted</p>
+
+<div class="score-hero">
+  <div class="score-big">71<span style="font-size:.5em">/100</span></div>
+  <div class="score-grade" style="color:var(--blue)">Grade B-</div>
+  <div class="bar"><div class="bar-fill" style="width:71%;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green))"></div></div>
+</div>
+
+<h2>Overall Score Breakdown</h2>
+<table class="score-table">
+<tr><th>Dimension</th><th>Raw (0-10)</th><th>Weight</th><th>Weighted</th><th>Grade</th></tr>
+<tr><td>1. Code Quality & Maintainability</td><td>6.5</td><td>18%</td><td>1.17</td><td>C+</td></tr>
+<tr><td>2. Security Posture</td><td>7.0</td><td>18%</td><td>1.26</td><td>B-</td></tr>
+<tr><td>3. Performance & Optimization</td><td>6.0</td><td>10%</td><td>0.60</td><td>C</td></tr>
+<tr><td>4. Architecture & Design</td><td>9.0</td><td>15%</td><td>1.35</td><td>A</td></tr>
+<tr><td>5. Testing Maturity</td><td>5.0</td><td>12%</td><td>0.60</td><td>D</td></tr>
+<tr><td>6. Error Handling & Resilience</td><td>6.5</td><td>8%</td><td>0.52</td><td>C+</td></tr>
+<tr><td>7. Documentation</td><td>9.5</td><td>7%</td><td>0.67</td><td>A+</td></tr>
+<tr><td>8. Observability & Monitoring</td><td>6.5</td><td>5%</td><td>0.33</td><td>C+</td></tr>
+<tr><td>9. Deployment Readiness</td><td>8.0</td><td>7%</td><td>0.56</td><td>B</td></tr>
+<tr style="font-weight:700;background:var(--bg2)"><td>TOTAL</td><td></td><td>100%</td><td><strong>7.06</strong></td><td><strong>B-</strong></td></tr>
+</table>
+
+<h2>Executive Summary</h2>
+<blockquote>
+VYPER adalah proyek ambisius dengan visi jelas: menjadi <strong>"Burp Suite for Smart Contracts"</strong>. Dalam 4-6 minggu, tim telah membangun 616 file Python (100,720 baris), 28 microservices, 314 test functions, dan dokumentasi kelas enterprise.<br><br>
+<strong>Strengths</strong>: Arsitektur microservice kelas dunia (9.0), dokumentasi enterprise-grade (9.5), deployment solid (8.0).<br><br>
+<strong>Gaps</strong>: Testing sangat kurang — 5.0 (0.3% density), 11 services restarting, 28 files &gt;500 lines.
+</blockquote>
+
+<h2>Dimension Details</h2>
+
+<h3>D1: Code Quality — 6.5</h3>
+<table><tr><th>✅ Strengths</th><th>❌ Issues</th></tr>
+<tr><td>Consistent patterns across services<br>SOLID in service boundaries<br>Type hints consistently used<br>Named constants + centralized config</td><td>28 files > 500 lines<br>JSON pattern repeated 109x (DRY violation)<br>God objects (planner.py = 1,344 lines)<br>Missing imports in some files</td></tr></table>
+
+<h3>D2: Security — 7.0</h3>
+<table><tr><th>✅ Strengths</th><th>❌ Issues</th></tr>
+<tr><td>Parameterized SQLite queries<br>API keys via config service, not hardcoded<br>.env.example committed, .env in .gitignore<br>Non-root user in Dockerfile<br>CORS configured per-service</td><td>Docker-in-Docker without seccomp profile<br>No rate limiting at API gateway<br>No internal service auth token<br>Shared volumes vyper_kb still mounted<br>No audit trail for admin actions</td></tr></table>
+
+<h3>D3: Performance — 6.0</h3>
+<table><tr><th>✅ Strengths</th><th>❌ Issues</th></tr>
+<tr><td>SQLite WAL mode optimized<br>Compilation cache exists<br>Smart router designed<br>Health checks on all services</td><td>Sequential pipeline (scanners run one by one)<br>No scan result caching<br>No HTTP connection pooling<br>Full re-scan on every audit (no incremental)</td></tr></table>
+
+<h3>D4: Architecture — 9.0 ⭐</h3>
+<table><tr><th>✅ Strengths</th><th>❌ Issues</th></tr>
+<tr><td>28 isolated microservices<br>Pipeline 8-stage state machine<br>Saga rollback pattern<br>Scanner isolation (1 crash = rest OK)<br>Antonio Supremacy (1 AI controller)</td><td>Shared volumes still in use<br>No circuit breaker for inter-service calls<br>Orchestrator is single point of failure</td></tr></table>
+
+<h3>D5: Testing — 5.0 🔴</h3>
+<table><tr><th>✅ Strengths</th><th>❌ Issues</th></tr>
+<tr><td>314 test functions across 60 files<br>pytest + pytest-asyncio configured<br>E2E pipeline test exists<br>Structured fixtures in conftest.py<br>75 SQLite migration tests pass</td><td><strong>0.3% test density</strong> (314/100,720 lines)<br>No coverage gate in CI<br>No integration tests (cross-service)<br>No stress/load tests<br>Scanner tool tests minimal</td></tr></table>
+
+<h3>D6: Error Handling — 6.5</h3>
+<table><tr><th>✅ Strengths</th><th>❌ Issues</th></tr>
+<tr><td>Try/catch in pipeline steps<br>Saga compensation on failure<br>Retry with exponential backoff (3x)<br>Health check endpoints all services</td><td>Error response formats inconsistent<br>No circuit breaker pattern<br>No graceful degradation<br>Stack traces leak in some error responses</td></tr></table>
+
+<h3>D7: Documentation — 9.5 ⭐⭐</h3>
+<table><tr><th>✅ Strengths</th></tr>
+<tr><td>ARCHITECTURE.md (678 lines) — canonical reference<br>VYPER.md — philosophy + design decisions<br>DASHBOARD.md (1,333 lines) — UI specification<br>28 daily agenda items with structured tracking<br>SYSTEM_LOG.md — 600+ entries of change tracking<br>activity-log.md + lessons-learned.md<br>Docstrings in all new modules<br>.env.example with all variables<br><strong>Missing</strong>: CHANGELOG.md</td></tr></table>
+
+<h3>D8: Observability — 6.5</h3>
+<table><tr><th>✅ Strengths</th><th>❌ Issues</th></tr>
+<tr><td>Prometheus metrics endpoint<br>structlog used in some services<br>Health check aggregation (13-upkeep)<br>Basic monitoring</td><td>No distributed tracing (OpenTelemetry)<br>Log format inconsistent across services<br>No alerting rules configured<br>No request ID propagation</td></tr></table>
+
+<h3>D9: Deployment — 8.0</h3>
+<table><tr><th>✅ Strengths</th><th>❌ Issues</th></tr>
+<tr><td>Docker Compose 28 services<br>GitHub Actions CI (lint + typecheck + build)<br>Multi-stage Dockerfile pattern<br>.dockerignore configured<br>Health checks on all services</td><td>11 services restarting — not production-ready<br>No production deployment guide<br>No disaster recovery plan<br>No automated backup testing</td></tr></table>
+
+<h2>Project Stats</h2>
+<table>
+<tr><td>Python files</td><td><strong>616</strong></td></tr>
+<tr><td>Lines of code</td><td><strong>100,720</strong></td></tr>
+<tr><td>Microservices</td><td><strong>28</strong></td></tr>
+<tr><td>Test files / functions</td><td>60 / 314</td></tr>
+<tr><td>Test density</td><td style="color:var(--red)"><strong>0.3%</strong></td></tr>
+<tr><td>CI workflows</td><td>3</td></tr>
+<tr><td>docker-compose lines</td><td>694</td></tr>
+<tr><td>Files > 500 lines</td><td style="color:var(--orange)"><strong>28</strong></td></tr>
+<tr><td>Services Up</td><td style="color:var(--orange)"><strong>17 / 28</strong></td></tr>
+</table>
+
+<h2>Critical Issues</h2>
+<table>
+<tr><th>#</th><th>Issue</th><th>Severity</th></tr>
+<tr><td>1</td><td>Test coverage &lt;5% — no safety net for refactoring</td><td style="color:var(--red)"><strong>CRITICAL</strong></td></tr>
+<tr><td>2</td><td>11 services restarting — not production-ready</td><td style="color:var(--red)"><strong>CRITICAL</strong></td></tr>
+<tr><td>3</td><td>28 files &gt;500 lines — growing technical debt</td><td style="color:var(--orange)"><strong>HIGH</strong></td></tr>
+<tr><td>4</td><td>No rate limiting — vulnerable to DoS</td><td style="color:var(--orange)"><strong>HIGH</strong></td></tr>
+<tr><td>5</td><td>Shared volumes still mounted — data integrity risk</td><td style="color:var(--orange)"><strong>HIGH</strong></td></tr>
+</table>
+
+<h2>Score Projection</h2>
+<table>
+<tr><th>Date</th><th>Target</th><th>Key Deliverables</th></tr>
+<tr><td>Jul 2026</td><td><strong>75 (B)</strong></td><td>Fix crashes + 50 tests + CI gate 25%</td></tr>
+<tr><td>Aug 2026</td><td><strong>82 (B+)</strong></td><td>File split + security + observability</td></tr>
+<tr><td>Sep 2026</td><td><strong>88 (A-)</strong></td><td>Performance + caching + 200 tests</td></tr>
+</table>
+
+<h2>Verdict</h2>
+<blockquote>
+<strong>Strong foundation, ambitious vision.</strong> VYPER punya arsitektur kelas dunia dan dokumentasi enterprise-grade. Satu critical gap — testing (5.0) — mencegah Grade A. Tutup gap itu dan VYPER adalah production-excellent.
+</blockquote>
+
+<div class="footer">
+  Generated by VYPER Quality Assessment Framework &bull; 12-dimension backend-adjusted &bull; <a href="index.html">Dashboard</a>
+</div>
+
+<script>
+function toggleTheme(){var h=document.documentElement,b=document.getElementById('theme-btn');h.getAttribute('data-theme')==='dark'?(h.removeAttribute('data-theme'),b.textContent='🌙 Dark'):(h.setAttribute('data-theme','dark'),b.textContent='☀️ Light')}
+if(window.matchMedia('(prefers-color-scheme:dark)').matches){document.documentElement.setAttribute('data-theme','dark');document.getElementById('theme-btn').textContent='☀️ Light'}
+</script>
+</body>
+</html>

@@ -1,13 +1,13 @@
 """Vyper Config Service — FastAPI microservice for managing service configuration.
 
-All configuration is stored as a single JSON file at ``/data/config/config.json``.
-This service exposes a REST API that other Vyper services use to retrieve and
-update shared configuration at runtime.
+Storage: SQLite (via ConfigManagerSQLite) or JSON (legacy ConfigManager).
+Controlled by STORAGE_ENGINE env var (sqlite | json | dual).
 """
 
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
 import sys
 from contextlib import asynccontextmanager
@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.manager import ConfigManager
+from src.manager_sqlite import ConfigManagerSQLite
 from src.models import BulkConfig, ConfigResponse, ConfigValue, ErrorResponse, HealthResponse, Meta
 
 # ---------------------------------------------------------------------------
@@ -31,8 +32,13 @@ class AppState:
     """Shared application state injected via ``request.app.state``."""
 
     def __init__(self) -> None:
-        self.manager: ConfigManager = ConfigManager()
+        storage_engine = os.environ.get("STORAGE_ENGINE", "json")
+        if storage_engine in ("sqlite", "dual"):
+            self.manager: ConfigManager | ConfigManagerSQLite = ConfigManagerSQLite()
+        else:
+            self.manager: ConfigManager | ConfigManagerSQLite = ConfigManager()
         self._shutdown_requested: bool = False
+        self._storage_engine = storage_engine
 
     @property
     def shutdown_requested(self) -> bool:
@@ -133,12 +139,18 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health() -> HealthResponse:
-    """Health check endpoint.
-
-    Returns a simple status payload indicating the service is alive.
-    """
-    return HealthResponse()
+async def health(request: Request) -> HealthResponse:
+    """Health check — includes storage engine info."""
+    state: AppState = request.app.state.vyper
+    storage_health = {}
+    if hasattr(state.manager, "health_check"):
+        storage_health = state.manager.health_check()
+    return HealthResponse(
+        service="01-config",
+        version="0.1.0",
+        storage_engine=state._storage_engine,
+        storage_health=storage_health,
+    )
 
 
 # -- Config CRUD ------------------------------------------------------------
@@ -153,7 +165,7 @@ async def health() -> HealthResponse:
 @app.get("/config", response_model=ConfigResponse)
 async def list_config_keys(request: Request) -> ConfigResponse:
     """Retrieve all configuration keys and their values."""
-    mgr: ConfigManager = request.app.state.vyper.manager
+    mgr = request.app.state.vyper.manager
     return ConfigResponse(data=mgr.get_all())
 
 
@@ -162,7 +174,7 @@ async def bulk_upsert_config(
     request: Request, body: BulkConfig
 ) -> ConfigResponse:
     """Atomically upsert multiple configuration keys at once."""
-    mgr: ConfigManager = request.app.state.vyper.manager
+    mgr = request.app.state.vyper.manager
     for k, v in body.config.items():
         mgr.set(k, v)
     log.info("config_bulk_upserted", keys=len(body.config))
@@ -172,7 +184,7 @@ async def bulk_upsert_config(
 @app.post("/config/reset", response_model=ConfigResponse)
 async def reset_config(request: Request) -> ConfigResponse:
     """Restore all configuration values to their factory defaults."""
-    mgr: ConfigManager = request.app.state.vyper.manager
+    mgr = request.app.state.vyper.manager
     defaults = mgr.reset()
     log.info("config_reset")
     return ConfigResponse(data=defaults)
@@ -180,28 +192,16 @@ async def reset_config(request: Request) -> ConfigResponse:
 
 @app.post("/config/reset-providers", response_model=ConfigResponse)
 async def reset_providers(request: Request) -> ConfigResponse:
-    """Reset only the LLM provider configuration keys to factory defaults.
-
-    Clears API keys, base URLs, and models for all AI providers
-    (openai, anthropic, deepseek, xai, openrouter, google, huggingface).
-    Other config keys (scanner, RPC, etc.) are NOT affected.
-    """
-    mgr: ConfigManager = request.app.state.vyper.manager
+    """Reset only the LLM provider configuration keys to factory defaults."""
+    mgr = request.app.state.vyper.manager
 
     provider_keys = [
-        # OpenAI
         "provider_openai_api_key", "provider_openai_base_url", "provider_openai_model",
-        # Anthropic
         "provider_anthropic_api_key", "provider_anthropic_base_url", "provider_anthropic_model",
-        # DeepSeek
         "provider_deepseek_api_key", "provider_deepseek_base_url", "provider_deepseek_model",
-        # xAI
         "provider_xai_api_key", "provider_xai_base_url", "provider_xai_model",
-        # OpenRouter
         "provider_openrouter_api_key", "provider_openrouter_base_url", "provider_openrouter_model",
-        # Google
         "provider_google_api_key", "provider_google_base_url", "provider_google_model",
-        # HuggingFace
         "provider_huggingface_api_key", "provider_huggingface_base_url", "provider_huggingface_model",
     ]
 
@@ -219,11 +219,8 @@ async def reset_providers(request: Request) -> ConfigResponse:
 
 @app.get("/config/{key:path}", response_model=ConfigResponse)
 async def get_config_value(request: Request, key: str) -> ConfigResponse:
-    """Retrieve a single configuration value by key.
-
-    Returns ``404`` if the key does not exist.
-    """
-    mgr: ConfigManager = request.app.state.vyper.manager
+    """Retrieve a single configuration value by key."""
+    mgr = request.app.state.vyper.manager
     value = mgr.get(key)
     if value is None and key not in mgr.get_all():
         raise HTTPException(status_code=404, detail=f"Config key '{key}' not found")
@@ -234,11 +231,8 @@ async def get_config_value(request: Request, key: str) -> ConfigResponse:
 async def upsert_config_value(
     request: Request, key: str, body: ConfigValue
 ) -> ConfigResponse:
-    """Create or update a single configuration key.
-
-    If the key already exists, its value is overwritten.
-    """
-    mgr: ConfigManager = request.app.state.vyper.manager
+    """Create or update a single configuration key."""
+    mgr = request.app.state.vyper.manager
     mgr.set(key, body.value)
     log.info("config_key_upserted", key=key)
     return ConfigResponse(data={key: body.value})
@@ -246,11 +240,8 @@ async def upsert_config_value(
 
 @app.delete("/config/{key:path}", response_model=ConfigResponse)
 async def delete_config_value(request: Request, key: str) -> ConfigResponse:
-    """Delete a configuration key.
-
-    Returns ``404`` if the key does not exist.
-    """
-    mgr: ConfigManager = request.app.state.vyper.manager
+    """Delete a configuration key."""
+    mgr = request.app.state.vyper.manager
     deleted = mgr.delete(key)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Config key '{key}' not found")

@@ -120,6 +120,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner")
 
     # Check solc availability
     solc_versions = state.solc_mgr.list_versions()

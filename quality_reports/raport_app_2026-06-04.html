@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VYPER — Raport Kualitas | 2026-06-04</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   VYPER QUALITY DASHBOARD — Single-file portable report
+   Zero dependencies. Open in any browser. Works offline.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg:#fff; --bg2:#f8f9fa; --bg3:#e9ecef;
+  --text:#1a1a2e; --text2:#495057; --text3:#868e96;
+  --accent:#6c5ce7; --accent2:#a29bfe; --accent-bg:#f3f0ff;
+  --green:#00b894; --red:#e17055; --yellow:#fdcb6e; --blue:#0984e3; --orange:#f39c12;
+  --border:#dee2e6; --shadow:0 1px 3px rgba(0,0,0,.08);
+  --radius:8px;
+  --mono:'SF Mono','Fira Code','Cascadia Code',monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+[data-theme="dark"] {
+  --bg:#0d1117; --bg2:#161b22; --bg3:#21262d;
+  --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+  --accent:#7c6ff7; --accent2:#a29bfe; --accent-bg:#1c1638;
+  --border:#30363d; --shadow:0 1px 3px rgba(0,0,0,.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7;max-width:1100px;margin:0 auto;padding:2em}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+h1{font-size:2em;font-weight:800;letter-spacing:-.02em;margin:.3em 0}
+h2{font-size:1.4em;font-weight:700;margin:2em 0 .8em;padding-bottom:.3em;border-bottom:1px solid var(--border)}
+h3{font-size:1.15em;font-weight:600;margin:1.5em 0 .5em}
+table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.9em}
+th,td{border:1px solid var(--border);padding:.55em .7em;text-align:left}
+th{background:var(--bg2);font-weight:600;white-space:nowrap}
+tr:hover{background:var(--bg2)}
+code{font-family:var(--mono);font-size:.85em;background:var(--bg3);padding:.1em .4em;border-radius:3px}
+
+.header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1em;margin-bottom:1.5em}
+.header-meta{font-size:.85em;color:var(--text3)}
+.theme-btn{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:.4em .8em;border-radius:var(--radius);cursor:pointer;font-size:.85em}
+.score-hero{display:grid;grid-template-columns:1fr 1fr;gap:1.5em;margin:1.5em 0}
+@media(max-width:768px){.score-hero{grid-template-columns:1fr}}
+.score-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.5em;text-align:center}
+.score-big{font-size:5em;font-weight:900;line-height:1;letter-spacing:-.04em}
+.score-grade{font-size:2em;font-weight:700;margin:.2em 0}
+.score-label{font-size:.9em;color:var(--text2);margin:.3em 0}
+.score-bar-outer{background:var(--bg3);border-radius:4px;height:12px;margin:1em 0;overflow:hidden}
+.score-bar-inner{height:100%;border-radius:4px;transition:width .5s}
+.dim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1em;margin:1em 0}
+.dim-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.2em}
+.dim-card h4{margin:0 0 .5em;display:flex;justify-content:space-between;align-items:center}
+.dim-score{font-size:1.8em;font-weight:800}
+.dim-bar{background:var(--bg3);border-radius:3px;height:8px;margin:.5em 0;overflow:hidden}
+.dim-bar-fill{height:100%;border-radius:3px}
+.dim-detail{font-size:.82em;color:var(--text2);margin:.3em 0}
+.target-item{display:flex;align-items:center;gap:.6em;padding:.4em 0;border-bottom:1px solid var(--border)}
+.target-item:last-child{border-bottom:0}
+.target-check{width:22px;height:22px;border:2px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.75em;flex-shrink:0}
+.target-check.done{background:var(--green);border-color:var(--green);color:#fff}
+.target-label{flex:1;font-size:.9em}
+.target-tag{font-size:.75em;padding:.15em .5em;border-radius:3px;font-weight:600;white-space:nowrap}
+.tag-crit{background:#ffe3e3;color:var(--red)} [data-theme="dark"] .tag-crit{background:#3d1f1f}
+.tag-high{background:#fff3cd;color:#856404} [data-theme="dark"] .tag-high{background:#3d351f;color:#fdcb6e}
+.tag-med{background:#d4edff;color:var(--blue)} [data-theme="dark"] .tag-med{background:#1f2d3d}
+.progress-section{margin:1em 0}
+.progress-bar-outer{background:var(--bg3);border-radius:4px;height:20px;overflow:hidden;margin:.4em 0}
+.progress-bar-inner{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.75em;font-weight:700;color:#fff;transition:width .5s}
+.score-cell{font-weight:800;font-size:1.1em}
+.grade-A{color:#00b894}.grade-B{color:#0984e3}.grade-C{color:#fdcb6e}.grade-D{color:#e17055}.grade-F{color:#e17055}
+.verdict{background:var(--accent-bg);border:1px solid var(--accent2);border-radius:var(--radius);padding:1.5em;margin:1.5em 0;text-align:center}
+.verdict h3{color:var(--accent);margin:0 0 .5em}
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin:1.5em 0 .5em}
+.tab-btn{padding:.6em 1.2em;background:0;border:0;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text2);cursor:pointer;font-size:.9em;font-weight:600;transition:all .2s}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.footer{text-align:center;padding:2em 0 0;color:var(--text3);font-size:.8em;border-top:1px solid var(--border);margin-top:3em}
+@media print{body{font-size:11pt;padding:1em}.score-hero{grid-template-columns:1fr 1fr}.dim-grid{grid-template-columns:1fr 1fr}.tab-content{display:block!important}#theme-btn{display:none}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1 style="margin:0">📊 VYPER — Raport Kualitas Aplikasi</h1>
+    <div class="header-meta">v0.4.0 Baseline &bull; 2026-06-04 &bull; lore-master &bull; 12-dimensi</div>
+  </div>
+  <div style="display:flex;gap:.5em;align-items:center">
+    <span style="font-size:.85em;color:var(--text3)">Laporan:</span>
+    <a href="raport_app_TEMPLATE.html" style="font-size:.85em">Template</a>
+    <span style="color:var(--text3)">|</span>
+    <a href="raport_app_2026-07-04.html" style="font-size:.85em">Jul</a>
+    <span style="color:var(--text3)">|</span>
+    <a href="raport_app_2026-08-04.html" style="font-size:.85em">Agu</a>
+    <span style="color:var(--text3)">|</span>
+    <a href="raport_app_2026-09-04.html" style="font-size:.85em">Sep</a>
+    <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">🌙 Dark</button>
+  </div>
+</div>
+
+<div class="score-hero">
+  <div class="score-card">
+    <div class="score-label">SKOR SAAT INI</div>
+    <div class="score-big">71</div>
+    <div class="score-grade" style="color:var(--blue)">Grade B-</div>
+    <div class="score-bar-outer"><div class="score-bar-inner" style="width:71%;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green))"></div></div>
+    <div class="score-label">Target: 88 (A-) — September 2026</div>
+  </div>
+  <div class="score-card" style="text-align:left">
+    <div class="score-label" style="margin-bottom:.8em">BREAKDOWN DIMENSI</div>
+    <div style="display:flex;flex-direction:column;gap:.5em">
+      <div><span style="display:inline-block;width:140px;font-size:.85em">Architecture</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:90%;background:var(--green)"></span></span> <span style="font-size:.85em;font-weight:700">9.0</span></div>
+      <div><span style="display:inline-block;width:140px;font-size:.85em">Documentation</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:95%;background:var(--green)"></span></span> <span style="font-size:.85em;font-weight:700">9.5</span></div>
+      <div><span style="display:inline-block;width:140px;font-size:.85em">Deployment</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:80%;background:var(--blue)"></span></span> <span style="font-size:.85em;font-weight:700">8.0</span></div>
+      <div><span style="display:inline-block;width:140px;font-size:.85em">Security</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:70%;background:var(--yellow)"></span></span> <span style="font-size:.85em;font-weight:700">7.0</span></div>
+      <div><span style="display:inline-block;width:140px;font-size:.85em">Code Quality</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:65%;background:var(--orange)"></span></span> <span style="font-size:.85em;font-weight:700">6.5</span></div>
+      <div><span style="display:inline-block;width:140px;font-size:.85em">Error Handling</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:65%;background:var(--orange)"></span></span> <span style="font-size:.85em;font-weight:700">6.5</span></div>
+      <div><span style="display:inline-block;width:140px;font-size:.85em">Observability</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:65%;background:var(--orange)"></span></span> <span style="font-size:.85em;font-weight:700">6.5</span></div>
+      <div><span style="display:inline-block;width:140px;font-size:.85em">Performance</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:60%;background:var(--orange)"></span></span> <span style="font-size:.85em;font-weight:700">6.0</span></div>
+      <div><span style="display:inline-block;width:140px;font-size:.85em;color:var(--red)">⚠ Testing</span> <span class="dim-bar" style="display:inline-block;width:calc(100% - 150px)"><span class="dim-bar-fill" style="width:50%;background:var(--red)"></span></span> <span style="font-size:.85em;font-weight:700;color:var(--red)">5.0</span></div>
+    </div>
+  </div>
+</div>
+
+<h2>📈 Riwayat Skor</h2>
+<table>
+<tr><th>Tanggal</th><th>Versi</th><th>Skor</th><th>Grade</th><th>Δ</th><th>Perubahan Kunci</th><th>Laporan</th></tr>
+<tr>
+  <td><strong>2026-06-04</strong></td><td>v0.4.0</td><td class="score-cell grade-B">71</td><td>B-</td><td>—</td>
+  <td>Baseline — 28 service, migrasi SQLite, scanner overpower</td>
+  <td><a href="raport_app_2026-06-04.html">Lihat →</a></td>
+</tr>
+<tr style="color:var(--text3)">
+  <td>2026-07-04</td><td>v0.5.0</td><td class="score-cell">—</td><td>—</td><td>—</td><td><em>Target: 75 (B) — fix crash + 50 test + CI gate</em></td><td><a href="raport_app_2026-07-04.html">→</a></td>
+</tr>
+<tr style="color:var(--text3)">
+  <td>2026-08-04</td><td>v0.6.0</td><td class="score-cell">—</td><td>—</td><td>—</td><td><em>Target: 82 (B+) — split file + security + observability</em></td><td><a href="raport_app_2026-08-04.html">→</a></td>
+</tr>
+<tr style="color:var(--text3)">
+  <td>2026-09-04</td><td>v0.7.0</td><td class="score-cell">—</td><td>—</td><td>—</td><td><em>Target: 88 (A-) — performa + cache + stress test</em></td><td><a href="raport_app_2026-09-04.html">→</a></td>
+</tr>
+</table>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('targets')">🎯 Target Tracker (0/28)</button>
+  <button class="tab-btn" onclick="switchTab('dimensions')">📋 Detail Dimensi</button>
+  <button class="tab-btn" onclick="switchTab('verdict')">📝 Verdict</button>
+</div>
+
+<div id="tab-targets" class="tab-content active">
+<div class="progress-section">
+  <div style="display:flex;justify-content:space-between;font-size:.85em;margin-bottom:.2em"><span>Progress Keseluruhan</span><span>0 / 28</span></div>
+  <div class="progress-bar-outer"><div class="progress-bar-inner" style="width:0%;background:var(--accent)">0%</div></div>
+</div>
+
+<h3>Bulan 1 — Target: 75 (Grade B)</h3>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">28/28 service Up (perbaiki 11 crash)</span><span class="target-tag tag-crit">P1</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">50+ unit test (orchestrator, classifier, exploit, config, immunefi)</span><span class="target-tag tag-crit">P1</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">5 E2E integration test</span><span class="target-tag tag-high">P1</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Standarisasi format error response</span><span class="target-tag tag-high">P1</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">DRY — JSON pattern → shared utility</span><span class="target-tag tag-med">P1</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">CI coverage gate 25%</span><span class="target-tag tag-crit">P1</span></div>
+
+<h3>Bulan 2 — Target: 82 (Grade B+)</h3>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">0 file > 500 baris (split 5 terbesar)</span><span class="target-tag tag-high">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Rate limiting di API gateway</span><span class="target-tag tag-high">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Service-to-service auth token</span><span class="target-tag tag-high">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Docker security hardening (08-exploit)</span><span class="target-tag tag-high">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Circuit breaker inter-service call</span><span class="target-tag tag-high">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Distributed tracing (OpenTelemetry)</span><span class="target-tag tag-med">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Alerting rules (4 rule + cooldown)</span><span class="target-tag tag-med">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Shared volume dihapus (vyper_kb, vyper_learning)</span><span class="target-tag tag-high">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Automated backup scheduler</span><span class="target-tag tag-med">P2</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">CI coverage gate 50%</span><span class="target-tag tag-high">P2</span></div>
+
+<h3>Bulan 3 — Target: 88 (Grade A-)</h3>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Pipeline parallelization (6x faster)</span><span class="target-tag tag-high">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Scan result cache (10x re-scan)</span><span class="target-tag tag-high">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">HTTPX connection pooling</span><span class="target-tag tag-med">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Dashboard lazy loading</span><span class="target-tag tag-med">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Database index optimization</span><span class="target-tag tag-med">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">200+ test tambahan</span><span class="target-tag tag-crit">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">5 skenario stress/load test</span><span class="target-tag tag-med">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Production deployment guide</span><span class="target-tag tag-med">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Disaster recovery plan</span><span class="target-tag tag-med">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">Graceful shutdown semua service</span><span class="target-tag tag-med">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">CHANGELOG.md</span><span class="target-tag tag-med">P3</span></div>
+<div class="target-item"><span class="target-check">⬜</span><span class="target-label">CI coverage gate 70%</span><span class="target-tag tag-high">P3</span></div>
+</div>
+
+<div id="tab-dimensions" class="tab-content">
+<div class="dim-grid">
+  <div class="dim-card"><h4>⭐ Architecture & Design <span class="dim-score" style="color:var(--green)">9.0</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:90%;background:var(--green)"></div></div><div class="dim-detail"><strong>✅</strong> 28 microservice terisolasi, pipeline 8-stage, Saga rollback<br><strong>⚠</strong> Shared volume, tanpa circuit breaker, orchestrator SPOF</div></div>
+  <div class="dim-card"><h4>⭐ Documentation <span class="dim-score" style="color:var(--green)">9.5</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:95%;background:var(--green)"></div></div><div class="dim-detail"><strong>✅</strong> ARCHITECTURE.md, VYPER.md, 28 agenda, SYSTEM_LOG<br><strong>⚠</strong> Belum ada CHANGELOG.md</div></div>
+  <div class="dim-card"><h4>Deployment <span class="dim-score" style="color:var(--blue)">8.0</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:80%;background:var(--blue)"></div></div><div class="dim-detail"><strong>✅</strong> Docker Compose 28 service, CI workflows, health check<br><strong>⚠</strong> 11 service restarting, tanpa deploy guide, tanpa disaster recovery</div></div>
+  <div class="dim-card"><h4>Security <span class="dim-score" style="color:var(--yellow)">7.0</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:70%;background:var(--yellow)"></div></div><div class="dim-detail"><strong>✅</strong> Parameterized SQL, .env.example, non-root Docker<br><strong>⚠</strong> Tanpa rate limiting, tanpa internal auth, Docker-in-Docker risk</div></div>
+  <div class="dim-card"><h4>Code Quality <span class="dim-score" style="color:var(--orange)">6.5</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:65%;background:var(--orange)"></div></div><div class="dim-detail"><strong>✅</strong> SOLID, type hints, pola konsisten<br><strong>⚠</strong> 28 file > 500 baris, JSON pattern 109x, god objects</div></div>
+  <div class="dim-card"><h4>Error Handling <span class="dim-score" style="color:var(--orange)">6.5</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:65%;background:var(--orange)"></div></div><div class="dim-detail"><strong>✅</strong> Try/catch di pipeline, Saga compensation, retry backoff<br><strong>⚠</strong> Format error tidak konsisten, tanpa circuit breaker</div></div>
+  <div class="dim-card"><h4>Observability <span class="dim-score" style="color:var(--orange)">6.5</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:65%;background:var(--orange)"></div></div><div class="dim-detail"><strong>✅</strong> Prometheus metrics, structlog, health aggregation<br><strong>⚠</strong> Tanpa tracing, tanpa alerting, tanpa request ID</div></div>
+  <div class="dim-card"><h4>Performance <span class="dim-score" style="color:var(--orange)">6.0</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:60%;background:var(--orange)"></div></div><div class="dim-detail"><strong>✅</strong> SQLite WAL, compilation cache, smart router<br><strong>⚠</strong> Sequential pipeline, tanpa scan cache, tanpa connection pool</div></div>
+  <div class="dim-card" style="border-color:var(--red)"><h4>🔴 Testing <span class="dim-score" style="color:var(--red)">5.0</span></h4><div class="dim-bar"><div class="dim-bar-fill" style="width:50%;background:var(--red)"></div></div><div class="dim-detail"><strong>✅</strong> 314 test function, pytest-asyncio, 75 SQLite test<br><strong>❌</strong> 0.3% density, tanpa coverage gate, tanpa integration test</div></div>
+</div>
+</div>
+
+<div id="tab-verdict" class="tab-content">
+<div class="verdict">
+  <h3>Fondasi Kuat, Visi Ambisius</h3>
+  <p style="font-size:1.1em">VYPER punya <strong>arsitektur kelas dunia (9.0)</strong> dan <strong>dokumentasi enterprise-grade (9.5)</strong>.</p>
+  <p>Satu critical gap — <strong style="color:var(--red)">testing (5.0)</strong> — mencegah Grade A.</p>
+  <p style="margin-top:1em">616 file Python &bull; 100.720 baris &bull; 28 microservice &bull; 314 test &bull; 0.3% density</p>
+</div>
+<h3>Isu Kritis</h3>
+<table>
+<tr><th>#</th><th>Isu</th><th>Severity</th></tr>
+<tr><td>1</td><td>Test coverage &lt;5% — tanpa safety net</td><td><span class="target-tag tag-crit">CRITICAL</span></td></tr>
+<tr><td>2</td><td>11 service restarting — belum production-ready</td><td><span class="target-tag tag-crit">CRITICAL</span></td></tr>
+<tr><td>3</td><td>28 file > 500 baris — technical debt</td><td><span class="target-tag tag-high">HIGH</span></td></tr>
+<tr><td>4</td><td>Tanpa rate limiting — rentan DoS</td><td><span class="target-tag tag-high">HIGH</span></td></tr>
+<tr><td>5</td><td>Shared volume masih mounted — risiko data</td><td><span class="target-tag tag-high">HIGH</span></td></tr>
+</table>
+<h3>Statistik Proyek</h3>
+<table>
+<tr><td>File Python</td><td><strong>616</strong></td></tr>
+<tr><td>Baris kode</td><td><strong>100.720</strong></td></tr>
+<tr><td>Microservice</td><td><strong>28</strong></td></tr>
+<tr><td>File test / fungsi</td><td>60 / 314</td></tr>
+<tr><td>Test density</td><td style="color:var(--red)"><strong>0.3%</strong></td></tr>
+<tr><td>File > 500 baris</td><td style="color:var(--orange)"><strong>28</strong></td></tr>
+<tr><td>Service berjalan</td><td style="color:var(--orange)"><strong>17 / 28</strong></td></tr>
+</table>
+</div>
+
+<div class="footer">
+  VYPER Quality Assessment Framework &bull; 12-dimensi backend-adjusted &bull; Assessment berikutnya: <a href="raport_app_2026-07-04.html">2026-07-04</a>
+</div>
+
+<script>
+function toggleTheme(){const h=document.documentElement,b=document.getElementById('theme-btn');h.getAttribute('data-theme')==='dark'?(h.removeAttribute('data-theme'),b.textContent='🌙 Dark'):(h.setAttribute('data-theme','dark'),b.textContent='☀️ Light')}
+function switchTab(n){document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+n).classList.add('active');event.target.classList.add('active')}
+if(window.matchMedia('(prefers-color-scheme:dark)').matches){document.documentElement.setAttribute('data-theme','dark');document.getElementById('theme-btn').textContent='☀️ Light'}
+</script>
+</body>
+</html>

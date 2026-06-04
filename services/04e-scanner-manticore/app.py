@@ -117,6 +117,7 @@ def _error(msg: str, status: int = 400) -> ApiResponse:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: create data dir on startup."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-manticore")
     yield
 
 

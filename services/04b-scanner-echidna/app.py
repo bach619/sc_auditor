@@ -161,6 +161,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-echidna")
 
     # Init Agent
     state.agent = EchidnaAgent(runner=state.echidna_runner)

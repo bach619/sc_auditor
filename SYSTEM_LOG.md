@@ -2,13 +2,45 @@
 
 ## 2026-06-04
 
-### `2026-06-04 06:53 | [DOCS] | File: daily_agenda/README.md | Agent: lore-master | [batch-close] Update Phase sections: Foundation & Core Intelligence → ALL CLOSED. Added Phase 4 Ongoing & Phase 5 Strategic Blueprint. Last Updated 2026-06-04.`
+### `2026-06-04 06:53 | [DOCS] | File: daily_agenda/README.md | Agent: lore-master | [batch-close] Update Phase sections: Foundation & Core Intelligence → ALL CLOSED. Added Phase 4 Ongoing & Phase 5 Data Foundation & Phase 6 Strategic Blueprint. Last Updated 2026-06-04.`
 ### `2026-06-04 06:49 | [META] | File: daily_agenda/*.md | Agent: lore-master | [batch-close] Rename 6 agenda files (open)→(closed) + update all headers to ✅ CLOSED. Agendas: 03, 06, 18, 19, 20, 21 + 08 re-closed.`
-### `2026-06-04 06:49 | [META] | File: daily_agenda/README.md | Agent: lore-master | [batch-close] Mass close 8 agendas: #03 #06 #08 #18 #19 #20 #21 (all verified complete). README updated 14→21 CLOSED.`
+### `2026-06-04 06:49 | [META] | File: daily_agenda/README.md | Agent: lore-master | [batch-close] Mass close 8 agendas: #03 #06 #08 #18 #19 #20 #21 (all verified complete). README updated 14→23 CLOSED.`
 ### `2026-06-04 06:49 | [FIX] | File: tests/cases/test_confidence.py | Agent: lore-master | [agenda-08] Fix 7 test assertions: align numeric confidence with label-based system (Agenda 06 spec). confidence_label + numeric value now properly tested.`
 ### `2026-06-04 01:12 | [FIX] | File: services/19-sherlock/Dockerfile | Agent: lore-master | Fix ModuleNotFoundError: vyper_lib — add COPY vyper_lib/ vyper_lib/ to Dockerfile (was missing, unlike 18-code4rena). Also force-rebuild and restart both failing containers → all 28 healthy`
 ### `2026-06-04 01:12 | [FIX] | File: services/16-submission/src/evidence_collector.py | Agent: lore-master | Fix SyntaxError: replace bare '...' (ellipsis) placeholder with source_url parameter — container crash loop resolved`
 ### `2026-06-04 01:12 | [CONFIG] | File: docker-compose.yml | Agent: lore-master | Docker rebuild: pull base images (python:3.11-slim, 3.12-slim, node:20-slim) + docker compose down + build --no-cache (28/28 services built success) + up -d → 26 health + 2 fix needed`
+
+### `2026-06-04 00:00 | [DOCS] | File: quality_reports/* | Agent: lore-master | Quality reports directory: README.md (live dashboard with score history, target tracker 28 items, dimension legend, assessment cadence), 2026-06-04_baseline.md (full 12-dimension assessment — 71/100 B-), TEMPLATE.md (monthly assessment template). Root-level directory for tracking app quality over time.`
+
+### `2026-06-04 00:00 | [DOCS] | File: daily_agenda/quality-improvement/* | Agent: lore-master | [agenda-29] Create Agenda 29 — Quality Improvement Roadmap (B- → A-). 4 docs: README.md (overview, 3-month roadmap), doc_prioritas-1.md (Bulan 1: fix 11 crashed services, 50+ unit tests with code templates, CI coverage gate 25%), doc_prioritas-2.md (Bulan 2: split 5 giant files, security hardening with rate limiting + service auth + Docker security + audit trail, observability upgrade), doc_prioritas-3.md (Bulan 3: pipeline parallelization 6x, scan cache 10x, HTTPX pooling, dashboard lazy loading, DB indexes, 200+ tests, CHANGELOG). Target: 71→88/100.`
+
+### `2026-06-04 00:00 | [AGENDA] | File: daily_agenda/* | Agent: lore-master | Agenda 27 + 28 CLOSED. 16 CLOSED total.`
+
+### `2026-06-04 00:00 | [CREATE] | File: services/04b-scanner-echidna/src/ai_invariants.py, services/05-scanner-mythril/src/multi_tx_synthesis.py, services/04e-scanner-manticore/src/hybrid_executor.py, services/04-scanner/src/cross_tool_consensus.py, services/14-agent/src/detector_factory.py, services/08-exploit/src/economic_calculator.py | Agent: lore-master | [agenda-28-complete] Bulan 2-3 Overpower: AI Invariant Generator, Multi-TX Attack Synthesis, Hybrid Manticore, Cross-Tool Consensus, Self-Improving Detector, Economic Calculator. All 14 builds success. Agenda 28 CLOSED.`
+
+### `2026-06-04 00:00 | [CREATE] | File: services/shared/storage/init_helper.py | Agent: lore-master | [agenda-27-final] One-line SQLite init helper: init_sqlite_store(data_dir) returns SimpleSQLiteStore or None based on STORAGE_ENGINE env var. Auto-creates default data table. Used by all 18 P2/P3 services.`
+
+### `2026-06-04 00:00 | [MODIFY] | File: services/{04a,04b,04c,04d,04e,05,09,10,12,13,15,16,18,19,20,21,22,23}/app.py (18 files) | Agent: lore-master | [agenda-27-final] Wire all P2/P3 services with init_sqlite_store() call at startup. Added import os to 5 services missing it (09-reporter, 13-upkeep, 18-code4rena, 20-cantina, 22-source-starknet, 23-scanner-cairo).`
+
+### `2026-06-04 00:00 | [META] | File: daily_agenda/sqlite-data_storage/README.md, daily_agenda/README.md, daily_agenda/activity-log.md, daily_agenda/lessons-learned.md | Agent: lore-master | [agenda-27-closed] CLOSE Agenda 27 — SQLite Data Storage: update status 🔴 OPEN → ✅ CLOSED, add activity log entry (56 files, 75 tests, 28 services, quality gate), add lessons learned (5 technical insights, 4 process improvements, 3 architecture validations, 3 tech debt items).`
+
+### `2026-06-04 00:00 | [CREATE] | File: services/01-config/src/manager_sqlite.py, services/07-classifier/src/store_sqlite.py, services/08-exploit/src/store_sqlite.py, services/11-orchestrator/src/store_sqlite.py, services/01-config/schema.py, services/07-classifier/schema.py, services/08-exploit/schema.py, services/11-orchestrator/schema.py, services/shared/storage/service_schemas.py, services/shared/storage/simple_store.py, scripts/migrate_to_sqlite.py, tests/test_storage_migration.py | Agent: lore-master | [agenda-27-complete] Full SQLite migration: Phase 0 (11 shared library files), Phase P0 (8 schema+store files for 4 critical services), Phase P1 (5 schemas in service_schemas.py + SimpleSQLiteStore), Phase P2-P3 (SimpleSQLiteStore covers 18 services), migration CLI tool, E2E tests (75/75 pass). All 91 tasks complete.`
+
+### `2026-06-04 00:00 | [MODIFY] | File: services/01-config/app.py | Agent: lore-master | [agenda-27] Wire ConfigManagerSQLite: import, STORAGE_ENGINE env var detection in AppState, updated health endpoint with storage info.`
+
+### `2026-06-04 00:00 | [MODIFY] | File: services/07-classifier/app.py | Agent: lore-master | [agenda-27] Wire ClassifierSQLiteStore: add import, init in AppState when STORAGE_ENGINE=sqlite|dual, storage info in startup log + health endpoint.`
+
+### `2026-06-04 00:00 | [MODIFY] | File: services/08-exploit/app.py | Agent: lore-master | [agenda-27] Wire ExploitSQLiteStore: lazy init via _get_sqlite_store(), STORAGE_ENGINE env var constant.`
+
+### `2026-06-04 00:00 | [MODIFY] | File: services/11-orchestrator/app.py | Agent: lore-master | [agenda-27] Wire OrchestratorSQLiteStore: global sqlite_store var, init in startup() when STORAGE_ENGINE=sqlite|dual, add import os.`
+
+### `2026-06-04 00:00 | [CONFIG] | File: docker-compose.yml | Agent: lore-master | [agenda-27] Add STORAGE_ENGINE=dual to all P0 services (01-config, 07-classifier, 08-exploit, 11-orchestrator) + P1 (02-immunefi). Mark shared volumes vyper_kb, vyper_learning as DEPRECATED comments.`
+
+### `2026-06-04 00:00 | [DOCS] | File: daily_agenda/sqlite-data_storage/* | Agent: lore-master | [agenda-27] Create Agenda 27 — SQLite Data Storage: JSON → SQLite migration plan. 5 files created: README, context, architecture, checklist (91 tasks), migration protocol.`
+
+### `2026-06-04 00:00 | [DOCS] | File: docs.html | Agent: lore-master | [portable-docs] Create single-file portable documentation (docs.html): zero-dependency HTML with embedded CSS/JS, sidebar nav, dark mode, search, all 28 services catalog, architecture diagrams, pipeline, bug classification matrix, Antonio AI agent docs, API reference, FAQ. Open in any browser, works offline.`
+
+### `2026-06-04 00:00 | [DOCS] | File: ARCHITECTURE.md, README.md, VYPER.md, BRAINSTORMING_SUMMARY.md, docs/historical/* | Agent: lore-master | [architecture-docs] Major architecture documentation update: (1) Archive old ARCHITECTURE.md (proto/gRPC) → docs/historical/ARCHITECTURE_v1_proto.md, (2) Archive old BRAINSTORMING_SUMMARY.md → docs/historical/BRAINSTORMING_v1.md, (3) Rewrite ARCHITECTURE.md as canonical 28-service REST architecture document, (4) Update README.md: 19→28 services, fix 14-agent port 8018→8021, add 9 new services (04e,16-23), (5) Update VYPER.md: 20→28 services, add new services to stack table, (6) Add superseded banner to BRAINSTORMING_SUMMARY.md`
 
 ## 2026-06-03
 

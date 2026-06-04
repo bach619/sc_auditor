@@ -16,7 +16,7 @@
 ┌──────────────────────────────────────────────────────────────┐
 │                        VYPER                                  │
 │                                                              │
-│  20 microservices, 1 laptop.                                 │
+│  28 microservices, 1 laptop.                                 │
 │                                                              │
 │  docker compose up                                          │
 │    ↓                                                         │
@@ -50,7 +50,7 @@
 
 ---
 
-## 2. Tech Stack — 20 Service, 1 Stack
+## 2. Tech Stack — 28 Service, 1 Stack
 
 Semua service dalam **satu bahasa, satu framework, satu pola**.
 
@@ -61,7 +61,7 @@ Semua service dalam **satu bahasa, satu framework, satu pola**.
 | **Dashboard** | FastAPI + React SPA | httpx | JSON file | Semua service (proxy) |
 | **Immunefi** | FastAPI | httpx | JSON file | GitHub API |
 | **Source** | FastAPI | httpx | JSON file + git | Etherscan API, Sourcify, GitHub |
-| **Scanner Router** | FastAPI | subprocess + httpx | JSON file | 5 scanner tools (internal) |
+| **Scanner Router** | FastAPI | subprocess + httpx | JSON file | 6 scanner tools (internal) |
 | **AI** | FastAPI | httpx | JSON cache | OpenAI / Anthropic API |
 | **Classifier** | FastAPI | — | JSON file | — |
 | **Exploit** | FastAPI | Docker SDK | JSON file | Anvil (Foundry) |
@@ -76,14 +76,22 @@ Semua service dalam **satu bahasa, satu framework, satu pola**.
 | **Scanner Echidna** | FastAPI | subprocess | JSON file | Echidna binary |
 | **Scanner Forge** | FastAPI | subprocess | JSON file | Foundry (forge) |
 | **Scanner Halmos** | FastAPI | subprocess | JSON file | Halmos (formal verif) |
-| **Agent** | FastAPI | httpx | JSON file | LLM, orchestrator |
+| **Scanner Manticore** | FastAPI | subprocess | JSON file | Manticore (symbolic exec) |
+| **Agent (ANTONIO)** | FastAPI | httpx | JSON file | LLM, orchestrator, ReAct loop |
 | **Submission** | FastAPI | httpx | JSON file | Immunefi, bounty platforms |
+| **Experience** | FastAPI | httpx | SQLite | Cross-agent learning |
+| **Code4rena** | FastAPI | httpx (GraphQL) | JSON file | Code4rena API |
+| **Sherlock** | FastAPI | httpx | JSON file | Sherlock API |
+| **Cantina** | FastAPI | httpx | JSON file | Cantina API |
+| **Hats** | FastAPI | httpx | JSON file | Hats Finance API |
+| **Source Starknet** | FastAPI | httpx | JSON file | Voyager, Starkscan API |
+| **Scanner Cairo** | FastAPI | subprocess | JSON file | Cairo scanner (StarkNet) |
 
 ### Stack Foundation
 
 ```
-Bahasa:         Python 3.11+ (19 services) + TypeScript (Dashboard React SPA)
-Framework:      FastAPI (19 services) + React 18 (Dashboard)
+Bahasa:         Python 3.11+ (27 services) + TypeScript (Dashboard React SPA)
+Framework:      FastAPI (27 services) + React 18 (Dashboard)
 HTTP Client:    httpx (async, standard)
 Run:            uvicorn (tiap service) + Vite (Dashboard)
 Container:      python:3.11-slim (base image) + node:20 (Dashboard build)
@@ -129,7 +137,7 @@ Tidak perlu ganti bahasa. Semua tools bisa dipanggil via subprocess atau HTTP.
 | Anvil (Docker) | ✅ docker-py | ✅ Dockerode |
 | **Winner** | **✅ Langsung kerja** | Perlu bridging |
 
-**Keputusan**: **Python 3.11+** (19 services). Dashboard pakai **TypeScript + React** untuk SPA modern. Hermes sudah Python, tools audit sudah Python — satu bahasa utama = langsung jalan.
+**Keputusan**: **Python 3.11+** (27 services). Dashboard pakai **TypeScript + React** untuk SPA modern. Hermes sudah Python, tools audit sudah Python — satu bahasa utama = langsung jalan.
 
 ---
 

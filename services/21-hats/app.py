@@ -52,6 +52,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             DATA_DIR.mkdir(parents=True, exist_ok=True)
         except OSError as e:
             log.error("app.data_dir_error", error=str(e))
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/hats")
 
     existing = load_vaults()
     log.info("app.vaults_loaded", count=len(existing))
