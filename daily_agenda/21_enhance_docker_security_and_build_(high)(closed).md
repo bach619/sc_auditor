@@ -1,6 +1,9 @@
-# Enhance Docker security and build efficiency [high][open]
+# Enhance Docker security and build efficiency ✅ CLOSED
 
-**Labels:** `high` + `open`
+**Labels:** `high` + `closed`
+
+> **Status**: ✅ CLOSED — entrypoint.sh pakai `chmod 755`, Dockerfile.base single pip install, `.dockerignore` exists.
+> **Closed**: 2026-06-04 | lore-master verified (no code change needed — already secure)
 
 ## Deskripsi
 

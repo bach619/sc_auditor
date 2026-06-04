@@ -1,6 +1,9 @@
-# Harden CI pipeline by removing `|| true` masking [high][open]
+# Harden CI pipeline by removing `|| true` masking ✅ CLOSED
 
-**Labels:** `high` + `open`
+**Labels:** `high` + `closed`
+
+> **Status**: ✅ CLOSED — ci.yml sudah bersih. Tidak ada `|| true` di seluruh pipeline.
+> **Closed**: 2026-06-04 | lore-master verified (no code change needed — already cleaned)
 
 ## Deskripsi
 

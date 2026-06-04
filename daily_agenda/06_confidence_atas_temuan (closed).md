@@ -1,4 +1,7 @@
-# 06 — Confidence atas Temuan
+# 06 — Confidence atas Temuan ✅ CLOSED
+
+> **Status**: ✅ CLOSED (confidence.py 286 baris + 7 test pass — Agenda 06 full spec implemented)
+> **Closed**: 2026-06-04 | lore-master verified
 
 > **Definisi**: Sistem penilaian keyakinan (Confidence) terhadap setiap temuan bug dalam Case Management. Confidence membantu User memprioritaskan case mana yang harus segera dilaporkan ke platform bug-bounty.
 

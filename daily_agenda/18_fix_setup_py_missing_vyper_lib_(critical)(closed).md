@@ -1,6 +1,9 @@
-# Fix setup.py missing vyper_lib from find_packages [critical][open]
+# Fix setup.py missing vyper_lib from find_packages ✅ CLOSED
 
-**Labels:** `critical` + `open`
+**Labels:** `critical` + `closed`
+
+> **Status**: ✅ CLOSED — `vyper_lib` sudah ditambahkan ke `find_packages()` di `setup.py` baris 22.
+> **Closed**: 2026-06-04 | lore-master verified (no code change needed — already fixed)
 
 ## Deskripsi
 

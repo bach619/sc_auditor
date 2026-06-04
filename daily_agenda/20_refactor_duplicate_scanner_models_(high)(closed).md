@@ -1,6 +1,9 @@
-# Refactor duplicate scanner models to use shared vyper_lib [high][open]
+# Refactor duplicate scanner models to use shared vyper_lib ✅ CLOSED
 
-**Labels:** `high` + `open`
+**Labels:** `high` + `closed`
+
+> **Status**: ✅ CLOSED — Semua file di `04-scanner/src/` sudah menjadi re-export shim ke `vyper_lib`.
+> **Closed**: 2026-06-04 | lore-master verified (no duplicate code — clean migration)
 
 ## Deskripsi
 

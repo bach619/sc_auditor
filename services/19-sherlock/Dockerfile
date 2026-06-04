@@ -6,6 +6,7 @@ COPY services/19-sherlock/requirements.txt .
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 COPY services/19-sherlock/ .
 COPY services/shared/ shared/
+COPY vyper_lib/ vyper_lib/
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \

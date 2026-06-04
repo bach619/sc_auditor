@@ -1,9 +1,10 @@
 """Unit tests for Case confidence calculation.
 
-Spec:
-  - Single scanner: confidence = scanner's confidence
-  - Multiple scanners (merged): confidence = average of ALL scanner confidences
-  - Edge cases: confidence bounds [0.0, 1.0]
+Spec (Agenda 06):
+  - Confidence is label-based (Low/Medium/High/Critical), not raw scanner confidence.
+  - Numeric value is a fixed mapping from label: Low=0.30, Medium=0.60, High=0.80, Critical=0.95
+  - Label is determined by 4 factors: scanner count, PoC, learning patterns, vuln category.
+  - Edge cases: numeric confidence always in [0.30, 0.95].
 """
 
 from __future__ import annotations
@@ -50,21 +51,23 @@ class TestConfidence:
     """Confidence calculation tests."""
 
     def test_single_scanner(self) -> None:
-        """Single scanner → confidence = its confidence."""
+        """Single scanner → label Medium → confidence 0.60."""
         case = create_case(_make(scanners=[_scan("slither", 0.70)]))
-        assert case.confidence == 0.70
+        assert case.confidence_label == "Medium"
+        assert case.confidence == 0.60
 
     def test_average_two_scanners(self) -> None:
-        """Two scanners → confidence = average."""
+        """Two scanners merged → label High → confidence 0.80."""
         case1 = create_case(_make(scanners=[_scan("slither", 0.70)]))
         case2 = create_case(_make(
             scanners=[_scan("mythril", 0.90)],
             contract="Vault", function="withdraw"))  # same contract/function → merge
         assert case2.case_id == case1.case_id
-        assert case2.confidence == 0.80  # (0.70 + 0.90) / 2
+        assert case2.confidence_label == "High"
+        assert case2.confidence == 0.80  # label_to_conf["High"]
 
     def test_average_three_scanners(self) -> None:
-        """Three scanners → confidence = average of all three."""
+        """Three scanners in one case → label Critical → confidence 0.95."""
         case = create_case(_make(
             scanners=[
                 _scan("slither", 0.70),
@@ -74,31 +77,35 @@ class TestConfidence:
         ))
         # All three are in one CaseCreate, no merge needed
         assert case.scanner_count == 3
-        expected = round((0.70 + 0.90 + 0.80) / 3, 2)
-        assert case.confidence == expected
+        assert case.confidence_label == "Critical"
+        assert case.confidence == 0.95  # label_to_conf["Critical"]
 
     def test_merge_confidence_average(self) -> None:
-        """After merge, confidence = avg of all scanners."""
+        """Merge: 1 + 2 scanners → 3 total → label Critical → 0.95."""
         c1 = create_case(_make(scanners=[_scan("slither", 0.70)]))
         c2 = create_case(_make(
             scanners=[_scan("mythril", 0.86), _scan("echidna", 0.90)],
             contract="Vault", function="withdraw"))
         assert c2.case_id == c1.case_id
-        expected = round((0.70 + 0.86 + 0.90) / 3, 2)
-        assert c2.confidence == expected
+        assert c2.confidence_label == "Critical"
+        assert c2.confidence == 0.95  # label_to_conf["Critical"]
 
     def test_confidence_zero(self) -> None:
-        """Confidence of 0 is allowed."""
+        """Scanner confidence 0.0 → still label Medium → confidence 0.60."""
         case = create_case(_make(scanners=[_scan("slither", 0.0)]))
-        assert case.confidence == 0.0
+        assert case.confidence_label == "Medium"
+        assert case.confidence == 0.60  # label_to_conf["Medium"]
 
     def test_confidence_one(self) -> None:
-        """Confidence of 1.0 is allowed."""
+        """Scanner confidence 1.0 → still label Medium → confidence 0.60."""
         case = create_case(_make(scanners=[_scan("slither", 1.0)]))
-        assert case.confidence == 1.0
+        assert case.confidence_label == "Medium"
+        assert case.confidence == 0.60  # label_to_conf["Medium"]
 
     def test_confidence_bounds(self) -> None:
-        """Confidence always in [0.0, 1.0]."""
+        """Confidence always in [0.30, 0.95] for label-based system."""
         for conf in [0.0, 0.25, 0.5, 0.75, 1.0]:
             case = create_case(_make(scanners=[_scan("slither", conf)]))
-            assert 0.0 <= case.confidence <= 1.0
+            assert case.confidence_label == "Medium"
+            assert case.confidence == 0.60
+            assert 0.0 <= case.confidence <= 1.0  # always within bounds
