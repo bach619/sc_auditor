@@ -335,7 +335,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup: check mythril availability. Shutdown: clean exit."""
     state = AppState()
     app.state.vyper = state
-    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-mythril")
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-mythril")
 
     # Init Agent
     state.agent = MythrilAgent(guided_analyzer=state.guided_analyzer)

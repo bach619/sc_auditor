@@ -90,7 +90,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.vyper = state
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/webhook")
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/webhook")
 
     log.info(
         "webhook.startup",

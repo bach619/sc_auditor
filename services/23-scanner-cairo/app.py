@@ -39,7 +39,7 @@ storage = CairoScanStorage()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("cairo_scanner.startup", service=SERVICE_NAME, version=SERVICE_VERSION)
-    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-cairo")
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-cairo")
     detectors = await adapter.get_detectors()
     log.info("cairo_scanner.detectors_loaded", count=len(detectors), detectors=detectors)
     yield

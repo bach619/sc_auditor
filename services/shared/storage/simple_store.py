@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from services.shared.storage import SqliteStore, StoreConfig
+from shared.storage import SqliteStore, StoreConfig
 
 logger = logging.getLogger("vyper.storage.simple")
 

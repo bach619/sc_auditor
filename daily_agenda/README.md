@@ -36,7 +36,8 @@
 | 24 | Add Technical Documentation | 🔴 OPEN | LOW | — | `24_add_technical_documentation_(low)(open).md` |
 | 25 | Clean Up Dead Code and Legacy Files | 🔴 OPEN | LOW | — | `25_clean_up_dead_code_and_legacy_files_(low)(open).md` |
 | **26** | **Vyper OP Platform Roadmap (Blueprint)** | **🔵 BRAINSTORM** | **CRITICAL** | **01–25, 12** | `26_vyper_op_platform_roadmap/README.md` |
-| **27** | **SQLite Data Storage (JSON → SQLite Migration)** | **🔴 OPEN** | **HIGH** | **—** | `sqlite-data_storage/README.md` |
+| **27** | **SQLite Data Storage (JSON → SQLite Migration)** | **✅ CLOSED** | **HIGH** | **—** | `sqlite-data_storage/README.md` |
+| **28** | **Scanner Overpower: Cangkul → Excavator** | **✅ CLOSED** | **CRITICAL** | **27** | `scanner-overpower/README.md` |
 
 ---
  
@@ -77,7 +78,8 @@ Phase 4: OP Dominator (Strategic Blueprint) 🔵
   └── Agenda 26 — Vyper OP Platform Roadmap (CRITICAL)  ← Blueprint, jadi sub-agenda
 
 Phase 5: Data Foundation
-  └── Agenda 27 — SQLite Data Storage (HIGH)            ← Storage migration
+  ├── Agenda 27 — SQLite Data Storage (HIGH)             ✅ CLOSED
+  └── Agenda 28 — Scanner Overpower (CRITICAL)            ✅ CLOSED
 ```
 
 ---
@@ -89,4 +91,4 @@ Phase 5: Data Foundation
 
 ---
 
-*Dibuat: 2026-05-20 | 27 Agenda Total (14 CLOSED, 12 OPEN, 1 BRAINSTORM)*
+*Dibuat: 2026-05-20 | 28 Agenda Total (16 CLOSED, 11 OPEN, 1 BRAINSTORM)*

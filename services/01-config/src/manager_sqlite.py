@@ -19,7 +19,7 @@ from typing import Any
 
 import structlog
 
-from services.shared.storage import SqliteStore, StoreConfig
+from shared.storage import SqliteStore, StoreConfig
 from . import schema
 
 log = structlog.get_logger()

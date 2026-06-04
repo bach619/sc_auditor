@@ -136,7 +136,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.vyper = state
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-halmos")
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-halmos")
 
     # Init Agent
     state.agent = HalmosAgent(runner=state.runner)

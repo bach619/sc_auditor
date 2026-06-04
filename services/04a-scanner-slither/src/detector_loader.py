@@ -93,8 +93,10 @@ class CustomDetectorRegistry:
         self.detectors_dir.mkdir(parents=True, exist_ok=True)
 
     def load_all(self) -> int:
-        """Load all detectors from the detectors directory."""
+        """Load all detectors from the detectors directory + built-in overpower detectors."""
         count = 0
+
+        # Load from /data/detectors/ (user-registered)
         for file in sorted(self.detectors_dir.glob("*.py")):
             if file.name == "__init__.py":
                 continue
@@ -103,19 +105,60 @@ class CustomDetectorRegistry:
                 detector_class = DetectorSandbox.load_detector_from_source(
                     source, f"custom_detector_{file.stem}"
                 )
-                name = getattr(detector_class, "NAME", file.stem)
-                self.detectors[name] = detector_class
-                self.metadata[name] = {
-                    "name": name,
-                    "description": getattr(detector_class, "DESCRIPTION", ""),
-                    "impact": str(getattr(detector_class, "IMPACT", DetectorClassification.MEDIUM)),
-                    "file": file.name,
-                    "loaded_at": datetime.now(timezone.utc).isoformat(),
-                }
+                name = getattr(detector_class, "ARGUMENT", file.stem)
+                self._register_class(name, detector_class, file.name)
                 count += 1
             except DetectorLoadError as e:
                 log.warning("detector.load.failed", file=file.name, error=str(e))
+
+        # Load built-in overpower detectors
+        count += self._load_builtin_overpower()
+
         return count
+
+    def _load_builtin_overpower(self) -> int:
+        """Load built-in overpower detectors from the detectors/ package."""
+        count = 0
+        builtin_dir = Path(__file__).parent.parent / "detectors"
+        if not builtin_dir.exists():
+            return count
+
+        for file in sorted(builtin_dir.glob("*.py")):
+            if file.name.startswith("__") or file.name == "detector_loader.py":
+                continue
+            try:
+                # Import the module directly
+                module_name = f"detectors.{file.stem}"
+                spec = importlib.util.spec_from_file_location(module_name, file)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    # Find detector class in module
+                    for attr_name in dir(module):
+                        obj = getattr(module, attr_name)
+                        if (inspect.isclass(obj) and
+                            issubclass(obj, AbstractDetector) and
+                                obj is not AbstractDetector):
+                            name = getattr(obj, "ARGUMENT", file.stem)
+                            self._register_class(name, obj, file.name)
+                            count += 1
+                            log.info("overpower.detector.loaded", name=name, file=file.name)
+            except Exception as e:
+                log.warning("overpower.detector.failed", file=file.name, error=str(e))
+
+        return count
+
+    def _register_class(self, name: str, detector_class: Type[AbstractDetector], source_file: str) -> None:
+        """Register a detector class in the registry."""
+        self.detectors[name] = detector_class
+        self.metadata[name] = {
+            "name": name,
+            "description": getattr(detector_class, "WIKI_DESCRIPTION", ""),
+            "impact": str(getattr(detector_class, "IMPACT", DetectorClassification.MEDIUM)),
+            "file": source_file,
+            "loaded_at": datetime.now(timezone.utc).isoformat(),
+            "overpower": source_file.startswith("detector_"),  # Mark as overpower
+        }
 
     def register_detector(self, name: str, source: str) -> dict:
         """Register a new detector via API."""

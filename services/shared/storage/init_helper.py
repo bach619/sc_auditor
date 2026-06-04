@@ -1,7 +1,7 @@
 """One-line SQLite store initialization for Vyper services.
 
 Usage in any service's app.py startup:
-    from services.shared.storage import init_sqlite_store
+    from shared.storage import init_sqlite_store
     store = init_sqlite_store("/data/my_service")
 
 Returns a SimpleSQLiteStore if STORAGE_ENGINE is sqlite or dual, else None.

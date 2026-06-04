@@ -44,7 +44,7 @@ app.add_middleware(
 )
 
 log = setup_observability(app, SERVICE_NAME, SERVICE_VERSION)
-from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/code4rena")
+from shared.storage import init_sqlite_store; init_sqlite_store("/data/code4rena")
 
 
 # ── Helper ─────────────────────────────────────────────────

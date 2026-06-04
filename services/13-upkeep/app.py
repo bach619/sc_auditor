@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         METRICS_DIR.mkdir(parents=True, exist_ok=True)
     except PermissionError:
         log.warning("data_dir.permission_denied", path=str(DATA_DIR))
-    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/upkeep")
+    from shared.storage import init_sqlite_store; init_sqlite_store("/data/upkeep")
 
     log.info(
         "upkeep.startup",

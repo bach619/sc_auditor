@@ -52,7 +52,7 @@ app.add_middleware(
 )
 
 log = setup_observability(app, "20-cantina", "0.1.0")
-from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/cantina")
+from shared.storage import init_sqlite_store; init_sqlite_store("/data/cantina")
 
 
 # ── Helper ─────────────────────────────────────────────────
