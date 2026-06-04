@@ -2,6 +2,7 @@
 
 ## 2026-06-04
 
+### `2026-06-04 23:20 | [FIX] | File: services/14-agent/app.py,services/15-dashboard/src/proxy.py,services/15-dashboard/app.py,services/01-config/src/schema.py,services/07-classifier/src/schema.py,services/11-orchestrator/src/schema.py | Agent: lore-master | [fix-ai-provider] Fix AI provider config stuck: (1) Add POST /agent/reload-providers endpoint untuk reload API keys dari Config Service tanpa restart agent, (2) Dashboard proxy reload_agent_providers(), (3) PUT /api/config/bulk auto-trigger agent reload setelah save, (4) Move schema.py root→src/ untuk 01-config 07-classifier 11-orchestrator (fix ImportError saat rebuild). Dashboard port 8000 (bukan 8009).`
 ### `2026-06-04 06:53 | [DOCS] | File: daily_agenda/README.md | Agent: lore-master | [batch-close] Update Phase sections: Foundation & Core Intelligence → ALL CLOSED. Added Phase 4 Ongoing & Phase 5 Data Foundation & Phase 6 Strategic Blueprint. Last Updated 2026-06-04.`
 ### `2026-06-04 06:49 | [META] | File: daily_agenda/*.md | Agent: lore-master | [batch-close] Rename 6 agenda files (open)→(closed) + update all headers to ✅ CLOSED. Agendas: 03, 06, 18, 19, 20, 21 + 08 re-closed.`
 ### `2026-06-04 06:49 | [META] | File: daily_agenda/README.md | Agent: lore-master | [batch-close] Mass close 8 agendas: #03 #06 #08 #18 #19 #20 #21 (all verified complete). README updated 14→23 CLOSED.`
