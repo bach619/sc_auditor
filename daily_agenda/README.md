@@ -15,9 +15,9 @@
 | 03 | Zero-Day Vulnerability Smart Contract | 🔴 OPEN | CRITICAL | 02 | `03_zero_day_vulnerability_smart_contract.md` |
 | 04 | Submission Assistant Service | ✅ CLOSED | HIGH | 03 | `04_submission_assistant_service (closed).md` |
 | 05 | Each Bug Is Cases (Case Management) | ✅ CLOSED | CRITICAL | 04 | `05_each_bug_is_cases (closed).md` |
-| 06 | Confidence atas Temuan | 🔴 OPEN | HIGH | 05 | `06_confidence_atas_temuan.md` |
+| 06 | Confidence atas Temuan | 🔴 OPEN | HIGH | 05 | `06_confidence_atas_temuan_(open).md` |
 | 07 | CI/CD Pipeline & Infrastructure Hardening | ✅ CLOSED | CRITICAL | — | `07_ci_cd_infrastructure_hardening_(closed).md` |
-| 08 | Comprehensive Test Suite (E2E + Integration) | 🔴 OPEN | CRITICAL | 07 | `08_comprehensive_test_suite.md` |
+| 08 | Comprehensive Test Suite (E2E + Integration) | 🔴 OPEN | CRITICAL | 07 | `08_comprehensive_test_suite_(open).md` |
 | 09 | Security Hardening (No Auth) | ✅ CLOSED | HIGH | 07, 08 | `09_security_hardening_(closed).md` |
 | 10 | Observability, Monitoring & Agent Memory | ✅ CLOSED | CRITICAL | 09 | `10_observability_monitoring_memory_(closed).md` |
 | **11** | **Halmos Formal Verification (Pipeline Integration)** | **✅ CLOSED** | **CRITICAL** | **07, 10** | `11_halmos_formal_verification_(critical)(closed).md` |
@@ -35,10 +35,10 @@
 | 23 | Add Unit Tests for vyper_lib | 🔴 OPEN | MID | — | `23_add_unit_tests_for_vyper_lib_(mid)(open).md` |
 | 24 | Add Technical Documentation | 🔴 OPEN | LOW | — | `24_add_technical_documentation_(low)(open).md` |
 | 25 | Clean Up Dead Code and Legacy Files | 🔴 OPEN | LOW | — | `25_clean_up_dead_code_and_legacy_files_(low)(open).md` |
-| **26** | **Vyper OP Platform Roadmap (Blueprint)** | **🔵 BRAINSTORM** | **CRITICAL** | **01–25, 12** | `26_vyper_op_platform_roadmap/README.md` |
-| **27** | **SQLite Data Storage (JSON → SQLite Migration)** | **✅ CLOSED** | **HIGH** | **—** | `sqlite-data_storage/README.md` |
-| **28** | **Scanner Overpower: Cangkul → Excavator** | **✅ CLOSED** | **CRITICAL** | **27** | `scanner-overpower/README.md` |
-| **29** | **Quality Improvement: B- → A- Roadmap** | **🔴 OPEN** | **CRITICAL** | **27, 28** | `quality-improvement/README.md` |
+| **26** | **Vyper OP Platform Roadmap (Blueprint)** | **🔵 BRAINSTORM** | **CRITICAL** | **01–25, 12** | `26_vyper_op_platform_roadmap/` |
+| **27** | **SQLite Data Storage (JSON → SQLite Migration)** | **✅ CLOSED** | **HIGH** | **—** | `sqlite-data_storage (closed)/` |
+| **28** | **Scanner Overpower: Cangkul → Excavator** | **✅ CLOSED** | **CRITICAL** | **27** | `scanner-overpower (closed)/` |
+| **29** | **Quality Improvement: B- → A- Roadmap** | **🔴 OPEN** | **CRITICAL** | **27, 28** | `quality-improvement (open)/` |
 
 ---
  
