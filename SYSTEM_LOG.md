@@ -2,7 +2,9 @@
 
 ## 2026-06-04
 
-### `2026-06-04 00:00 | [FIX] | File: 26 files (*/src/*, */app.py) | Agent: lore-master | Import path fix: services.shared.storage → shared.storage. Rebuilt all. 17/28 Up.`
+### `2026-06-04 00:00 | [DOCS] | File: quality_reports/* | Agent: lore-master | Quality reports directory: README.md (live dashboard with score history, target tracker 28 items, dimension legend, assessment cadence), 2026-06-04_baseline.md (full 12-dimension assessment — 71/100 B-), TEMPLATE.md (monthly assessment template). Root-level directory for tracking app quality over time.`
+
+### `2026-06-04 00:00 | [DOCS] | File: daily_agenda/quality-improvement/* | Agent: lore-master | [agenda-29] Create Agenda 29 — Quality Improvement Roadmap (B- → A-). 4 docs: README.md (overview, 3-month roadmap), doc_prioritas-1.md (Bulan 1: fix 11 crashed services, 50+ unit tests with code templates, CI coverage gate 25%), doc_prioritas-2.md (Bulan 2: split 5 giant files, security hardening with rate limiting + service auth + Docker security + audit trail, observability upgrade), doc_prioritas-3.md (Bulan 3: pipeline parallelization 6x, scan cache 10x, HTTPX pooling, dashboard lazy loading, DB indexes, 200+ tests, CHANGELOG). Target: 71→88/100.`
 
 ### `2026-06-04 00:00 | [AGENDA] | File: daily_agenda/* | Agent: lore-master | Agenda 27 + 28 CLOSED. 16 CLOSED total.`
 

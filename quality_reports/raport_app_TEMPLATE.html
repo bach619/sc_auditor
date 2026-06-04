@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VYPER — Raport Kualitas | TEMPLATE</title>
+<style>
+:root{--bg:#fff;--bg2:#f8f9fa;--bg3:#e9ecef;--text:#1a1a2e;--text2:#495057;--text3:#868e96;--accent:#6c5ce7;--accent-bg:#f3f0ff;--green:#00b894;--red:#e17055;--yellow:#fdcb6e;--blue:#0984e3;--border:#dee2e6;--radius:8px;--mono:'SF Mono','Fira Code',monospace;--sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+[data-theme="dark"]{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--text:#e6edf3;--text2:#8b949e;--text3:#6e7681;--accent:#7c6ff7;--accent-bg:#1c1638;--border:#30363d}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7;max-width:900px;margin:0 auto;padding:2em}
+a{color:var(--accent)}h1{font-size:1.8em;font-weight:800;margin:.3em 0}h2{font-size:1.3em;font-weight:700;margin:2em 0 .6em;padding-bottom:.3em;border-bottom:1px solid var(--border)}h3{font-size:1.1em;font-weight:600;margin:1.5em 0 .4em}
+table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.88em}th,td{border:1px solid var(--border);padding:.5em .7em;text-align:left}th{background:var(--bg2);font-weight:600}tr:hover{background:var(--bg2)}
+.score-hero{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.5em;text-align:center;margin:1em 0}.score-big{font-size:4em;font-weight:900;line-height:1}
+.footer{text-align:center;padding:2em 0 0;color:var(--text3);font-size:.8em;border-top:1px solid var(--border);margin-top:3em}
+.bar{background:var(--bg3);border-radius:3px;height:8px;margin:.3em 0;overflow:hidden}.bar-fill{height:100%;border-radius:3px}
+.theme-btn{position:fixed;top:1em;right:1em;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:.4em .8em;border-radius:var(--radius);cursor:pointer;font-size:.85em}
+@media print{.theme-btn{display:none}body{font-size:11pt}}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()" id="theme-btn">🌙 Dark</button>
+
+<a href="raport_app_2026-06-04.html">← Kembali ke Dashboard</a>
+
+<h1>📊 Raport Kualitas — YYYY-MM-DD (vX.Y.Z)</h1>
+<p style="color:var(--text2)">VYPER (sc_auditor) &bull; vX.Y.Z &bull; [assessor] &bull; Sebelumnya: XX/100 (Grade X)</p>
+
+<div class="score-hero">
+  <div class="score-big">XX<span style="font-size:.5em">/100</span></div>
+  <div style="font-size:1.2em;font-weight:700;color:var(--blue)">Grade X</div>
+  <div class="bar"><div class="bar-fill" style="width:XX%;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green))"></div></div>
+  <div style="font-size:.85em;color:var(--text3);margin-top:.5em">Δ +X.X dari sebelumnya</div>
+</div>
+
+<h2>Skor per Dimensi</h2>
+<table>
+<tr><th>Dimensi</th><th>Mentah (0-10)</th><th>Bobot</th><th>Terbobot</th><th>Δ</th></tr>
+<tr><td>1. Code Quality</td><td>X.X</td><td>18%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr><td>2. Security</td><td>X.X</td><td>18%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr><td>3. Performance</td><td>X.X</td><td>10%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr><td>4. Architecture</td><td>X.X</td><td>15%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr><td>5. Testing</td><td>X.X</td><td>12%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr><td>6. Error Handling</td><td>X.X</td><td>8%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr><td>7. Documentation</td><td>X.X</td><td>7%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr><td>8. Observability</td><td>X.X</td><td>5%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr><td>9. Deployment</td><td>X.X</td><td>7%</td><td>X.XX</td><td>±X.X</td></tr>
+<tr style="font-weight:700;background:var(--bg2)"><td>TOTAL</td><td></td><td>100%</td><td><strong>XX.XX</strong></td><td><strong>±X.XX</strong></td></tr>
+</table>
+
+<h2>Perubahan Sejak Assessment Sebelumnya</h2>
+<h3>✅ Selesai</h3><ul><li>[item]</li></ul>
+<h3>🟡 Dalam Progres</h3><ul><li>[item]</li></ul>
+<h3>❌ Belum Mulai</h3><ul><li>[item]</li></ul>
+
+<h2>Detail per Dimensi</h2>
+<h3>D1: Code Quality — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+<h3>D2: Security — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+<h3>D3: Performance — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+<h3>D4: Architecture — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+<h3>D5: Testing — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+<h3>D6: Error Handling — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+<h3>D7: Documentation — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+<h3>D8: Observability — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+<h3>D9: Deployment — X.X</h3>
+<table><tr><th>✅ Kekuatan</th><th>❌ Kelemahan</th></tr><tr><td>[strength]</td><td>[issue]</td></tr></table>
+
+<h2>Statistik Proyek</h2>
+<table>
+<tr><th>Metrik</th><th>Sekarang</th><th>Sebelumnya</th><th>Δ</th></tr>
+<tr><td>File Python</td><td></td><td></td><td></td></tr>
+<tr><td>Baris kode</td><td></td><td></td><td></td></tr>
+<tr><td>Test fungsi</td><td></td><td></td><td></td></tr>
+<tr><td>Test coverage %</td><td></td><td></td><td></td></tr>
+<tr><td>File > 500 baris</td><td></td><td></td><td></td></tr>
+<tr><td>Service Up (/28)</td><td></td><td></td><td></td></tr>
+</table>
+
+<h2>Verdict</h2>
+<blockquote>[2-3 kalimat ringkasan assessment ini]</blockquote>
+
+<div class="footer">
+  VYPER Quality Assessment Framework &bull; <a href="raport_app_2026-06-04.html">Dashboard</a>
+</div>
+<script>
+function toggleTheme(){var h=document.documentElement,b=document.getElementById('theme-btn');h.getAttribute('data-theme')==='dark'?(h.removeAttribute('data-theme'),b.textContent='🌙 Dark'):(h.setAttribute('data-theme','dark'),b.textContent='☀️ Light')}
+if(window.matchMedia('(prefers-color-scheme:dark)').matches){document.documentElement.setAttribute('data-theme','dark');document.getElementById('theme-btn').textContent='☀️ Light'}
+</script>
+</body>
+</html>
