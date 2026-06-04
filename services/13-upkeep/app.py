@@ -9,6 +9,7 @@ Port: 8012
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import time
 import uuid
@@ -103,6 +104,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         METRICS_DIR.mkdir(parents=True, exist_ok=True)
     except PermissionError:
         log.warning("data_dir.permission_denied", path=str(DATA_DIR))
+    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/upkeep")
 
     log.info(
         "upkeep.startup",

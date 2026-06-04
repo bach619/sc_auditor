@@ -72,6 +72,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.vyper = state
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/submission")
 
     log.info(
         "submission.startup",

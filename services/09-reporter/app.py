@@ -15,6 +15,7 @@ Port: 8007
 from __future__ import annotations
 
 import json
+import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -107,6 +108,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     except PermissionError:
         log.warning("data_dir.permission_denied", path=str(DATA_DIR))
+    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/reporter")
 
     # Init Reporter Agent
     state.reporter_agent = ReporterAgent()

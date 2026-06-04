@@ -105,6 +105,7 @@ health_monitor: HealthMonitor = HealthMonitor(check_interval=30.0)
 async def startup() -> None:
     global _start_time
     _start_time = time.time()
+    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/dashboard")
     logger.info("Starting Dashboard Service")
     await proxy.start()
     await health_monitor.start()

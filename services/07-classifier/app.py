@@ -20,6 +20,7 @@ Learning data shared at ``/data/learning/`` (feedback, FN/FP records).
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
 import sys
 import uuid
@@ -38,6 +39,7 @@ from src.agent import ClassifierAgent
 from src.classify import Classifier
 from src.improver import PatternLearner
 from src.metrics import MetricsTracker
+from src.store_sqlite import ClassifierSQLiteStore
 from src.models import (
     ApiResponse,
     Classification,
@@ -77,6 +79,11 @@ class AppState:
             classifier=self.classifier,
             metrics=self.metrics_tracker,
         )
+        # SQLite store — initialized when STORAGE_ENGINE=sqlite|dual
+        self.sqlite_store: ClassifierSQLiteStore | None = None
+        self._storage_engine = os.environ.get("STORAGE_ENGINE", "json")
+        if self._storage_engine in ("sqlite", "dual"):
+            self.sqlite_store = ClassifierSQLiteStore()
         self._shutdown_requested: bool = False
 
     @property
@@ -116,6 +123,7 @@ async def lifespan(app: FastAPI) -> Any:
         "classifier_service_started",
         version="0.1.0",
         patterns=len(state.pattern_learner.get_patterns()),
+        storage_engine=state._storage_engine,
     )
 
     # Register signal handlers for graceful shutdown
@@ -182,12 +190,13 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health() -> HealthResponse:
-    """Health check endpoint.
-
-    Returns a simple status payload indicating the service is alive.
-    """
-    return HealthResponse()
+async def health(request: Request) -> HealthResponse:
+    """Health check — includes storage engine info and SQLite health (if active)."""
+    state: AppState = _get_state(request)
+    extra = {"storage_engine": state._storage_engine}
+    if state.sqlite_store:
+        extra["sqlite_health"] = state.sqlite_store.health()
+    return HealthResponse(**extra) if hasattr(HealthResponse, '__fields__') and extra else HealthResponse()
 
 
 @app.post("/classify", response_model=ApiResponse)

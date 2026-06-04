@@ -1,7 +1,7 @@
 # Daily Agenda — sc_auditor (Vyper)
 
 > **Project**: Smart Contract Bug Hunter — 20 microservices, Docker Compose, Python FastAPI
-> **Last Updated**: 2026-06-03
+> **Last Updated**: 2026-06-04
 
 ---
 
@@ -36,9 +36,10 @@
 | 24 | Add Technical Documentation | 🔴 OPEN | LOW | — | `24_add_technical_documentation_(low)(open).md` |
 | 25 | Clean Up Dead Code and Legacy Files | 🔴 OPEN | LOW | — | `25_clean_up_dead_code_and_legacy_files_(low)(open).md` |
 | **26** | **Vyper OP Platform Roadmap (Blueprint)** | **🔵 BRAINSTORM** | **CRITICAL** | **01–25, 12** | `26_vyper_op_platform_roadmap/README.md` |
+| **27** | **SQLite Data Storage (JSON → SQLite Migration)** | **🔴 OPEN** | **HIGH** | **—** | `sqlite-data_storage/README.md` |
 
 ---
-
+ 
 ## Legend
 
 | Status | Arti |
@@ -74,6 +75,9 @@ Phase 3: Platform & Ecosystem
 
 Phase 4: OP Dominator (Strategic Blueprint) 🔵
   └── Agenda 26 — Vyper OP Platform Roadmap (CRITICAL)  ← Blueprint, jadi sub-agenda
+
+Phase 5: Data Foundation
+  └── Agenda 27 — SQLite Data Storage (HIGH)            ← Storage migration
 ```
 
 ---
@@ -85,4 +89,4 @@ Phase 4: OP Dominator (Strategic Blueprint) 🔵
 
 ---
 
-*Dibuat: 2026-05-20 | 26 Agenda Total (14 CLOSED, 11 OPEN, 1 BRAINSTORM)*
+*Dibuat: 2026-05-20 | 27 Agenda Total (14 CLOSED, 12 OPEN, 1 BRAINSTORM)*

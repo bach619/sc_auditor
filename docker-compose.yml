@@ -27,6 +27,8 @@ services:
       dockerfile: services/01-config/Dockerfile
     ports: ["8011:8000"]
     volumes: [vyper_config:/data/config]
+    environment:
+      - STORAGE_ENGINE=dual
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -41,10 +43,11 @@ services:
     ports: ["8001:8000"]
     volumes: [vyper_immunefi:/data/immunefi]
     depends_on: [01-config]
-    environment:
-      - CONFIG_URL=http://01-config:8000
+   environment:
+     - CONFIG_URL=http://01-config:8000
+     - STORAGE_ENGINE=dual
 
-  03-source:
+ 03-source:
     <<: *service-base
     build:
       context: .
@@ -54,6 +57,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   04-scanner:
     <<: *service-base
@@ -73,6 +77,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - MYTHRIL_URL=http://05-scanner-mythril:8013
+      - STORAGE_ENGINE=dual
 
   # ── Scanner Services (split from 04-scanner) ──────────────────
   # Each scanner runs as an independent microservice for fault isolation,
@@ -95,6 +100,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   04b-scanner-echidna:
     <<: *service-base
@@ -114,6 +120,7 @@ services:
           memory: "256M"
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   04c-scanner-forge:
     <<: *service-base
@@ -125,6 +132,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   04d-scanner-halmos:
     <<: *service-base
@@ -144,6 +152,7 @@ services:
           memory: "512M"
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   04e-scanner-manticore:
     <<: *service-base
@@ -164,6 +173,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - SLITHER_URL=http://04a-scanner-slither:8014
+      - STORAGE_ENGINE=dual
 
   05-scanner-mythril:
     <<: *service-base
@@ -175,6 +185,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   06-ai:
     <<: *service-base
@@ -187,6 +198,7 @@ services:
     environment:
       # API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY) diset via frontend Settings → Config Service
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   07-classifier:
     <<: *service-base
@@ -194,15 +206,20 @@ services:
       context: .
       dockerfile: services/07-classifier/Dockerfile
     ports: ["8005:8000"]
-    volumes:
-      - vyper_classifier:/data/classifier
-      - vyper_learning:/data/learning
-      - vyper_kb:/data/knowledge
+     volumes:
+       - vyper_classifier:/data/classifier
+       - vyper_learning:/data/learning        # DEPRECATED — will be local SQLite
+       - vyper_kb:/data/knowledge             # DEPRECATED — will be local SQLite
     depends_on: [01-config]
-    environment:
-      - CONFIG_URL=http://01-config:8000
+   environment:
+     - CONFIG_URL=http://01-config:8000
+     - STORAGE_ENGINE=dual
+   # DEPRECATED shared volumes — will be removed after SQLite migration verified
+   # volumes:
+   #   - vyper_learning:/data/learning  # Replaced by local SQLite + sync protocol
+   #   - vyper_kb:/data/knowledge       # Replaced by local SQLite + sync protocol
 
-  08-exploit:
+ 08-exploit:
     <<: *service-base
     build:
       context: .
@@ -227,6 +244,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - AI_SERVICE_URL=http://06-ai:8000
+      - STORAGE_ENGINE=dual
     privileged: false
     # Run exploit container as root so it can access the mounted Docker
     # socket at /var/run/docker.sock (needed by docker-py to create Anvil
@@ -245,6 +263,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   10-notifier:
     <<: *service-base
@@ -256,6 +275,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   11-orchestrator:
     <<: *service-base
@@ -284,6 +304,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - AI_URL=http://06-ai:8000
+      - STORAGE_ENGINE=dual
       - DASHBOARD_URL=http://15-dashboard:8000
       - SCANNER_URL=http://04-scanner:8000
       - CLASSIFIER_URL=http://07-classifier:8000
@@ -303,6 +324,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   13-upkeep:
     <<: *service-base
@@ -314,6 +336,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   14-agent:
     <<: *service-base
@@ -342,6 +365,7 @@ services:
       - REPORTER_URL=http://09-reporter:8007
       - NOTIFIER_URL=http://10-notifier:8000
       - ORCHESTRATOR_URL=http://11-orchestrator:8000
+      - STORAGE_ENGINE=dual
 
   15-dashboard:
     <<: *service-base
@@ -370,6 +394,7 @@ services:
       - UPKEEP_URL=http://13-upkeep:8000
       - SUBMISSION_URL=http://16-submission:8000
       - AGENT_URL=http://14-agent:8000
+      - STORAGE_ENGINE=dual
 
   16-submission:
     <<: *service-base
@@ -386,6 +411,7 @@ services:
       - AI_URL=http://06-ai:8000
       - EXPLOIT_URL=http://08-exploit:8006
       - ORCHESTRATOR_URL=http://11-orchestrator:8000
+      - STORAGE_ENGINE=dual
 
   17-experience:
     <<: *service-base
@@ -426,6 +452,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   19-sherlock:
     <<: *service-base
@@ -442,6 +469,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   20-cantina:
     <<: *service-base
@@ -458,6 +486,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   21-hats:
     <<: *service-base
@@ -474,6 +503,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   # ═══════════════════════════════════════════════════════════════
   # Multi-Chain Source Fetchers (22)
@@ -495,6 +525,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
   # ═══════════════════════════════════════════════════════════════
   # Multi-Chain Scanners (23)
@@ -517,6 +548,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - SOURCE_STARKNET_URL=http://22-source-starknet:8000
+      - STORAGE_ENGINE=dual
 
 volumes:
   vyper_agent:

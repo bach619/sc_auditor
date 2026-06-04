@@ -113,6 +113,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-forge")
 
     # Init Agent
     state.agent = ForgeAgent(runner=state.forge_runner)

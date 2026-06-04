@@ -265,6 +265,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     SOURCES_DIR.mkdir(parents=True, exist_ok=True)
     FP_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    from services.shared.storage import init_sqlite_store; init_sqlite_store("/data/scanner-slither")
 
     # Load custom detectors on startup
     DETECTORS_DIR = DATA_DIR / "detectors"
