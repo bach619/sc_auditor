@@ -43,11 +43,11 @@ services:
     ports: ["8001:8000"]
     volumes: [vyper_immunefi:/data/immunefi]
     depends_on: [01-config]
-   environment:
-     - CONFIG_URL=http://01-config:8000
-     - STORAGE_ENGINE=dual
+    environment:
+      - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
- 03-source:
+  03-source:
     <<: *service-base
     build:
       context: .
@@ -206,20 +206,16 @@ services:
       context: .
       dockerfile: services/07-classifier/Dockerfile
     ports: ["8005:8000"]
-     volumes:
-       - vyper_classifier:/data/classifier
-       - vyper_learning:/data/learning        # DEPRECATED — will be local SQLite
-       - vyper_kb:/data/knowledge             # DEPRECATED — will be local SQLite
+    volumes:
+      - vyper_classifier:/data/classifier
+      - vyper_learning:/data/learning        # DEPRECATED — will be local SQLite
+      - vyper_kb:/data/knowledge             # DEPRECATED — will be local SQLite
     depends_on: [01-config]
-   environment:
-     - CONFIG_URL=http://01-config:8000
-     - STORAGE_ENGINE=dual
-   # DEPRECATED shared volumes — will be removed after SQLite migration verified
-   # volumes:
-   #   - vyper_learning:/data/learning  # Replaced by local SQLite + sync protocol
-   #   - vyper_kb:/data/knowledge       # Replaced by local SQLite + sync protocol
+    environment:
+      - CONFIG_URL=http://01-config:8000
+      - STORAGE_ENGINE=dual
 
- 08-exploit:
+  08-exploit:
     <<: *service-base
     build:
       context: .
