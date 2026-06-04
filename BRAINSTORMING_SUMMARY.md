@@ -1,7 +1,13 @@
 # SC Auditor Platform — Brainstorming Summary
 
-> **Status**: Brainstorming (Belum Eksekusi)
-> **Tanggal**: 17 Mei 2026
+> ⚠️ **SUPERSEDED — June 4, 2026**
+> 
+> This document is a historical brainstorming artifact. The architecture described here evolved significantly.  
+> See **[ARCHITECTURE.md](./ARCHITECTURE.md)** for the canonical 28-service architecture.  
+> Full historical copy archived at **[docs/historical/BRAINSTORMING_v1.md](./docs/historical/BRAINSTORMING_v1.md)**.
+> 
+> **Original status**: Brainstorming (Belum Eksekusi)
+> **Original date**: 17 Mei 2026
 > **Sumber**: Hermes Agent (Python) + Immunefi + Opencode
 > **Lokasi**: `E:\website\project\sc_auditor\learning\`
 

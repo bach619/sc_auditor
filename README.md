@@ -16,7 +16,7 @@
 - [Apa Itu VYPER?](#apa-itu-vyper)
 - [Arsitektur](#arsitektur)
 - [Pipeline Audit](#pipeline-audit)
-- [19 Microservices](#19-microservices)
+- [28 Microservices](#28-microservices)
 - [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
 - [Dashboard](#dashboard)
@@ -40,7 +40,7 @@
 ┌──────────────────────────────────────────────────────────────┐
 │                        VYPER                                  │
 │                                                              │
-│  19 microservices, 1 laptop.                                 │
+│  28 microservices, 1 laptop.                                 │
 │                                                              │
 │  docker compose up                                          │
 │    ↓                                                         │
@@ -65,36 +65,39 @@
 ## Arsitektur
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│  USER                                                             │
-│   │                                                              │
-│   ▼                                                              │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  15-DASHBOARD (port 8000)  React SPA + API Gateway       │   │
-│  │  Proxy ke semua service backend via ServiceProxy         │   │
-│  └────────┬─────────────────────────────────────────────────┘   │
-│           │                                                    │
-│           ▼                                                    │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  11-ORCHESTRATOR (port 8009)  Jantung Pipeline            │   │
-│  │  - Priority queue & daemon mode                           │   │
-│  │  - State machine 10 stage                                  │   │
-│  │  - Contract similarity & retroactive re-run               │   │
-│  │  - Resource governor (tool concurrency)                   │   │
-│  └──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬───────────────────┘   │
-│     │  │  │  │  │  │  │  │  │  │  │  │  │                      │
-│     ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼                      │
-│  ┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐ │
-│  │ CFG││ IM ││ SRC││SCN ││ SLS││ECH ││ FRG││HAL ││MTH ││ AI │ │
-│  │8011││8001││8002││8003││8014││8015││8016││8017││8013││8004│ │
-│  └────┘└────┘└────┘└────┘└────┘└────┘└────┘└────┘└────┘└────┘ │
-│     │    │    │    │                                            │
-│     ▼    ▼    ▼    ▼                                            │
-│  ┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐             │
-│  │CLS ││EXP ││RPT ││NTF ││WHK ││UPK ││AGNT││DSH │             │
-│  │8005││8006││8007││8008││8010││8012││8018││8000│             │
-│  └────┘└────┘└────┘└────┘└────┘└────┘└────┘└────┘             │
-└──────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│  USER                                                                     │
+│   │                                                                      │
+│   ▼                                                                      │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │  15-DASHBOARD (port 8000)  React SPA + API Gateway               │   │
+│  │  Proxy ke semua 28 service backend via ServiceProxy               │   │
+│  └────────┬─────────────────────────────────────────────────────────┘   │
+│           │                                                             │
+│           ▼                                                             │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │  11-ORCHESTRATOR (port 8009)  Jantung Pipeline                    │   │
+│  │  - Priority queue & daemon mode                                    │   │
+│  │  - State machine 10 stage                                          │   │
+│  │  - Resource governor (tool concurrency)                           │   │
+│  └──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──────────────────┘   │
+│     │  │  │  │  │  │  │  │  │  │  │  │  │  │  │  │                     │
+│     ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼  ▼                     │
+│  ┌─────── SCANNERS (7) ─────────────────────────────────────────────┐   │
+│  │ CFG│ IM │ SRC│SCN │SLS│ECH│FRG│HAL│MAN│MTH│ AI │CLS│EXP│RPT│NTF │   │
+│  │8011│8001│8002│8003│8014│8015│8016│8017│8020│8013│8004│8005│8006│8007│8008│  │
+│  └────┘└────┘└────┘└────┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘  │
+│     │    │    │    │                                                     │
+│     ▼    ▼    ▼    ▼                                                     │
+│  ┌────┐┌────┐┌────┐┌────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐│
+│  │WHK ││UPK ││SUB ││EXP.││AGNT  ││ C4R  ││ SHL  ││ CNT  ││ HAT  ││STRK ││
+│  │8010││8012││8018││8019││ 8021 ││ 8022 ││ 8023 ││ 8024 ││ 8025 ││ 8026 ││
+│  └────┘└────┘└────┘└────┘└──────┘└──────┘└──────┘└──────┘└──────┘└──────┘│
+│                                                        ┌──────┐           │
+│                                                        │CAIRO │           │
+│                                                        │ 8028 │           │
+│                                                        └──────┘           │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Service Map
@@ -109,6 +112,7 @@
 | 04b | **Scanner Echidna** | 8015 | Fuzzing & property-based testing |
 | 04c | **Scanner Forge** | 8016 | Build verification (Foundry) |
 | 04d | **Scanner Halmos** | 8017 | Symbolic execution & formal verification |
+| 04e | **Scanner Manticore** | 8020 | Symbolic execution (HIGH/CRITICAL focus) |
 | 05 | **Scanner Mythril** | 8013 | Symbolic execution (deep path exploration) |
 | 06 | **AI** | 8004 | LLM analysis (OpenAI/Anthropic), verdict, fix suggestion |
 | 07 | **Classifier** | 8005 | TP/FP/TN/FN classification + metrics |
@@ -118,8 +122,16 @@
 | 11 | **Orchestrator** | 8009 | Pipeline coordinator + state machine |
 | 12 | **Webhook** | 8010 | Webhook delivery + signing |
 | 13 | **Upkeep** | 8012 | Backup, update, metrics agregat |
-| 14 | **Agent** | 8018 | Autonomous agent orchestration |
+| 14 | **Agent (ANTONIO)** | 8021 | AI agent controller — ReAct loop, memory, learning |
 | 15 | **Dashboard** | 8000 | React SPA + API Gateway + SSE events |
+| 16 | **Submission** | 8018 | Bug bounty submission agent + tracker |
+| 17 | **Experience** | 8019 | Cross-agent learning system (SQLite) |
+| 18 | **Code4rena** | 8022 | Code4rena contest integration (GraphQL) |
+| 19 | **Sherlock** | 8023 | Sherlock contest integration (REST) |
+| 20 | **Cantina** | 8024 | Cantina contest integration (REST) |
+| 21 | **Hats** | 8025 | Hats Finance vault integration (REST) |
+| 22 | **Source Starknet** | 8026 | StarkNet/Cairo source fetcher |
+| 23 | **Scanner Cairo** | 8028 | Cairo/StarkNet pattern-based scanner |
 
 ---
 
@@ -144,9 +156,10 @@ Setiap audit melalui **8 stage** yang dijalankan secara sekuensial oleh Orchestr
                                 │ success
                                 ▼
                      ┌─────────────────────┐
-                     │  SCANNING      │ ← 04-Scanner + 04a/b/c/d + 05
+                     │  SCANNING      │ ← 04-Scanner + 04a/b/c/d/e + 05
                      │  Slither + Mythril  │
                      │  + Echidna + Halmos │
+                     │  + Manticore        │
                      └──────┬──────────────┘
                             │ success
                             ▼
@@ -241,7 +254,7 @@ cp .env.example .env
 ### Jalankan Semua Service
 
 ```bash
-# Build & start 19 service
+# Build & start 28 service
 docker compose up --build -d
 
 # Cek health semua service
@@ -343,7 +356,7 @@ Dashboard adalah **React SPA** yang berjalan di port 8000, menggantikan Jinja2 t
 | **Scanner Split** | ✅ 04 → 04a (Slither) + 04b (Echidna) + 04c (Forge) + 05 (Mythril) + 04d (Halmos) |
 | **Mythril Sidecar** | ✅ Modular isolation via container |
 | **Dashboard React SPA** | ✅ Migrasi dari Jinja2 → React + Vite + Tailwind |
-| **15 Services** | ✅ Semua service running, healthcheck OK |
+| **28 Services** | ✅ Semua service running, healthcheck OK |
 
 ### 🔄 Dalam Progress
 
@@ -384,6 +397,7 @@ sc_auditor/
 │   ├── 04b-scanner-echidna/     # Echidna
 │   ├── 04c-scanner-forge/       # Foundry Forge
 │   ├── 04d-scanner-halmos/      # Halmos
+│   ├── 04e-scanner-manticore/   # Manticore (symbolic)
 │   ├── 05-scanner-mythril/      # Mythril
 │   ├── 06-ai/                   # LLM analysis
 │   ├── 07-classifier/           # TP/FP classifier
@@ -393,18 +407,27 @@ sc_auditor/
 │   ├── 11-orchestrator/         # Pipeline coordinator
 │   ├── 12-webhook/              # Webhook dispatcher
 │   ├── 13-upkeep/               # Backup & metrics
-│   ├── 14-agent/                # Autonomous agent
-│   └── 15-dashboard/            # React SPA + API Gateway
+│   ├── 14-agent/                # ANTONIO — AI controller
+│   ├── 15-dashboard/            # React SPA + API Gateway
+│   ├── 16-submission/           # Bounty submission agent
+│   ├── 17-experience/           # Cross-agent learning
+│   ├── 18-code4rena/            # Code4rena integration
+│   ├── 19-sherlock/             # Sherlock integration
+│   ├── 20-cantina/              # Cantina integration
+│   ├── 21-hats/                 # Hats Finance integration
+│   ├── 22-source-starknet/      # StarkNet source fetcher
+│   └── 23-scanner-cairo/        # Cairo scanner
 │
 ├── tests/                       # Integration tests
 ├── scripts/                     # Utility scripts
 │
-├── VYPER.md                     # Arsitektur lengkap
+├── VYPER.md                     # Arsitektur + filosofi + design decisions
 ├── VYPER_ROADMAP.md             # Roadmap & prioritas
-├── ARCHITECTURE.md              # Detailed architecture (protobuf)
+├── ARCHITECTURE.md              # Arsitektur canonical (28 service, REST)
 ├── DASHBOARD.md                 # Dashboard spec
 ├── SCANNER_SPLIT_PLAN.md        # Scanner split plan
-└── IMPLEMENTATION_PLAN.md       # Build plan
+├── IMPLEMENTATION_PLAN.md       # Build plan
+└── docs/historical/             # Dokumen arsitektur lama (archived)
 ```
 
 ---

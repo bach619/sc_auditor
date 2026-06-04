@@ -1,5 +1,11 @@
 # System Log — sc_auditor (Vyper)
 
+## 2026-06-04
+
+### `2026-06-04 00:00 | [DOCS] | File: docs.html | Agent: lore-master | [portable-docs] Create single-file portable documentation (docs.html): zero-dependency HTML with embedded CSS/JS, sidebar nav, dark mode, search, all 28 services catalog, architecture diagrams, pipeline, bug classification matrix, Antonio AI agent docs, API reference, FAQ. Open in any browser, works offline.`
+
+### `2026-06-04 00:00 | [DOCS] | File: ARCHITECTURE.md, README.md, VYPER.md, BRAINSTORMING_SUMMARY.md, docs/historical/* | Agent: lore-master | [architecture-docs] Major architecture documentation update: (1) Archive old ARCHITECTURE.md (proto/gRPC) → docs/historical/ARCHITECTURE_v1_proto.md, (2) Archive old BRAINSTORMING_SUMMARY.md → docs/historical/BRAINSTORMING_v1.md, (3) Rewrite ARCHITECTURE.md as canonical 28-service REST architecture document, (4) Update README.md: 19→28 services, fix 14-agent port 8018→8021, add 9 new services (04e,16-23), (5) Update VYPER.md: 20→28 services, add new services to stack table, (6) Add superseded banner to BRAINSTORMING_SUMMARY.md`
+
 ## 2026-06-03
 
 ### `2026-06-03 22:07 | [FIX] | File: vyper_lib/models/__init__.py | Agent: lore-master | [package-fix] Resolve models.py vs models/ package conflict: create __init__.py with all core models + delete models.py file that shadowed the package (7 services crashing)`
