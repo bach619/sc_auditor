@@ -2,6 +2,7 @@
 
 ## 2026-06-05
 
+### `2026-06-05 16:08 | [TEST] | File: .github/workflows/* | Agent: lore-master | Pipeline test & perbaikan: (1) ruff services 1.493→54 errors (96.4% fixed via --fix + --unsafe-fixes), (2) ruff tests 153→36 errors (76.5% fixed), (3) ESLint frontend 143→22 problems (84.6% fixed via --fix + unused imports removal + any→unknown), (4) vulnerable packages upgraded: python-multipart 0.0.9→>=0.0.27, starlette>=0.47.2, protobuf>=4.25.8, eth-abi>=5.0.1, (5) installed slither-analyzer for custom detector tests, (6) fixed test_api_format.py assertions (service name prefix + FastAPI 404 format), (7) fixed test_custom_detectors.py URL encoding bug. Pytest: 254 passed/41 failed/53 errors (baseline 257/46/45 — namespace collision antara 28 service yg semua pakai src/ package name adalah pre-existing issue). Docker-compose validation: 28 services OK.`
 ### `2026-06-05 07:21 | [TEST] | File: .github/workflows/ci.yml,.github/workflows/docker-build.yml,.github/workflows/security-scan.yml | Agent: lore-master | Pipeline test: CI workflow (6 jobs) executed locally. Results: ruff=1493 errors, pytest=257 passed/46 failed/45 errors, docker-compose=28 services OK, eslint=141 errors, tsc=PASS, pip-audit=12 CVEs found (04e-manticore: 3, 04-scanner: 8, 05-mythril: 1). Overall pipeline: 2/6 PASS, 4/6 FAIL.`
 
 ## 2026-06-04
