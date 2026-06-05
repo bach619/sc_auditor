@@ -2,6 +2,7 @@
 
 ## 2026-06-05
 
+### `2026-06-05 23:15 | [FIX] | File: tests/04b-scanner-echidna/*.py,tests/cases/*.py,tests/conftest.py | Agent: lore-master | FIXED namespace collision: echidna tests now use fixture-based imports (no module-level sys.path manipulation). Cases tests switched to direct attribute patching instead of del sys.modules. Result: pytest 262→292 passed (+30), errors 45→7 (-84%). Cases tests 43/43 passed. Root cause: all 28 services share src/ package name causing import shadowing during pytest collection.`
 ### `2026-06-05 18:40 | [CREATE] | File: services/01-config/app.py,services/02-immunefi/app.py,services/07-classifier/app.py,services/11-orchestrator/app.py + 24 services | Agent: lore-master | Agenda 22: Wire shared error handler (register_error_handlers) ke semua 28/28 service app.py. Standardized 404/422/500 error responses to Vyper envelope format.`
 ### `2026-06-05 18:40 | [MODIFY] | File: .gitignore,docs/archive/* | Agent: lore-master | Agenda 25: Clean up dead code — moved pipeline_checker.md + build_docker.md to docs/archive/. Added learning/ + transcript/ to .gitignore. Added docs/archive/ directory.`
 ### `2026-06-05 18:40 | [MODIFY] | File: tests/conftest.py,pytest.ini,tests/04b-scanner-echidna/conftest.py,tests/04b-scanner-echidna/*.py | Agent: lore-master | Namespace isolation: echidna tests use sys.path.pop(0) after imports + root conftest pytest_collection_finish clears src cache. Added pytest markers: requires_docker/unit/integration/e2e/benchmark. Fixed test_nlp.py missing create_nlp import.`
