@@ -1,5 +1,9 @@
 # System Log — sc_auditor (Vyper)
 
+## 2026-06-05
+
+### `2026-06-05 07:21 | [TEST] | File: .github/workflows/ci.yml,.github/workflows/docker-build.yml,.github/workflows/security-scan.yml | Agent: lore-master | Pipeline test: CI workflow (6 jobs) executed locally. Results: ruff=1493 errors, pytest=257 passed/46 failed/45 errors, docker-compose=28 services OK, eslint=141 errors, tsc=PASS, pip-audit=12 CVEs found (04e-manticore: 3, 04-scanner: 8, 05-mythril: 1). Overall pipeline: 2/6 PASS, 4/6 FAIL.`
+
 ## 2026-06-04
 
 ### `2026-06-04 23:20 | [FIX] | File: services/14-agent/app.py,services/15-dashboard/src/proxy.py,services/15-dashboard/app.py,services/01-config/src/schema.py,services/07-classifier/src/schema.py,services/11-orchestrator/src/schema.py | Agent: lore-master | [fix-ai-provider] Fix AI provider config stuck: (1) Add POST /agent/reload-providers endpoint untuk reload API keys dari Config Service tanpa restart agent, (2) Dashboard proxy reload_agent_providers(), (3) PUT /api/config/bulk auto-trigger agent reload setelah save, (4) Move schema.py root→src/ untuk 01-config 07-classifier 11-orchestrator (fix ImportError saat rebuild). Dashboard port 8000 (bukan 8009).`
