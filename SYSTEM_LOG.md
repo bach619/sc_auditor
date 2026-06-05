@@ -2,6 +2,7 @@
 
 ## 2026-06-05
 
+### `2026-06-05 18:40 | [CREATE] | File: services/01-config/app.py,services/02-immunefi/app.py,services/07-classifier/app.py,services/11-orchestrator/app.py + 24 services | Agent: lore-master | Agenda 22: Wire shared error handler (register_error_handlers) ke semua 28/28 service app.py. Standardized 404/422/500 error responses to Vyper envelope format.`
 ### `2026-06-05 18:40 | [MODIFY] | File: .gitignore,docs/archive/* | Agent: lore-master | Agenda 25: Clean up dead code — moved pipeline_checker.md + build_docker.md to docs/archive/. Added learning/ + transcript/ to .gitignore. Added docs/archive/ directory.`
 ### `2026-06-05 18:40 | [MODIFY] | File: tests/conftest.py,pytest.ini,tests/04b-scanner-echidna/conftest.py,tests/04b-scanner-echidna/*.py | Agent: lore-master | Namespace isolation: echidna tests use sys.path.pop(0) after imports + root conftest pytest_collection_finish clears src cache. Added pytest markers: requires_docker/unit/integration/e2e/benchmark. Fixed test_nlp.py missing create_nlp import.`
 ### `2026-06-05 18:40 | [MODIFY] | File: .github/workflows/ci.yml,.github/workflows/docker-build.yml,.github/workflows/security-scan.yml | Agent: lore-master | Agenda 13: CI/CD overhaul — (1) ci.yml: split unit/integration tests, ruff+eslint quality gates with thresholds, (2) docker-build.yml: expand to all 28 services, GHCR push with semver tags, (3) security-scan.yml: enforce 0-CVE gate, fail on vuln, trigger on requirements changes.`
