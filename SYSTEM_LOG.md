@@ -2,6 +2,7 @@
 
 ## 2026-06-07
 
+### `2026-06-07 18:40 | [MODIFY] | File: services/15-dashboard/frontend/src/pages/Antonio.tsx | Agent: lore-master | Fix Session History: extract sessions array from nested object {sessions, total}, normalize team_session_id->session_id, handle empty gracefully`
 ### `2026-06-07 17:49 | [MODIFY] | File: services/shared/experience/store.py | Agent: lore-master | Fix resilience: ExperienceStore fallback ke in-memory SQLite jika database readonly (read-only filesystem atau permission denied). Agent tetap start tanpa persistence.`
 ### `2026-06-07 17:49 | [MODIFY] | File: services/08-exploit/Dockerfile | Agent: lore-master | Fix: pre-create /data/exploit/knowledge dengan chown appuser supaya volume writable oleh non-root user (UID 1000)`
 ### `2026-06-08 00:15 | [FIX] | File: services/09-reporter/app.py | Agent: lore-master | Add missing GET /reports endpoint — scan REPORTS_DIR/{audit_id}/{immunefi,full}.md, return array with report_id/audit_id/format/status/created_at/download_url. Fixes 404 on dashboard Reports page.`
