@@ -2,6 +2,7 @@
 
 ## 2026-06-07
 
+### `2026-06-07 20:26 | [CREATE] | File: services/11-orchestrator/app.py | Agent: lore-master | Add POST /admin/cleanup-stuck endpoint — manual trigger for stuck audit cleanup with configurable max_stuck_hours parameter`
 ### `2026-06-07 20:26 | [MODIFY] | File: services/11-orchestrator/src/daemon.py | Agent: lore-master | Integrate stuck audit recovery at start of each daemon cycle — calls pipeline.resume_stuck_audits() before processing new queue items`
 ### `2026-06-07 20:26 | [CREATE] | File: services/11-orchestrator/src/pipeline.py | Agent: lore-master | Add resume_stuck_audits() method — detects zombie audits (non-terminal state, not in _running), auto-timeouts if stuck > threshold, resumes otherwise`
 ### `2026-06-07 20:26 | [CONFIG] | File: services/11-orchestrator/src/config.py | Agent: lore-master | Add stuck_audit_timeout_hours setting (default: 2h) for zombie audit detection`
