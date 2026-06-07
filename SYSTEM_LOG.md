@@ -2,6 +2,7 @@
 
 ## 2026-06-07
 
+### `2026-06-07 20:26 | [CREATE] | File: services/11-orchestrator/src/pipeline.py | Agent: lore-master | Add resume_stuck_audits() method — detects zombie audits (non-terminal state, not in _running), auto-timeouts if stuck > threshold, resumes otherwise`
 ### `2026-06-07 20:26 | [CONFIG] | File: services/11-orchestrator/src/config.py | Agent: lore-master | Add stuck_audit_timeout_hours setting (default: 2h) for zombie audit detection`
 ### `2026-06-07 18:40 | [MODIFY] | File: services/14-agent/src/lead_auditor.py | Agent: lore-master | Fix 3-part: (1) add sqlite3 session persistence to /data/agent/sessions.db, (2) load persisted sessions on startup, (3) merge DB+memory in list_sessions(), persist on COMPLETED/STOPPED states`
 ### `2026-06-07 18:40 | [MODIFY] | File: services/14-agent/src/routes/routes_team.py | Agent: lore-master | Fix: add session_id alias alongside team_session_id for frontend compatibility`
