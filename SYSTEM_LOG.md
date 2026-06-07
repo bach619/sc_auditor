@@ -2,6 +2,7 @@
 
 ## 2026-06-07
 
+### `2026-06-07 18:40 | [MODIFY] | File: services/14-agent/src/lead_auditor.py | Agent: lore-master | Fix 3-part: (1) add sqlite3 session persistence to /data/agent/sessions.db, (2) load persisted sessions on startup, (3) merge DB+memory in list_sessions(), persist on COMPLETED/STOPPED states`
 ### `2026-06-07 18:40 | [MODIFY] | File: services/14-agent/src/routes/routes_team.py | Agent: lore-master | Fix: add session_id alias alongside team_session_id for frontend compatibility`
 ### `2026-06-07 18:40 | [MODIFY] | File: services/15-dashboard/frontend/src/pages/Antonio.tsx | Agent: lore-master | Fix Session History: extract sessions array from nested object {sessions, total}, normalize team_session_id->session_id, handle empty gracefully`
 ### `2026-06-07 17:49 | [MODIFY] | File: services/shared/experience/store.py | Agent: lore-master | Fix resilience: ExperienceStore fallback ke in-memory SQLite jika database readonly (read-only filesystem atau permission denied). Agent tetap start tanpa persistence.`
