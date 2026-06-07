@@ -2,6 +2,7 @@
 
 ## 2026-06-07
 
+### `2026-06-07 07:01 | [CONFIG] | File: docker-compose.yml | Agent: lore-master | [sqlite-migration] Ubah STORAGE_ENGINE=dual menjadi STORAGE_ENGINE=sqlite untuk semua 28 service — menjadikan SQLite primary storage engine`
 ### `2026-06-07 07:01 | [CONFIG] | File: services/06-ai/app.py | Agent: lore-master | [sqlite-migration] Wire 06-ai cache ke SQLite — tambah SimpleSQLiteStore + AI_SCHEMA_SQL di AppState + lifespan; schema: analysis_cache`
 ### `2026-06-07 07:01 | [CONFIG] | File: services/03-source/app.py | Agent: lore-master | [sqlite-migration] Wire 03-source ke SQLite — tambah SimpleSQLiteStore + SOURCE_SCHEMA_SQL di lifespan; schema: contracts, fetch_history`
 ### `2026-06-07 07:01 | [CONFIG] | File: services/02-immunefi/* | Agent: lore-master | [sqlite-migration] Wire 02-immunefi ke SQLite — tambah init_sqlite(), SimpleSQLiteStore, IMMUNEFI_SCHEMA_SQL di state.py + lifespan app.py + health route; schema: programs, program_chains, program_history`
