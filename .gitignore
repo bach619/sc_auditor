@@ -63,3 +63,7 @@ vyper.exe
 
 # MSI installer
 *.msi
+
+# Session artifacts (not part of codebase)
+learning/
+transcript/

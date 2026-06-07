@@ -15,6 +15,7 @@ Port: 8002 | Version: 0.2.0
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -22,6 +23,9 @@ from typing import Any, AsyncGenerator
 
 from shared.observability import setup_observability
 from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
+from shared.api_errors import register_error_handlers
+from shared.storage.simple_store import SimpleSQLiteStore
+from shared.storage.service_schemas import SOURCE_SCHEMA_SQL
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -54,6 +58,10 @@ from src.models import (
 SERVICE_NAME = "source"
 SERVICE_VERSION = "0.2.0"
 
+# ── Storage Engine ─────────────────────────────────────────
+STORAGE_ENGINE = os.environ.get("STORAGE_ENGINE", "json")
+_source_sqlite_store: SimpleSQLiteStore | None = None
+
 detector = SourceDetector()
 
 # ── Global state untuk background tasks ─────────────────────
@@ -72,8 +80,24 @@ _source_agent: SourceAgent | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup / shutdown lifecycle."""
-    global _source_agent
+    global _source_agent, _source_sqlite_store
     log.info("source.startup", service=SERVICE_NAME, version=SERVICE_VERSION)
+    
+    # ── Initialize SQLite store (if STORAGE_ENGINE=sqlite|dual) ─
+    if STORAGE_ENGINE in ("sqlite", "dual"):
+        try:
+            db_path = "/data/source/source.db"
+            from pathlib import Path
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+            _source_sqlite_store = SimpleSQLiteStore(
+                db_path=db_path,
+                schema_sql=SOURCE_SCHEMA_SQL,
+                table_name="contracts",
+            )
+            log.info("source.sqlite_initialized", db_path=db_path, engine=STORAGE_ENGINE)
+        except Exception as exc:
+            log.warning("source.sqlite_init_failed", error=str(exc))
+    
     cached = detector.count_cached()
     log.info("source.cache_stats", cached_contracts=cached)
     _source_agent = SourceAgent(detector)
@@ -91,6 +115,7 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -124,6 +149,13 @@ def err(detail: str, status_code: int = 400) -> HTTPException:
 async def health() -> ApiResponse:
     """Health check with cache statistics."""
     stats = detector.get_cache_stats()
+    sqlite_status = "not_initialized"
+    if _source_sqlite_store:
+        try:
+            h = _source_sqlite_store.health()
+            sqlite_status = h.get("status", "unknown")
+        except Exception:
+            sqlite_status = "error"
     return ok(
         HealthData(
             status="ok",
@@ -132,6 +164,8 @@ async def health() -> ApiResponse:
             sources_cached=stats.get("total_contracts", 0),
             providers_available=len(detector.list_providers()),
             cache_size_bytes=stats.get("cache_size_bytes", 0),
+            storage_engine=STORAGE_ENGINE,
+            sqlite_status=sqlite_status,
         )
     )
 

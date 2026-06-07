@@ -3,12 +3,13 @@ from typing import Any
 
 from shared.skills.op_skills import (
     AlgorithmAnalyzerSkill,
-    MathVerifierSkill,
     ComplexityAnalyzerSkill,
     DataStructureOptimizerSkill,
+    MathVerifierSkill,
 )
-from .run_slither import RunSlitherSkill
+
 from .interpret_slither import InterpretSlitherSkill
+from .run_slither import RunSlitherSkill
 
 
 def create_registry(

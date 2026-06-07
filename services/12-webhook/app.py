@@ -31,6 +31,7 @@ from src.models import (
 )
 from shared.observability import setup_observability
 from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
+from shared.api_errors import register_error_handlers
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -116,6 +117,8 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+
+register_error_handlers(app)
 
 # CORS
 app.add_middleware(

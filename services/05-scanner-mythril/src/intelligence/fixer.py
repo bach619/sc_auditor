@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 SWC_FIXES: dict[str, dict[str, Any]] = {
     "SWC-107": {
         "description": "Reentrancy — external call sebelum state update.",

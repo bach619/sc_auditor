@@ -19,8 +19,7 @@ Struktur direktori:
 from __future__ import annotations
 
 import json
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -191,7 +190,7 @@ class EnhancedJSONStorage:
         """
         path = self.data_dir / "history" / f"{program.slug}.jsonl"
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "snapshot": {
                 "slug": program.slug,
                 "name": program.name,
@@ -220,7 +219,7 @@ class EnhancedJSONStorage:
         """
         path = self.data_dir / "history" / f"{slug}.jsonl"
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "snapshot": snapshot,
         }
         try:
@@ -375,7 +374,7 @@ class EnhancedJSONStorage:
         """Append an entry to the sync operation log (JSON Lines)."""
         path = self.data_dir / "sync_log.jsonl"
         entry["timestamp"] = entry.get(
-            "timestamp", datetime.now(timezone.utc).isoformat()
+            "timestamp", datetime.now(UTC).isoformat()
         )
         try:
             with path.open("a", encoding="utf-8") as f:

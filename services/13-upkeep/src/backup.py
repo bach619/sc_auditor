@@ -8,13 +8,10 @@ under ``/data/upkeep/backups/``.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import tarfile
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import AsyncGenerator
 
 import structlog
 
@@ -71,7 +68,7 @@ class BackupManager:
         Returns:
             BackupResult with path, size, and success status.
         """
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         name = f"{BACKUP_PREFIX}-{timestamp}"
         backup_path = self.backup_dir / f"{name}.tar.gz"
 
@@ -135,7 +132,7 @@ class BackupManager:
             List of BackupInfo sorted by creation date descending.
         """
         backups: list[BackupInfo] = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         try:
             for entry in sorted(
@@ -151,7 +148,7 @@ class BackupManager:
                 name = entry.stem
 
                 created_ts = datetime.fromtimestamp(
-                    stat.st_mtime, tz=timezone.utc
+                    stat.st_mtime, tz=UTC
                 )
                 age_days = round((now - created_ts).total_seconds() / 86400, 1)
 
@@ -302,6 +299,187 @@ class BackupManager:
 def create_backup_manager() -> BackupManager:
     """Create a BackupManager instance."""
     return BackupManager()
+
+
+# ═══════════════════════════════════════════════════════════════
+# BackupScheduler — scheduled full backups
+# ═══════════════════════════════════════════════════════════════
+
+import asyncio
+import shutil
+import time as _time
+
+FULL_BACKUP_DIR = Path("/data/backups")
+FULL_BACKUP_INTERVAL = 6 * 3600  # 6 hours
+FULL_BACKUP_MAX_AGE_DAYS = 30
+
+
+class BackupScheduler:
+    """Periodic full-backup scheduler.
+
+    Backs up all data directories to ``/data/backups/full_backup_YYYYMMDD_HHMMSS.tar.gz``
+    every 6 hours and cleans up backups older than 30 days.
+    """
+
+    def __init__(
+        self,
+        backup_dir: Path = FULL_BACKUP_DIR,
+        source_dir: Path = BACKUP_SOURCE,
+        interval: int = FULL_BACKUP_INTERVAL,
+        max_age_days: int = FULL_BACKUP_MAX_AGE_DAYS,
+    ) -> None:
+        self.backup_dir = backup_dir
+        self.source_dir = source_dir
+        self.interval = interval
+        self.max_age_days = max_age_days
+        self._task: asyncio.Task | None = None
+
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+    async def backup_all(self) -> dict:
+        """Create a full backup of all data directories.
+
+        Returns:
+            dict with path, size_bytes, and success status.
+        """
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        name = f"full_backup_{timestamp}"
+        backup_path = self.backup_dir / f"{name}.tar.gz"
+
+        log.info("backup_scheduler.starting", name=name)
+
+        try:
+            files_to_backup = _collect_files(
+                self.source_dir, exclude_dirs=EXCLUDE_DIRS
+            )
+
+            if not files_to_backup:
+                log.warning("backup_scheduler.no_files")
+                return {"success": False, "error": "No files found to back up"}
+
+            await asyncio.to_thread(
+                _create_tar_archive,
+                archive_path=backup_path,
+                source_dir=self.source_dir,
+                files=files_to_backup,
+            )
+
+            size_bytes = backup_path.stat().st_size
+            log.info(
+                "backup_scheduler.complete",
+                name=name,
+                size_bytes=size_bytes,
+            )
+
+            return {
+                "success": True,
+                "name": name,
+                "path": str(backup_path),
+                "size_bytes": size_bytes,
+            }
+
+        except (OSError, tarfile.TarError) as exc:
+            log.exception("backup_scheduler.failed", error=str(exc))
+            if backup_path.exists():
+                try:
+                    backup_path.unlink()
+                except OSError:
+                    pass
+            return {"success": False, "error": str(exc)}
+
+    async def cleanup_old_backups(self) -> dict:
+        """Remove full backups older than ``max_age_days``.
+
+        Returns:
+            dict with removed count and freed bytes.
+        """
+        now = datetime.now(UTC)
+        removed = 0
+        freed_bytes = 0
+
+        try:
+            for entry in sorted(
+                self.backup_dir.iterdir(),
+                key=lambda p: p.stat().st_mtime,
+            ):
+                if not entry.is_file() or not entry.name.endswith(".tar.gz"):
+                    continue
+                if not entry.name.startswith("full_backup_"):
+                    continue
+
+                stat = entry.stat()
+                age_days = (now.timestamp() - stat.st_mtime) / 86400
+
+                if age_days > self.max_age_days:
+                    size = stat.st_size
+                    try:
+                        entry.unlink()
+                        removed += 1
+                        freed_bytes += size
+                        log.info(
+                            "backup_scheduler.pruned",
+                            name=entry.name,
+                            age_days=round(age_days, 1),
+                        )
+                    except OSError as exc:
+                        log.warning(
+                            "backup_scheduler.prune_failed",
+                            name=entry.name,
+                            error=str(exc),
+                        )
+        except OSError as exc:
+            log.error("backup_scheduler.cleanup_failed", error=str(exc))
+
+        if removed:
+            log.info(
+                "backup_scheduler.cleanup_complete",
+                removed=removed,
+                freed_bytes=freed_bytes,
+            )
+
+        return {"removed": removed, "freed_bytes": freed_bytes}
+
+    async def start(self) -> None:
+        """Start the periodic backup loop (non-blocking)."""
+        if self._task is not None:
+            log.warning("backup_scheduler.already_running")
+            return
+
+        self._task = asyncio.create_task(self._run_loop())
+        log.info(
+            "backup_scheduler.started",
+            interval_hours=self.interval / 3600,
+            max_age_days=self.max_age_days,
+        )
+
+    async def stop(self) -> None:
+        """Stop the periodic backup loop."""
+        if self._task is not None:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+            log.info("backup_scheduler.stopped")
+
+    async def _run_loop(self) -> None:
+        """Internal loop: backup + cleanup, then sleep."""
+        while True:
+            try:
+                await asyncio.sleep(self.interval)
+                await self.backup_all()
+                await self.cleanup_old_backups()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.exception("backup_scheduler.loop_error", error=str(exc))
+                await asyncio.sleep(60)  # back-off on error
+
+
+def create_backup_scheduler() -> BackupScheduler:
+    """Create a BackupScheduler instance."""
+    return BackupScheduler()
 
 
 # ── Internal Functions ───────────────────────────────────────

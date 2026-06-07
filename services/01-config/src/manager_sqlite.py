@@ -13,13 +13,12 @@ Design:
 from __future__ import annotations
 
 import json
-import os
 import threading
 from typing import Any
 
 import structlog
-
 from shared.storage import SqliteStore, StoreConfig
+
 from . import schema
 
 log = structlog.get_logger()

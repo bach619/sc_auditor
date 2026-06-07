@@ -5,21 +5,21 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time as time_module
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-import logging
 
 import httpx
 import structlog
 from tenacity import (
+    before_sleep_log,
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
 )
 
 from src.models import DeliveryLogEntry, WebhookResult
@@ -252,7 +252,7 @@ class WebhookDispatcher:
     ) -> None:
         """Write a delivery log entry."""
         entry = DeliveryLogEntry(
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             url=url,
             event=event,
             success=result.success,
@@ -305,7 +305,7 @@ class WebhookDispatcher:
             return entries
 
         try:
-            with open(str(DELIVERY_LOG_PATH), "r", encoding="utf-8") as fh:
+            with open(str(DELIVERY_LOG_PATH), encoding="utf-8") as fh:
                 for line in fh:
                     line = line.strip()
                     if not line:

@@ -5,7 +5,6 @@ Rule-based NLP untuk menjawab pertanyaan tentang Mythril findings.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 INTENT_PATTERNS: list[dict[str, Any]] = [
@@ -213,8 +212,8 @@ class MythrilNLP:
     @staticmethod
     def _fallback(query: str) -> tuple[str, list]:
         return (
-            f"Coba: 'summary', 'critical issues', 'SWC distribution', "
-            f"'how to fix reentrancy', 'exploit chains', '11 bugs'.",
+            "Coba: 'summary', 'critical issues', 'SWC distribution', "
+            "'how to fix reentrancy', 'exploit chains', '11 bugs'.",
             [],
         )
 

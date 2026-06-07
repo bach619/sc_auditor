@@ -10,11 +10,11 @@ Module interface:
   - Must set `self.name` and `self.swc_id`
 """
 
-from .reentrancy_enhanced import ReentrancyEnhancedModule
 from .access_control_deep import AccessControlDeepModule
-from .flash_loan_oracle import FlashLoanOracleModule
 from .delegatecall_arbitrary import DelegatecallArbitraryModule
+from .flash_loan_oracle import FlashLoanOracleModule
 from .overflow_chain import OverflowChainModule
+from .reentrancy_enhanced import ReentrancyEnhancedModule
 
 __all__ = [
     "ReentrancyEnhancedModule",

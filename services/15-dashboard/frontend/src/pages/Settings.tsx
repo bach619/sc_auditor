@@ -5,12 +5,9 @@ import { Input } from '../components/ui/input'
 import { Select } from '../components/ui/select'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
-import { StatusBadge } from '../components/StatusBadge'
 import { LoadingState } from '../components/LoadingState'
-import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
-import { Separator } from '../components/ui/separator'
 import { Check, X, Save, Eye, EyeOff, Loader2, Key, Cpu, Sliders } from 'lucide-react'
 
 const PROVIDERS = [
@@ -167,7 +164,7 @@ const USE_CASES = [
 const ALL_VARIANTS = PROVIDERS.flatMap(p => p.variants.map(v => ({ ...v, providerId: p.id, providerName: p.name })))
 
 export default function Settings() {
-  const [config, setConfig] = useState<Record<string, any>>({})
+  const [config, setConfig] = useState<Record<string, unknown>>({})
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({})
   const [models, setModels] = useState<Record<string, string>>({})
@@ -181,7 +178,7 @@ export default function Settings() {
     (async () => {
       try {
         const res = await api.getConfig()
-        const cfg = res.data || {}
+        const cfg = (res.data || {}) as Record<string, string>
         setConfig(cfg)
         const initialKeys: Record<string, string> = {}
         const initialUrls: Record<string, string> = {}
@@ -199,8 +196,8 @@ export default function Settings() {
           initialSelections[uc.id] = cfg[uc.id] || uc.default
         }
         setUseCaseSelections(initialSelections)
-      } catch (err: any) {
-        setStatus({ type: 'error', message: `Failed to load config: ${err.message}` })
+    } catch (err: unknown) {
+      setStatus({ type: 'error', message: `Failed to load config: ${(err as { message?: string }).message}` })
       } finally { setLoading(false) }
     })()
   }, [])
@@ -232,7 +229,7 @@ export default function Settings() {
     setSaving(true)
     setStatus(null)
     try {
-      const payload: Record<string, any> = {}
+      const payload: Record<string, unknown> = {}
       for (const p of PROVIDERS) {
         payload[p.apiKeyField] = apiKeys[p.id] || ''
         payload[p.baseUrlField] = baseUrls[p.id] || ''
@@ -242,8 +239,8 @@ export default function Settings() {
       await api.setBulkConfig(payload)
       setStatus({ type: 'success', message: 'Settings saved successfully.' })
       setConfig(prev => ({ ...prev, ...payload }))
-    } catch (err: any) {
-      setStatus({ type: 'error', message: `Failed to save: ${err.message}` })
+    } catch (err: unknown) {
+      setStatus({ type: 'error', message: `Failed to save: ${(err as { message?: string }).message}` })
     } finally { setSaving(false) }
   }
 
@@ -303,7 +300,7 @@ export default function Settings() {
                         placeholder="sk-..."
                         className="pr-8 font-mono text-xs"
                       />
-                      <button onClick={() => setVisibleKeys(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })}
+                      <button onClick={() => setVisibleKeys(prev => { const n = new Set(prev); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n })}
                         className="absolute right-2 top-1/2 -translate-y-1/2 dark:text-[#3a3a4a] light:text-[#a1a1aa] hover:dark:text-[#68687a]">
                         {visibleKeys.has(p.id) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>

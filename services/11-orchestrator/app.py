@@ -34,6 +34,7 @@ from src.pipeline import Pipeline
 from src.priority import PriorityScorer
 from src.resource_governor import ResourceGovernor, ToolType
 from shared.observability import setup_observability
+from shared.api_errors import register_error_handlers
 from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 from src.agent_loop import OrchestratorAgent
 from src.similarity import ContractSimilarity
@@ -44,6 +45,8 @@ app = FastAPI(
     description="Central workflow engine — coordinates the entire audit pipeline across services",
     version="1.0.0",
 )
+
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -505,6 +508,31 @@ async def get_resource_status() -> JSONResponse:
             "max": governor.max_slots(tool),
         }
     return _ok(data=slots)
+
+
+# ── POST /admin/cleanup-stuck ────────────────────────────────────
+
+@app.post("/admin/cleanup-stuck")
+async def admin_cleanup_stuck(
+    max_stuck_hours: float = Query(1.0, ge=0.1, le=168, description="Hours after which a stuck audit is auto-timed-out"),
+) -> JSONResponse:
+    """Find and handle stuck audit jobs.
+
+    Scans all audit records for zombie audits (non-terminal state but not
+    actively running). Audits stuck longer than `max_stuck_hours` are
+    marked as TIMEOUT. Audits stuck less than that are resumed.
+
+    This is a SAFE operation — it never resumes audits that are already
+    running, and timed-out audits can be re-run later via /rerun.
+    """
+    # Temporarily override timeout if requested differs from config
+    orig_timeout = config.stuck_audit_timeout_hours
+    try:
+        config.stuck_audit_timeout_hours = max_stuck_hours
+        result = await pipeline.resume_stuck_audits()
+        return _ok(data=result)
+    finally:
+        config.stuck_audit_timeout_hours = orig_timeout
 
 
 # ── Agent Protocol Endpoints ─────────────────────────────────────

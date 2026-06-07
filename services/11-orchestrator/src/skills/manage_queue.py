@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 from shared.skills.base_skill import BaseSkill
 
 
@@ -31,7 +32,7 @@ class ManageQueueSkill(BaseSkill):
         **kwargs: Any,
     ) -> dict[str, Any]:
         if action == "add" and address and chain:
-            result = await self._priority.enqueue(address=address, chain=chain, priority=priority)
+            await self._priority.enqueue(address=address, chain=chain, priority=priority)
             return {"action": "added", "address": address, "chain": chain, "priority": priority}
         elif action == "list":
             queue = await self._priority.get_queue()

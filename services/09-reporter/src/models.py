@@ -8,11 +8,10 @@ Reports are generated from classified findings and exploit results.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
 
 # ── Findings (subset of scanner model) ────────────────────────
 
@@ -194,7 +193,7 @@ class ReportResponse(BaseModel):
     immunefi_path: str = ""
     full_path: str = ""
     generated_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -248,7 +247,7 @@ class Meta(BaseModel):
 
     status: Literal["ok", "error"] = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 

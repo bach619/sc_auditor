@@ -21,6 +21,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from shared.observability import setup_observability
 
+from shared.api_errors import register_error_handlers
 from src.models import (
     ApiResponse,
     HatsVault,
@@ -81,6 +82,8 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,

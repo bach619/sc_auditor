@@ -36,24 +36,21 @@ Services involved:
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.adversarial")
 
 
-class BattleRole(str, Enum):
+class BattleRole(StrEnum):
     RED = "red"       # Attacker — goal: break the contract
     BLUE = "blue"     # Defender — goal: make it unbreakable
 
 
-class RoundResult(str, Enum):
+class RoundResult(StrEnum):
     ATTACKER_WIN = "attacker_win"       # Exploit succeeded → new vulnerability found
     DEFENDER_WIN = "defender_win"       # Attack blocked → contract is safe
     STALEMATE = "stalemate"              # Neither side succeeded
@@ -72,7 +69,7 @@ class AttackAttempt:
     profit_wei: str = "0"
     tx_hash: str = ""
     defense_bypassed: list[str] = field(default_factory=list)
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
@@ -84,7 +81,7 @@ class DefenseResponse:
     patch_code: str = ""                # Solidity fix code
     recommendation: str = ""            # Human-readable recommendation
     additional_guards: list[str] = field(default_factory=list)
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
@@ -101,7 +98,7 @@ class BattleReport:
     patches_applied: list[dict] = field(default_factory=list)
     final_verdict: str = ""             # "BATTLE-HARDENED" or "VULNERABLE"
     battle_duration_seconds: float = 0.0
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class AdversarialBattleEngine:
@@ -246,40 +243,13 @@ class AdversarialBattleEngine:
         attack = AttackAttempt(round_number=round_num)
 
         # Build prompt with Red Agent memory of past successes
-        memory_context = ""
         if self._red_memory:
             recent_wins = self._red_memory[-5:]
-            memory_context = "\n".join(
+            "\n".join(
                 f"- Previous success: {m['attack_type']} — {m['strategy'][:100]}"
                 for m in recent_wins
             )
 
-        prompt = f"""You are RED AGENT — an elite smart contract hacker.
-Your mission: Find ANY way to break {name} ({address}) on {chain}.
-
-Previous successful attacks (learn from these):
-{memory_context}
-
-Think like a blackhat. Consider:
-1. Reentrancy via unexpected callbacks (ERC-721, ERC-1155, hooks)
-2. Oracle price manipulation (flash loan → TWAP deviation → profit)
-3. Access control bypass (delegatecall, selfdestruct, uninitialized proxy)
-4. MEV sandwich attack (front-run user txs in mempool)
-5. Flash loan attack paths (borrow → manipulate → exploit → repay → profit)
-6. Integer overflow/underflow in key accounting functions
-7. Storage collision in upgradeable proxies
-8. Signature replay or malleability
-9. Gas griefing or DoS via unbounded loops
-10. Read-only reentrancy (view functions reading stale state)
-
-Generate:
-1. ATTACK_TYPE: specific vulnerability class
-2. STRATEGY: step-by-step attack plan (3-8 steps)
-3. EXPLOIT_CODE: Solidity PoC exploit code
-4. EXPECTED_PROFIT: estimated ETH profit
-5. TARGET_FUNCTION: which function to call first
-
-Be creative. Be aggressive. FIND THE BUG."""
 
         # In production, this calls 06-ai service
         try:
@@ -299,31 +269,13 @@ Be creative. Be aggressive. FIND THE BUG."""
         """Blue Agent generates defense against a specific attack."""
         defense = DefenseResponse(round_number=round_num)
 
-        memory_context = ""
         if self._blue_memory:
             recent_defenses = self._blue_memory[-5:]
-            memory_context = "\n".join(
+            "\n".join(
                 f"- Defense blocked: {d['blocked_attack']} — {d['defense'][:100]}"
                 for d in recent_defenses
             )
 
-        prompt = f"""You are BLUE AGENT — the world's best smart contract security auditor.
-Your mission: Protect {name} ({address}) from this attack:
-
-Attack Type: {attack.attack_type}
-Attack Strategy: {attack.strategy}
-
-Previous successful defenses:
-{memory_context}
-
-Generate:
-1. CAN_BLOCK: YES/NO — can this attack be blocked?
-2. PATCH_CODE: Solidity fix to prevent this attack
-3. RECOMMENDATION: Human-readable security recommendation
-4. ADDITIONAL_GUARDS: Extra security measures (modifiers, checks, invariants)
-5. ROOT_CAUSE: What design flaw allowed this attack?
-
-Be thorough. LEAVE NO VULNERABILITY."""
 
         try:
             # AI response parsing
@@ -359,7 +311,7 @@ Be thorough. LEAVE NO VULNERABILITY."""
         result: RoundResult, round_num: int,
     ) -> None:
         """Both agents learn from the round outcome.
-        
+
         Red learns: which attack types work, which defenses are common.
         Blue learns: which attack patterns to watch for, which patches work.
         """

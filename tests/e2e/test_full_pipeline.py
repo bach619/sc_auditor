@@ -13,17 +13,15 @@ They verify the complete flow:
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 import pytest
 
-from tests.fixtures.sample_data import WETH_ADDRESS, SAMPLE_AUDIT_PAYLOAD
-
 # ── Helpers ──────────────────────────────────────────────────────
 
 
-async def _start_audit(client: httpx.AsyncClient, orch_url: str, payload: Dict[str, Any]) -> Optional[str]:
+async def _start_audit(client: httpx.AsyncClient, orch_url: str, payload: dict[str, Any]) -> str | None:
     """Start an audit and return the audit_id, or None if unavailable."""
     try:
         resp = await client.post(f"{orch_url}/audit", json=payload, timeout=10.0)
@@ -37,7 +35,7 @@ async def _start_audit(client: httpx.AsyncClient, orch_url: str, payload: Dict[s
 
 async def _poll_audit(
     client: httpx.AsyncClient, orch_url: str, audit_id: str, timeout: float = 30.0, interval: float = 2.0
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Poll audit status until complete or timeout."""
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:

@@ -12,12 +12,10 @@ Supported intents:
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from src.intelligence.classifier import EchidnaClassifier
 from src.intelligence.fixer import EchidnaFixer
-
 
 INTENTS: list[dict[str, Any]] = [
     {"intent": "summary", "keywords": ["summary", "overview", "overall", "result"]},

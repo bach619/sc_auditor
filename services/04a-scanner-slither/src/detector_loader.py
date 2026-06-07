@@ -1,18 +1,17 @@
 """Custom Slither Detector Loader — sandboxed execution, registry, and runner."""
 from __future__ import annotations
+
 import ast
 import importlib.util
 import inspect
-import os
 import signal
-import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional, Type
-import structlog
 
+import structlog
 from slither.detectors.abstract_detector import AbstractDetector, DetectorClassification
+
 from vyper_lib.models import Finding
 
 log = structlog.get_logger()
@@ -51,13 +50,13 @@ class DetectorSandbox:
             return False
 
     @staticmethod
-    def load_detector_from_source(source: str, module_name: str) -> Type[AbstractDetector]:
+    def load_detector_from_source(source: str, module_name: str) -> type[AbstractDetector]:
         """Load detector from source code string (sandboxed exec)."""
         if not DetectorSandbox.validate_detector(source):
             raise DetectorLoadError("Invalid detector: must subclass AbstractDetector")
 
         spec = importlib.util.spec_from_loader(module_name, loader=None)
-        module = importlib.util.module_from_spec(spec)
+        importlib.util.module_from_spec(spec)
 
         restricted_globals = {
             "__name__": module_name,
@@ -88,7 +87,7 @@ class CustomDetectorRegistry:
 
     def __init__(self, detectors_dir: str = "/data/detectors"):
         self.detectors_dir = Path(detectors_dir)
-        self.detectors: dict[str, Type[AbstractDetector]] = {}
+        self.detectors: dict[str, type[AbstractDetector]] = {}
         self.metadata: dict[str, dict] = {}
         self.detectors_dir.mkdir(parents=True, exist_ok=True)
 
@@ -148,7 +147,7 @@ class CustomDetectorRegistry:
 
         return count
 
-    def _register_class(self, name: str, detector_class: Type[AbstractDetector], source_file: str) -> None:
+    def _register_class(self, name: str, detector_class: type[AbstractDetector], source_file: str) -> None:
         """Register a detector class in the registry."""
         self.detectors[name] = detector_class
         self.metadata[name] = {
@@ -156,7 +155,7 @@ class CustomDetectorRegistry:
             "description": getattr(detector_class, "WIKI_DESCRIPTION", ""),
             "impact": str(getattr(detector_class, "IMPACT", DetectorClassification.MEDIUM)),
             "file": source_file,
-            "loaded_at": datetime.now(timezone.utc).isoformat(),
+            "loaded_at": datetime.now(UTC).isoformat(),
             "overpower": source_file.startswith("detector_"),  # Mark as overpower
         }
 
@@ -175,7 +174,7 @@ class CustomDetectorRegistry:
             "description": getattr(detector_class, "DESCRIPTION", ""),
             "impact": str(getattr(detector_class, "IMPACT", DetectorClassification.MEDIUM)),
             "file": file_path.name,
-            "loaded_at": datetime.now(timezone.utc).isoformat(),
+            "loaded_at": datetime.now(UTC).isoformat(),
         }
         return self.metadata[name]
 
@@ -190,7 +189,7 @@ class CustomDetectorRegistry:
             return True
         return False
 
-    def get_source(self, name: str) -> Optional[str]:
+    def get_source(self, name: str) -> str | None:
         """Get the source code of a registered detector."""
         meta = self.metadata.get(name)
         if not meta:

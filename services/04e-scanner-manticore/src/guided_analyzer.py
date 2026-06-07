@@ -16,7 +16,6 @@ import asyncio
 import json
 import os
 import shutil
-import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -32,8 +31,8 @@ from .detectors import (
     OverflowCriticalDetector,
     ReentrancyHighDetector,
 )
-from .severity_scorer import SeverityScorer
 from .resource_guard import ResourceBudget, ResourceGuard
+from .severity_scorer import SeverityScorer
 
 log = structlog.get_logger()
 
@@ -373,9 +372,6 @@ class GuidedAnalyzer:
     ) -> list[dict[str, Any]]:
         """Basic extraction of function definitions from Solidity source."""
         targets: list[dict[str, Any]] = []
-        func_patterns = [
-            "function ", "constructor ", "receive(", "fallback(",
-        ]
 
         for path, code in source_files.items():
             for line in code.split("\n"):

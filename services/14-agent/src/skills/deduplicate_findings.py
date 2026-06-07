@@ -22,7 +22,6 @@ from typing import Any
 
 import structlog
 
-from src.models import SkillResult
 from src.skills.base import BaseSkill
 
 log = structlog.get_logger()

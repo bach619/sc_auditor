@@ -33,19 +33,16 @@ Not just changing parameters — writing entirely new attack strategies.
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.selfmod_fuzzer")
 
 
-class FuzzPhase(str, Enum):
+class FuzzPhase(StrEnum):
     EXPLORING = "exploring"         # Random exploration
     TARGETING = "targeting"         # Targeting specific paths
     DEEP_DIVING = "deep_diving"     # Deep exploration of promising paths
@@ -66,7 +63,7 @@ class FuzzStrategy:
     execution_count: int = 0
     avg_execution_ms: float = 0.0
     is_active: bool = True
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
@@ -270,7 +267,7 @@ class SelfModifyingFuzzer:
             count += 1
         return count
 
-    def _select_best_strategy(self) -> Optional[FuzzStrategy]:
+    def _select_best_strategy(self) -> FuzzStrategy | None:
         """Select the best strategy based on coverage impact."""
         active = [s for s in self._strategy_registry.values() if s.is_active]
         if not active:
@@ -314,20 +311,20 @@ class SelfModifyingFuzzer:
                 "type": "invariant_violation",
                 "description": f"Strategy {strategy.name} triggered invariant violation",
                 "severity": "HIGH",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
         return bugs
 
     async def _generate_ai_strategy(
         self, source_code: str, coverage_history: list[float], findings: list[dict]
-    ) -> Optional[FuzzStrategy]:
+    ) -> FuzzStrategy | None:
         """Ask AI to generate a new fuzzing strategy."""
         import uuid
 
         recent_coverage = coverage_history[-10:] if coverage_history else []
         is_improving = len(recent_coverage) >= 3 and recent_coverage[-1] > recent_coverage[0]
 
-        prompt = f"""You are an EXPERT FUZZING STRATEGIST.
+        f"""You are an EXPERT FUZZING STRATEGIST.
 Analyze this smart contract and generate a NEW Python fuzzing strategy.
 
 Current coverage: {recent_coverage[-1] if recent_coverage else 0:.1f}%
@@ -351,7 +348,7 @@ Output ONLY valid Python code for the fuzz_strategy function."""
         )
         return strategy
 
-    async def _generate_exploit_strategy(self, bug: dict) -> Optional[FuzzStrategy]:
+    async def _generate_exploit_strategy(self, bug: dict) -> FuzzStrategy | None:
         """Generate targeted exploit strategy based on a found bug."""
         return FuzzStrategy(
             strategy_id=f"exploit_{bug.get('type', 'unknown')}",

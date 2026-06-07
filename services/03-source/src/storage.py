@@ -26,7 +26,7 @@ import hashlib
 import json
 import os
 import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -115,8 +115,8 @@ class EnhancedJSONStorage:
         if not self.meta_path.exists():
             self._write_meta(
                 schema_version=SCHEMA_VERSION,
-                created_at=datetime.now(timezone.utc).isoformat(),
-                last_updated=datetime.now(timezone.utc).isoformat(),
+                created_at=datetime.now(UTC).isoformat(),
+                last_updated=datetime.now(UTC).isoformat(),
                 total_contracts=0,
             )
 
@@ -131,7 +131,7 @@ class EnhancedJSONStorage:
         """Update metadata file."""
         meta = self._read_meta()
         meta.update(kwargs)
-        meta["last_updated"] = datetime.now(timezone.utc).isoformat()
+        meta["last_updated"] = datetime.now(UTC).isoformat()
         _write_json(self.meta_path, meta)
 
     # ── Contract Path Helpers ───────────────────────────────
@@ -163,7 +163,7 @@ class EnhancedJSONStorage:
         """
         chain_l = chain.lower()
         addr_l = address.lower()
-        base = self._contract_dir(chain_l, addr_l)
+        self._contract_dir(chain_l, addr_l)
         sources_dir = self._sources_dir(chain_l, addr_l)
         sources_dir.mkdir(parents=True, exist_ok=True)
 
@@ -194,7 +194,7 @@ class EnhancedJSONStorage:
             "files": file_list,
             "source_hash": source_hash,
             "lines_of_code": sum(len(c.splitlines()) for c in source.sources.values()),
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "fetched_at": datetime.now(UTC).isoformat(),
             "fetch_count": 1,
         }
 
@@ -210,7 +210,7 @@ class EnhancedJSONStorage:
                     "new_hash": source_hash,
                     "old_provider": existing.get("provider"),
                     "new_provider": source.provider,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 })
                 metadata["upgrade_count"] = existing.get("upgrade_count", 0) + 1
             else:
@@ -367,7 +367,6 @@ class EnhancedJSONStorage:
         limit: int = 20,
     ) -> list[dict]:
         """Search cached contracts by various filters."""
-        results: list[dict] = []
 
         # Determine which contracts to scan
         if chain:

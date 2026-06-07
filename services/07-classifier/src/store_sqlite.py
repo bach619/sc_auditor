@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 from shared.storage import SqliteStore, StoreConfig
+
 from . import schema
 
 logger = logging.getLogger("vyper.classifier.store")

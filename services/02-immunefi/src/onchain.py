@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -155,8 +155,8 @@ class OnChainMonitor:
             try:
                 cached_at = datetime.fromisoformat(cached["_cached_at"])
                 if cached_at.tzinfo is None:
-                    cached_at = cached_at.replace(tzinfo=timezone.utc)
-                if datetime.now(timezone.utc) - cached_at < timedelta(hours=1):
+                    cached_at = cached_at.replace(tzinfo=UTC)
+                if datetime.now(UTC) - cached_at < timedelta(hours=1):
                     return cached
             except Exception:
                 pass
@@ -191,7 +191,7 @@ class OnChainMonitor:
                 "twitter": data.get("twitter", ""),
                 "github": data.get("github", ""),
                 "category": data.get("category", ""),
-                "_cached_at": datetime.now(timezone.utc).isoformat(),
+                "_cached_at": datetime.now(UTC).isoformat(),
             }
 
             cache[protocol_slug] = tvl_data
@@ -405,7 +405,7 @@ class OnChainMonitor:
             except Exception:
                 result["_raw_data"] = data_hex
 
-        result["_detected_at"] = datetime.now(timezone.utc).isoformat()
+        result["_detected_at"] = datetime.now(UTC).isoformat()
         return result
 
     def get_events(

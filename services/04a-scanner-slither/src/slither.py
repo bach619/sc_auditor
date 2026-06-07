@@ -15,7 +15,6 @@ from typing import Any
 import structlog
 
 from vyper_lib.models import Finding, ToolResult
-from vyper_lib.slither_config import SlitherConfigBuilder
 
 log = structlog.get_logger()
 

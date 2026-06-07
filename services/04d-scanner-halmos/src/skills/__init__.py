@@ -1,12 +1,14 @@
 """04d-Scanner-Halmos Skills — Halmos symbolic testing."""
 from shared.skills.op_skills import (
     AlgorithmAnalyzerSkill,
-    MathVerifierSkill,
     ComplexityAnalyzerSkill,
     DataStructureOptimizerSkill,
+    MathVerifierSkill,
 )
-from .run_halmos import RunHalmosSkill
+
 from .interpret_halmos import InterpretHalmosSkill
+from .run_halmos import RunHalmosSkill
+
 
 def create_registry():
     from shared.skills.skill_registry import SkillRegistry

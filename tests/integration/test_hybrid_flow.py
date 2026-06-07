@@ -12,11 +12,9 @@ Tests the full flow:
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from dataclasses import dataclass
-from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # ── Fixtures ─────────────────────────────────────────────────
 
@@ -25,7 +23,7 @@ from typing import Any
 def mock_http_client():
     """Create a mock HTTP client for testing."""
     client = AsyncMock()
-    
+
     # Mock GET /agent/manifest response
     # Use MagicMock (not AsyncMock) because json() and raise_for_status()
     # are called synchronously in AgentRegistry.discover_all()
@@ -51,7 +49,7 @@ def mock_http_client():
             "current_load": {"active_tasks": 0, "queue_depth": 0, "status": "idle"},
         }
     }
-    
+
     # Mock POST /agent/delegate response
     delegate_response = MagicMock()
     delegate_response.status_code = 200
@@ -68,7 +66,7 @@ def mock_http_client():
             "reflection": "Test completed successfully.",
         }
     }
-    
+
     client.get = AsyncMock(return_value=manifest_response)
     client.post = AsyncMock(return_value=delegate_response)
     return client
@@ -104,10 +102,12 @@ async def test_agent_discovery(mock_http_client):
 @pytest.mark.asyncio
 async def test_capability_lookup():
     """Test finding agents by capability."""
-    from services.shared.agent_protocol.registry import AgentRegistry
     from services.shared.agent_protocol.models import (
-        AgentCapability, AgentManifest, CapabilityDefinition,
+        AgentCapability,
+        AgentManifest,
+        CapabilityDefinition,
     )
+    from services.shared.agent_protocol.registry import AgentRegistry
 
     registry = AgentRegistry()
 
@@ -145,8 +145,11 @@ async def test_delegation_flow():
     """Test full delegation: Main Agent → Backend Agent."""
     from services.shared.agent_protocol.base_agent import BaseAgent
     from services.shared.agent_protocol.models import (
-        AgentCapability, CapabilityDefinition, DelegationRequest,
-        TaskStatus, generate_task_id,
+        AgentCapability,
+        CapabilityDefinition,
+        DelegationRequest,
+        TaskStatus,
+        generate_task_id,
     )
 
     # Create a test agent
@@ -187,7 +190,9 @@ async def test_negotiation_flow():
     """Test negotiation between Main Agent and Backend Agent."""
     from services.shared.agent_protocol.base_agent import BaseAgent
     from services.shared.agent_protocol.models import (
-        AgentCapability, CapabilityDefinition, NegotiationRequest,
+        AgentCapability,
+        CapabilityDefinition,
+        NegotiationRequest,
     )
 
     class TestAgent(BaseAgent):
@@ -227,12 +232,16 @@ async def test_negotiation_flow():
 @pytest.mark.asyncio
 async def test_agent_at_capacity():
     """Test that agent rejects tasks when at capacity."""
+    import asyncio
+
     from services.shared.agent_protocol.base_agent import BaseAgent
     from services.shared.agent_protocol.models import (
-        AgentCapability, CapabilityDefinition, DelegationRequest,
-        TaskStatus, generate_task_id,
+        AgentCapability,
+        CapabilityDefinition,
+        DelegationRequest,
+        TaskStatus,
+        generate_task_id,
     )
-    import asyncio
 
     class TestAgent(BaseAgent):
         async def _execute_task(self, request):
@@ -278,8 +287,8 @@ async def test_agent_at_capacity():
 @pytest.mark.asyncio
 async def test_planner_creates_execution_plan():
     """Test that Planner creates valid execution plans."""
-    import sys
     import importlib.util
+    import sys
     from pathlib import Path
 
     project_root = Path(__file__).resolve().parents[2]
@@ -319,7 +328,9 @@ async def test_ai_agent_strategy_separates_critical_vs_low():
     """Test that AIAgent separates critical/high for deep analysis vs low/medium for batch."""
     from services.shared.agent_protocol.base_agent import BaseAgent
     from services.shared.agent_protocol.models import (
-        AgentCapability, CapabilityDefinition, DelegationRequest,
+        AgentCapability,
+        CapabilityDefinition,
+        DelegationRequest,
     )
 
     # Create a minimal AIAgent-like agent
@@ -336,11 +347,11 @@ async def test_ai_agent_strategy_separates_critical_vs_low():
         async def _execute_task(self, request):
             input_data = request.input_data
             findings = input_data.get("findings", [])
-            
+
             # This is the key behavior to test: separation logic
             critical = [f for f in findings if f.get("severity") in ("critical", "high")]
             low = [f for f in findings if f.get("severity") in ("low", "informational", "medium")]
-            
+
             return {
                 "findings": findings,
                 "summary": {
@@ -353,7 +364,7 @@ async def test_ai_agent_strategy_separates_critical_vs_low():
             }
 
     agent = MockAIAgent()
-    
+
     # Mix of findings
     findings = [
         {"id": "F-001", "severity": "critical", "title": "Reentrancy"},
@@ -384,12 +395,13 @@ async def test_ai_agent_strategy_separates_critical_vs_low():
 @pytest.mark.asyncio
 async def test_full_audit_scenario(mock_http_client):
     """Simulate a complete audit flow with discovery + delegation."""
-    from services.shared.agent_protocol.registry import AgentRegistry
     from services.shared.agent_protocol.models import (
-        AgentCapability, DelegationRequest, generate_task_id,
+        AgentCapability,
+        CapabilityDefinition,
+        DelegationRequest,
+        generate_task_id,
     )
-    from services.shared.agent_protocol.base_agent import BaseAgent
-    from services.shared.agent_protocol.models import CapabilityDefinition
+    from services.shared.agent_protocol.registry import AgentRegistry
 
     # Setup: Create registry and register an agent
     registry = AgentRegistry(http_client=mock_http_client)

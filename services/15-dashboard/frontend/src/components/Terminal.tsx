@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { api, type Audit } from '../lib/api'
-import { Terminal as TerminalIcon, Activity, Clock, AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Terminal as TerminalIcon, Activity, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 
 // ── Pipeline stage display names ───────────────────────────────────
 
@@ -128,22 +128,23 @@ export function Terminal({ className = '' }: TerminalProps) {
       })
       setAudits(list)
 
-      const st = statsRes.data as any
+      const st = statsRes.data as Record<string, unknown>
       setStats({
-        total: st?.total_audits || list.length,
-        completed: st?.completed || 0,
-        failed: st?.failed || 0,
-        active: st?.in_progress || list.filter((a: Audit) => isActive(a.state)).length,
+        total: (st?.total_audits as number) || list.length,
+        completed: (st?.completed as number) || 0,
+        failed: (st?.failed as number) || 0,
+        active: (st?.in_progress as number) || list.filter((a: Audit) => isActive(a.state)).length,
       })
 
-      const ds = (dsRes.data as any) || {}
-      setDaemonStatus(ds.status || 'unknown')
+      const ds = (dsRes.data as Record<string, unknown>) || {}
+      setDaemonStatus((ds.status as string) || 'unknown')
       setLastUpdate(now())
     } catch { /* silent */ }
     setLoading(false)
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: poll daemon for audit updates
     fetchAudits()
     pollRef.current = setInterval(fetchAudits, 2000)
     return () => {

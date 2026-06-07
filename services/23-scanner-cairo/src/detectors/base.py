@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any
 
 
 class BaseCairoDetector(ABC):
@@ -13,5 +13,5 @@ class BaseCairoDetector(ABC):
     category: str = "general"
 
     @abstractmethod
-    def analyze(self, ir_contract: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def analyze(self, ir_contract: dict[str, Any]) -> list[dict[str, Any]]:
         ...

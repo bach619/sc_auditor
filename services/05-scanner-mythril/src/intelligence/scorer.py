@@ -9,10 +9,7 @@ Scoring berdasarkan:
 
 from __future__ import annotations
 
-import math
 from typing import Any
-
-from src.intelligence.classifier import SEVERITY_RANK
 
 SEVERITY_BASE: dict[str, float] = {
     "critical": 90.0,

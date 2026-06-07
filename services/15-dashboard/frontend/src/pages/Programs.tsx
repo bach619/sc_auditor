@@ -78,14 +78,15 @@ export default function Programs() {
         setData(null)
         setError('Unexpected response format')
       }
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load contracts')
+    } catch (err: unknown) {
+      setError((err as { message?: string })?.message || 'Failed to load contracts')
     } finally {
       setLoading(false)
     }
   }, [search, chainFilter])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: load contracts when search/filter changes
     load()
   }, [load])
 

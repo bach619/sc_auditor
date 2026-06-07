@@ -7,14 +7,13 @@ and appendices. Designed for internal review and record-keeping.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import structlog
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from src.filters import ascii_severity_chart, register_filters, severity_badge
+from src.filters import ascii_severity_chart, register_filters
 from src.models import (
     ExploitResult,
     Finding,
@@ -119,7 +118,7 @@ class FullReportGenerator:
             if f.classification.lower() in ("false_positive", "fp", "false positive")
         )
 
-        generated_at = datetime.now(timezone.utc).isoformat()
+        generated_at = datetime.now(UTC).isoformat()
 
         content = self.template.render(
             audit_id=audit_id,

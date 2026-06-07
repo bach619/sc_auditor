@@ -41,7 +41,6 @@ import logging
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("vyper.compilation_cache")
 
@@ -113,7 +112,7 @@ class CompilationCache:
 
         return result
 
-    def get_by_hash(self, source_hash: str) -> Optional[dict]:
+    def get_by_hash(self, source_hash: str) -> dict | None:
         """Find cached compilation by source hash (partial match)."""
         for subdir in self.cache_dir.iterdir():
             if subdir.is_dir() and subdir.name.startswith(source_hash):
@@ -207,7 +206,6 @@ class CompilationCache:
             combined = json.loads(result.stdout)
 
             # Extract per-contract data
-            ast = None
             bytecode = None
             abi = None
             sourcemap = None
@@ -215,7 +213,7 @@ class CompilationCache:
             for key, data in combined.get("contracts", {}).items():
                 if contract_name and contract_name not in key:
                     continue
-                ast = combined.get("sourceList", [])
+                combined.get("sourceList", [])
                 bytecode = data.get("bin-runtime", "")
                 abi = json.loads(data.get("abi", "[]"))
                 sourcemap = data.get("srcmap-runtime", "")
@@ -265,9 +263,9 @@ class CompilationCache:
 
 # ── Scanner-side helpers ─────────────────────────────────
 
-def get_compiled_ast(source_hash: str, cache_dir: str = "/data/compiled") -> Optional[dict]:
+def get_compiled_ast(source_hash: str, cache_dir: str = "/data/compiled") -> dict | None:
     """Scanner services call this to get pre-compiled AST.
-    
+
     Usage in 04a-slither Dockerfile:
         compiled = get_compiled_ast(source_hash)
         if compiled:

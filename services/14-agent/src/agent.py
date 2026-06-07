@@ -24,19 +24,16 @@ from typing import Any
 import httpx
 import structlog
 
-from src.llm import AgentReasoningClient, CHAT_SYSTEM_PROMPT, VYPER_KNOWLEDGE, _unescape_text
+from src.llm import CHAT_SYSTEM_PROMPT, VYPER_KNOWLEDGE, AgentReasoningClient, _unescape_text
 from src.memory import AgentMemory
 from src.models import (
-    AgentResponse,
     AgentSession,
     AgentState,
     AgentStep,
-    ChatMessage,
-    ChatRequest,
     ChatResponse,
     TaskType,
 )
-from src.planner import Planner, ExecutionPlan
+from src.planner import Planner
 from src.skills.registry import SkillRegistry
 
 log = structlog.get_logger()
@@ -808,4 +805,4 @@ class AgentLoop:
 
 def _now() -> str:
     import datetime
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()

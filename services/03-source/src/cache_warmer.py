@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
 
 import structlog
 
+from src.detector import SourceDetector
 from src.models import CacheWarmResult
 from src.storage import EnhancedJSONStorage
-from src.detector import SourceDetector
 
 log = structlog.get_logger()
 
@@ -172,10 +171,9 @@ class CacheWarmer:
                     return []
 
                 data = resp.json()
-                contracts = []
                 for protocol in data[:20]:  # Top 20 protocols
                     # Try to get chain + address from protocol data
-                    chain = (protocol.get("chains") or ["ethereum"])[0]
+                    (protocol.get("chains") or ["ethereum"])[0]
                     # Note: actual contract addresses require per-protocol lookup
                     # This is a simplified version
                     pass

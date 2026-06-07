@@ -11,9 +11,9 @@ Levels:
 """
 
 from src.intelligence.compiler_classifier import CompilerClassifier, create_classifier
-from src.intelligence.compiler_scorer import CompilerScorer, create_scorer
 from src.intelligence.compiler_fixer import CompilerFixer, create_fixer
 from src.intelligence.compiler_nlp import CompilerNLP, create_nlp
+from src.intelligence.compiler_scorer import CompilerScorer, create_scorer
 
 __all__ = [
     "CompilerClassifier",

@@ -13,21 +13,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from shared.skills.skill_registry import SkillRegistry
 from shared.agent_protocol.base_agent import BaseAgent
 from shared.agent_protocol.models import (
     AgentCapability,
     CapabilityDefinition,
     DelegationRequest,
 )
+from shared.skills.skill_registry import SkillRegistry
 
 from .skills import (
-    SyncProgramsSkill,
-    SearchProgramsSkill,
-    GetProgramDetailsSkill,
     AnalyzeCompetitionSkill,
-    PredictVulnerabilitiesSkill,
+    GetProgramDetailsSkill,
     MonitorEventsSkill,
+    PredictVulnerabilitiesSkill,
+    SearchProgramsSkill,
+    SyncProgramsSkill,
 )
 
 

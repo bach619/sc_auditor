@@ -18,12 +18,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "services/15-dashboard"))
 
-# We monkey-patch the paths BEFORE importing storage so the module
-# uses our temp directory instead of ~/.sc_auditor
-from src import models
+from src.models import CaseCreate, CaseStatus, ClosedReason, ScannerFinding
 from src.storage import (
-    CASES_DIR,
-    SC_AUDITOR_DIR,
     close_case,
     create_case,
     get_case,
@@ -31,7 +27,6 @@ from src.storage import (
     list_cases,
     list_cases_with_total,
 )
-from src.models import CaseCreate, CaseStatus, ClosedReason, ScannerFinding
 
 _TEST_DIR: Path | None = None
 
@@ -42,9 +37,10 @@ def _patch_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     global _TEST_DIR
     tmp = Path(tempfile.mkdtemp())
     _TEST_DIR = tmp
-    monkeypatch.setattr("src.storage.SC_AUDITOR_DIR", tmp)
-    monkeypatch.setattr("src.storage.CASES_DIR", tmp / "cases")
-    monkeypatch.setattr("src.storage.LEARNING_DIR", tmp / "learning")
+    import src.storage as _stor
+    _stor.SC_AUDITOR_DIR = tmp
+    _stor.CASES_DIR = tmp / "cases"
+    _stor.LEARNING_DIR = tmp / "learning"
     (tmp / "cases").mkdir(parents=True, exist_ok=True)
     (tmp / "learning").mkdir(parents=True, exist_ok=True)
 
@@ -128,7 +124,7 @@ class TestStorageCRUD:
 
     def test_list_cases_status_filter(self) -> None:
         """list_cases filters by status (different contracts avoid dedup)."""
-        c1 = create_case(_make_case(contract="C1", function="f1"))
+        create_case(_make_case(contract="C1", function="f1"))
         c2 = create_case(_make_case(title="Second", contract="C2", function="f2"))
         close_case(c2.case_id, reason=ClosedReason.CONFIRMED)
         open_cases = list_cases(status="OPEN")
@@ -175,7 +171,7 @@ class TestStorageCRUD:
     def test_get_case_stats(self) -> None:
         """get_case_stats returns aggregated statistics (different contracts avoid dedup)."""
         c1 = create_case(_make_case(severity="High", scanner_name="slither", contract="C1", function="f1"))
-        c2 = create_case(_make_case(severity="Medium", scanner_name="mythril", title="Medium one", contract="C2", function="f2"))
+        create_case(_make_case(severity="Medium", scanner_name="mythril", title="Medium one", contract="C2", function="f2"))
         close_case(c1.case_id, reason=ClosedReason.CONFIRMED, bounty=1000.0)
         stats = get_case_stats()
         assert stats.total_cases == 2

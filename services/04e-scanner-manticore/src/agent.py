@@ -14,7 +14,6 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
-from shared.skills.skill_registry import SkillRegistry
 
 from .guided_analyzer import GuidedAnalyzer
 from .resource_guard import ResourceBudget

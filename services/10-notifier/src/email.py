@@ -12,13 +12,12 @@ import email.utils
 import os
 import smtplib
 import ssl
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from email.encoders import encode_base64
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.encoders import encode_base64
 from pathlib import Path
-from typing import Any
 
 import structlog
 

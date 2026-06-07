@@ -1,13 +1,15 @@
 """04e-Scanner-Manticore Skills — Manticore symbolic execution."""
 from shared.skills.op_skills import (
     AlgorithmAnalyzerSkill,
-    MathVerifierSkill,
     ComplexityAnalyzerSkill,
     DataStructureOptimizerSkill,
+    MathVerifierSkill,
 )
-from .run_manticore import RunManticoreSkill
+
 from .confirm_finding import ConfirmFindingSkill
 from .interpret_manticore import InterpretManticoreSkill
+from .run_manticore import RunManticoreSkill
+
 
 def create_registry():
     from shared.skills.skill_registry import SkillRegistry

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 from src.detectors.base import BaseCairoDetector
 
@@ -14,8 +14,8 @@ class EventEmissionDetector(BaseCairoDetector):
     severity_focus = "low"
     category = "events"
 
-    def analyze(self, ir_contract: Dict[str, Any]) -> List[Dict[str, Any]]:
-        findings: List[Dict[str, Any]] = []
+    def analyze(self, ir_contract: dict[str, Any]) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
         raw_parse = ir_contract.get("_raw_parse", {})
         source = raw_parse.get("source", "")
         events = ir_contract.get("events", {})

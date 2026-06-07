@@ -9,7 +9,7 @@ Solution: A finding is only reported if CONFIRMED by multiple independent tools.
 
 Confidence scoring:
   1 tool found it         → LOW (30% confidence)
-  2 tools confirm         → MEDIUM (60% confidence)  
+  2 tools confirm         → MEDIUM (60% confidence)
   3+ tools confirm        → HIGH (90% confidence)
   3+ tools + AI verdict   → VERY HIGH (95%+ confidence)
   3+ tools + exploit PoC   → CONFIRMED (99% confidence)
@@ -21,14 +21,13 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.consensus")
 
 
-class ConfidenceLevel(str, Enum):
+class ConfidenceLevel(StrEnum):
     LOW = "low"                # 1 tool — likely false positive
     MEDIUM = "medium"          # 2 tools — probably real
     HIGH = "high"              # 3 tools — very likely real
@@ -66,7 +65,7 @@ class ConsensusResult:
     ai_verdict: str = ""              # AI's assessment
     exploit_confirmed: bool = False
     recommendation: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class CrossToolConsensus:
@@ -77,7 +76,7 @@ class CrossToolConsensus:
         slither_findings = [...]
         mythril_findings = [...]
         echidna_findings = [...]
-        
+
         results = consensus.analyze([slither_findings, mythril_findings, echidna_findings])
         for r in results:
             print(f"{r.confidence.value}: {r.title} — {len(r.tools_confirmed)} tools agree")

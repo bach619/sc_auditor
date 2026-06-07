@@ -10,11 +10,11 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
+from shared.skills.skill_registry import SkillCallMetrics
+from shared.skills.skill_registry import SkillRegistry as SharedSkillRegistry
 
-from shared.skills.skill_registry import SkillCallMetrics, SkillRegistry as SharedSkillRegistry
-
-from src.skills.base import BaseSkill
 from src.models import SkillDefinition, SkillResult
+from src.skills.base import BaseSkill
 
 log = structlog.get_logger()
 

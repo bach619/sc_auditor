@@ -10,7 +10,7 @@ Flow:
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -116,7 +116,7 @@ class ContractAutoFetcher:
                 timeout=60.0,
             )
 
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
 
             if resp.status_code == 200:
                 data = resp.json().get("data", {})
@@ -392,7 +392,7 @@ class ContractAutoFetcher:
                 })
                 count += 1
 
-        summary["generated_at"] = datetime.now(timezone.utc).isoformat()
+        summary["generated_at"] = datetime.now(UTC).isoformat()
         return summary
 
     # ── Stats ──────────────────────────────────────────────

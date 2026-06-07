@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import re
-from typing import Any, Dict, List
+from typing import Any
 
 from src.detectors.base import BaseCairoDetector
 
@@ -14,8 +13,8 @@ class UpgradeSafetyDetector(BaseCairoDetector):
     severity_focus = "high"
     category = "upgrade"
 
-    def analyze(self, ir_contract: Dict[str, Any]) -> List[Dict[str, Any]]:
-        findings: List[Dict[str, Any]] = []
+    def analyze(self, ir_contract: dict[str, Any]) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
         raw_parse = ir_contract.get("_raw_parse", {})
         source = raw_parse.get("source", "")
         functions = ir_contract.get("functions", {})
@@ -31,7 +30,7 @@ class UpgradeSafetyDetector(BaseCairoDetector):
         if not is_proxy:
             return findings
 
-        has_constructor = any(
+        any(
             func.get("is_constructor") for func in functions.values()
         )
         has_initializer = any(

@@ -9,7 +9,6 @@ import { Input } from '../components/ui/input'
 import { Select } from '../components/ui/select'
 import { StatCard } from '../components/StatCard'
 import { StatusBadge } from '../components/StatusBadge'
-import { LoadingState } from '../components/LoadingState'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { AuditErrorAlert } from '../components/AuditErrorAlert'
 import { PageHeader } from '../components/PageHeader'
@@ -33,7 +32,7 @@ export default function Dashboard() {
   const { setDaemonStatus } = useDaemon()
   const [audits, setAudits] = useState<Audit[]>([])
   const [auditsLoading, setAuditsLoading] = useState(true)
-  const [stats, setStats] = useState<any>(null)
+  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null)
   const [caseStats, setCaseStats] = useState<CaseStatsData | null>(null)
   const [daemon, setDaemon] = useState<DaemonState>({ status: 'running', total_contracts_audited: 0, total_cycles_completed: 0 })
@@ -70,7 +69,7 @@ export default function Dashboard() {
         setDaemon(daemonRes.data || { status: 'running', total_contracts_audited: 0, total_cycles_completed: 0 })
         setMetrics(metricsRes.data || null)
         setCaseStats(caseStatsRes.data || null)
-      } catch {}
+      } catch (err) { console.error('Dashboard load failed', err) }
       if (!cancelled) setAuditsLoading(false)
     }
     load()
@@ -79,7 +78,8 @@ export default function Dashboard() {
 
   useSSE((msg) => {
     if (msg.event === 'daemon_status' && msg.data) {
-      setDaemon((prev) => prev ? { ...prev, status: msg.data.status } : prev)
+      const s = (msg.data as Record<string, unknown>).status as string
+      setDaemon((prev) => prev ? { ...prev, status: s as 'stopped' | 'running' | 'paused' | 'error' } : prev)
     }
     if (msg.event === 'audit_complete' || msg.event === 'audit_progress') {
       api.getAudits({ limit: 10 }).then((r) => setAudits(r.data || [])).catch(() => {})
@@ -98,8 +98,8 @@ export default function Dashboard() {
       const newState = res.data || { status: daemonIsRunning ? 'stopped' : 'running', total_contracts_audited: 0, total_cycles_completed: 0 }
       setDaemon(newState)
       setDaemonStatus(newState.status)
-    } catch (err: any) {
-      setActionError(err?.message || 'Failed to toggle daemon')
+    } catch (err: unknown) {
+      setActionError((err as { message?: string })?.message || 'Failed to toggle daemon')
     } finally { setDaemonToggling(false) }
   }
 
@@ -110,8 +110,8 @@ export default function Dashboard() {
       await api.daemonSync()
       const res = await api.getDaemonStatus()
       setDaemon(res.data || null)
-    } catch (err: any) {
-      setActionError(err?.message || 'Failed to run sync')
+    } catch (err: unknown) {
+      setActionError((err as { message?: string })?.message || 'Failed to run sync')
     } finally { setSyncing(false) }
   }
 
@@ -135,7 +135,7 @@ export default function Dashboard() {
         priority: Number(data.get('priority')) || 5,
       })
       // Audit created successfully — refresh data before closing modal
-      const auditId = (result as any)?.data?.audit_id || ''
+      const auditId = String(((result as { data: Record<string, unknown> })?.data?.audit_id) || '')
       try {
         const [auditsRes, statsRes] = await Promise.all([
           api.getAudits({ limit: 10 }),
@@ -152,8 +152,8 @@ export default function Dashboard() {
           ? `Audit ${auditId.slice(0, 12)}... started for ${address.slice(0, 10)}... on ${chain}`
           : `Audit started for ${address.slice(0, 10)}... on ${chain}. Check the list below.`
       )
-    } catch (err: any) {
-      const msg = err?.message || 'Failed to start audit'
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message || 'Failed to start audit'
       setModalError(msg)
     } finally {
       setModalLoading(false)
@@ -179,7 +179,7 @@ export default function Dashboard() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Audits" value={stats?.total_audits} subtext="Last 30 days" trend="+12%" />
+        <StatCard label="Total Audits" value={stats?.total_audits as number} subtext="Last 30 days" trend="+12%" />
         <StatCard label="Critical Findings" value={metrics?.critical_findings} subtext="Unresolved" accent accentColor="red" />
         <StatCard label="TP Rate" value={metrics != null ? `${(tpRate * 100).toFixed(1)}%` : '—'} subtext="True Positive Rate" accent accentColor="green" />
         <StatCard label="Daemon Status" value={daemon ? (daemonIsRunning ? 'Running' : 'Stopped') : '—'}

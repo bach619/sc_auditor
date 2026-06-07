@@ -15,14 +15,14 @@ from pathlib import Path
 
 import pytest
 
-from services.shared.storage import SqliteStore, SimpleSQLiteStore, StoreConfig
+from services.shared.storage import SimpleSQLiteStore, SqliteStore, StoreConfig
 
 # Import all schemas
 from services.shared.storage.service_schemas import (
-    SOURCE_SCHEMA_SQL,
-    AI_SCHEMA_SQL,
     AGENT_SCHEMA_SQL,
+    AI_SCHEMA_SQL,
     SCANNER_SCHEMA_SQL,
+    SOURCE_SCHEMA_SQL,
 )
 
 

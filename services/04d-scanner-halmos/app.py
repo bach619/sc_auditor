@@ -34,6 +34,7 @@ from src.intelligence import (
     create_path_predictor,
     create_scorer,
 )
+from shared.api_errors import register_error_handlers
 from shared.observability import setup_observability
 from src.agent import HalmosAgent
 from shared.agent_protocol.models import (
@@ -164,6 +165,7 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,

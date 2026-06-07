@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
+from shared.api_errors import register_error_handlers
 from shared.observability import setup_observability
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -246,6 +247,8 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+
+register_error_handlers(app)
 
 # CORS — permissive for local development / Docker compose
 app.add_middleware(

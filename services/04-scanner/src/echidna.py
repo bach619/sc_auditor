@@ -327,10 +327,10 @@ class EchidnaRunner:
     ) -> str:
         """Build an Echidna YAML config string."""
         lines = [
-            f"contractAddr: \"0x00a329c0648769a73afac7f9381e08fb43dbea70\"",
-            f"sender: [\"0x1000\", \"0x2000\", \"0x3000\"]",
-            f"deployer: \"0x1000\"",
-            f"testLimit: 50000",
+            "contractAddr: \"0x00a329c0648769a73afac7f9381e08fb43dbea70\"",
+            "sender: [\"0x1000\", \"0x2000\", \"0x3000\"]",
+            "deployer: \"0x1000\"",
+            "testLimit: 50000",
         ]
 
         if config:

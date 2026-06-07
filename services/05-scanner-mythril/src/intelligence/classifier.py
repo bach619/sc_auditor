@@ -9,7 +9,6 @@ Ref: https://swcregistry.io/
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 # SWC → Category mapping

@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import logging
-import os
 import subprocess
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 logger = logging.getLogger("vyper.orchestrator.test_intel")
 
@@ -23,17 +20,17 @@ class TestAnalysis:
     failing: int = 0
     skipped: int = 0
     error_count: int = 0  # test errors (setup failures etc.)
-    coverage_percent: Optional[float] = None
-    frameworks_used: List[str] = field(default_factory=list)
-    test_files: List[str] = field(default_factory=list)
-    duration_seconds: Optional[float] = None
+    coverage_percent: float | None = None
+    frameworks_used: list[str] = field(default_factory=list)
+    test_files: list[str] = field(default_factory=list)
+    duration_seconds: float | None = None
     output: str = ""
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 # ── Framework detection patterns ────────────────────────────────
 
-_FRAMEWORK_PATTERNS: Dict[str, List[str]] = {
+_FRAMEWORK_PATTERNS: dict[str, list[str]] = {
     "hardhat": ["hardhat.config", "hardhat.config.ts", "hardhat.config.js"],
     "foundry": ["foundry.toml"],
     "truffle": ["truffle-config.js", "truffle-config.ts"],
@@ -45,7 +42,7 @@ _FRAMEWORK_PATTERNS: Dict[str, List[str]] = {
 }
 
 
-_TEST_DIR_PATTERNS: List[str] = [
+_TEST_DIR_PATTERNS: list[str] = [
     "test",
     "tests",
     "spec",
@@ -60,7 +57,7 @@ _TEST_DIR_PATTERNS: List[str] = [
 ]
 
 
-_TEST_FILE_PATTERNS: List[str] = [
+_TEST_FILE_PATTERNS: list[str] = [
     "*.test.js",
     "*.test.ts",
     "*.spec.js",
@@ -78,13 +75,13 @@ class TestIntelligence:
     """Discover, run, and analyze tests in a Solidity repository."""
 
     def __init__(self) -> None:
-        self._frameworks: List[str] = []
+        self._frameworks: list[str] = []
 
     # ── Test discovery ──────────────────────────────────────────
 
-    def find_test_frameworks(self, repo_path: Path) -> List[str]:
+    def find_test_frameworks(self, repo_path: Path) -> list[str]:
         """Detect which test framework(s) the repo uses."""
-        detected: List[str] = []
+        detected: list[str] = []
         for framework, patterns in _FRAMEWORK_PATTERNS.items():
             for pattern in patterns:
                 if list(repo_path.rglob(pattern)):
@@ -117,7 +114,7 @@ class TestIntelligence:
         analysis = TestAnalysis()
         analysis.frameworks_used = self.find_test_frameworks(repo_path)
 
-        test_files: Set[Path] = set()
+        test_files: set[Path] = set()
         for dir_pattern in _TEST_DIR_PATTERNS:
             test_dir = repo_path / dir_pattern
             if test_dir.exists() and test_dir.is_dir():

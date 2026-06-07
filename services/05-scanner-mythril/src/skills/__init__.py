@@ -1,13 +1,15 @@
 """05-scanner-mythril — Mythril Analysis Skills."""
 from shared.skills.op_skills import (
     AlgorithmAnalyzerSkill,
-    MathVerifierSkill,
     ComplexityAnalyzerSkill,
     DataStructureOptimizerSkill,
+    MathVerifierSkill,
 )
-from .run_mythril_standard import RunMythrilStandardSkill
-from .run_mythril_deep import RunMythrilDeepSkill
+
 from .explain_finding import ExplainFindingSkill
+from .run_mythril_deep import RunMythrilDeepSkill
+from .run_mythril_standard import RunMythrilStandardSkill
+
 
 def create_registry():
     from shared.skills.skill_registry import SkillRegistry

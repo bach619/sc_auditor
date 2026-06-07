@@ -10,6 +10,7 @@ x-service-base: &service-base
     options:
       max-size: "10m"
       max-file: "3"
+  stop_grace_period: 30s
   deploy:
     resources:
       limits:
@@ -28,7 +29,7 @@ services:
     ports: ["8011:8000"]
     volumes: [vyper_config:/data/config]
     environment:
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -45,7 +46,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   03-source:
     <<: *service-base
@@ -57,8 +58,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   04-scanner:
     <<: *service-base
@@ -80,7 +80,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - MYTHRIL_URL=http://05-scanner-mythril:8013
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   # ── Scanner Services (split from 04-scanner) ──────────────────
   # Each scanner runs as an independent microservice for fault isolation,
@@ -105,7 +105,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   04b-scanner-echidna:
     <<: *service-base
@@ -117,6 +117,7 @@ services:
       - vyper_scanner_echidna:/data/scanner-echidna
       - vyper_compiled:/data/compiled:ro
     depends_on: [01-config]
+    stop_grace_period: 120s
     deploy:
       resources:
         limits:
@@ -127,7 +128,7 @@ services:
           memory: "256M"
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   04c-scanner-forge:
     <<: *service-base
@@ -141,7 +142,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   04d-scanner-halmos:
     <<: *service-base
@@ -153,6 +154,7 @@ services:
       - vyper_scanner_halmos:/data/scanner-halmos
       - vyper_compiled:/data/compiled:ro
     depends_on: [01-config]
+    stop_grace_period: 120s
     deploy:
       resources:
         limits:
@@ -163,7 +165,7 @@ services:
           memory: "512M"
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   04e-scanner-manticore:
     <<: *service-base
@@ -175,6 +177,7 @@ services:
       - vyper_scanner_manticore:/data/scanner-manticore
       - vyper_compiled:/data/compiled:ro
     depends_on: [04a-scanner-slither]
+    stop_grace_period: 120s
     deploy:
       resources:
         limits:
@@ -186,7 +189,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - SLITHER_URL=http://04a-scanner-slither:8014
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   05-scanner-mythril:
     <<: *service-base
@@ -198,9 +201,10 @@ services:
       - vyper_scanner_mythril:/data/scanner-mythril
       - vyper_compiled:/data/compiled:ro
     depends_on: [01-config]
+    stop_grace_period: 60s
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   06-ai:
     <<: *service-base
@@ -213,7 +217,7 @@ services:
     environment:
       # API keys (OPENAI_API_KEY, ANTHROPIC_API_KEY) diset via frontend Settings → Config Service
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   07-classifier:
     <<: *service-base
@@ -223,12 +227,12 @@ services:
     ports: ["8005:8000"]
     volumes:
       - vyper_classifier:/data/classifier
-      - vyper_learning:/data/learning        # DEPRECATED — will be local SQLite
-      - vyper_kb:/data/knowledge             # DEPRECATED — will be local SQLite
+      # DEPRECATED - vyper_learning:/data/learning        # DEPRECATED — replaced by SQLite + sync protocol
+      # DEPRECATED - vyper_kb:/data/knowledge             # DEPRECATED — replaced by SQLite + sync protocol
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   08-exploit:
     <<: *service-base
@@ -242,8 +246,9 @@ services:
       # ephemeral Anvil containers. The Docker socket MUST be mounted
       # read-write so the SDK can perform container lifecycle operations.
       - /var/run/docker.sock:/var/run/docker.sock
-      - vyper_kb:/data/knowledge
+      # DEPRECATED - vyper_kb:/data/knowledge
     depends_on: [01-config]
+    stop_grace_period: 60s
     deploy:
       resources:
         limits:
@@ -255,14 +260,18 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - AI_SERVICE_URL=http://06-ai:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
     privileged: false
-    # Run exploit container as root so it can access the mounted Docker
-    # socket at /var/run/docker.sock (needed by docker-py to create Anvil
-    # ephemeral containers). The Dockerfile sets USER appuser; override
-    # here to ensure socket access. For production, consider a more
-    # secure approach (matching host docker group id via group_add).
-    user: "root"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:exec
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+    user: "1000:1000"
 
   09-reporter:
     <<: *service-base
@@ -274,7 +283,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   10-notifier:
     <<: *service-base
@@ -286,7 +295,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   11-orchestrator:
     <<: *service-base
@@ -296,7 +305,7 @@ services:
     ports: ["8009:8000"]
     volumes:
       - vyper_orchestrator:/data/orchestrator
-      - vyper_learning:/data/learning
+      # DEPRECATED - vyper_learning:/data/learning
     depends_on:
       - 02-immunefi
       - 03-source
@@ -315,7 +324,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - AI_URL=http://06-ai:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
       - DASHBOARD_URL=http://15-dashboard:8000
       - SCANNER_URL=http://04-scanner:8000
       - CLASSIFIER_URL=http://07-classifier:8000
@@ -335,7 +344,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   13-upkeep:
     <<: *service-base
@@ -347,7 +356,7 @@ services:
     depends_on: [01-config]
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   14-agent:
     <<: *service-base
@@ -376,7 +385,7 @@ services:
       - REPORTER_URL=http://09-reporter:8007
       - NOTIFIER_URL=http://10-notifier:8000
       - ORCHESTRATOR_URL=http://11-orchestrator:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   15-dashboard:
     <<: *service-base
@@ -386,7 +395,7 @@ services:
     ports: ["8000:8000"]
     volumes:
       - vyper_dashboard:/data/dashboard
-      - vyper_learning:/data/learning
+      - ~/.sc_auditor:/root/.sc_auditor
     depends_on: [11-orchestrator, 01-config, 14-agent]
     environment:
       - CONFIG_URL=http://01-config:8000
@@ -405,7 +414,7 @@ services:
       - UPKEEP_URL=http://13-upkeep:8000
       - SUBMISSION_URL=http://16-submission:8000
       - AGENT_URL=http://14-agent:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   16-submission:
     <<: *service-base
@@ -422,7 +431,7 @@ services:
       - AI_URL=http://06-ai:8000
       - EXPLOIT_URL=http://08-exploit:8006
       - ORCHESTRATOR_URL=http://11-orchestrator:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   17-experience:
     <<: *service-base
@@ -463,7 +472,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   19-sherlock:
     <<: *service-base
@@ -480,7 +489,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   20-cantina:
     <<: *service-base
@@ -497,7 +506,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   21-hats:
     <<: *service-base
@@ -514,7 +523,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   # ═══════════════════════════════════════════════════════════════
   # Multi-Chain Source Fetchers (22)
@@ -536,7 +545,7 @@ services:
       retries: 3
     environment:
       - CONFIG_URL=http://01-config:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
   # ═══════════════════════════════════════════════════════════════
   # Multi-Chain Scanners (23)
@@ -559,7 +568,7 @@ services:
     environment:
       - CONFIG_URL=http://01-config:8000
       - SOURCE_STARKNET_URL=http://22-source-starknet:8000
-      - STORAGE_ENGINE=dual
+      - STORAGE_ENGINE=sqlite
 
 volumes:
   vyper_compiled:                    # Shared compilation cache
@@ -591,8 +600,8 @@ volumes:
   vyper_upkeep:
   vyper_submission:
   vyper_experience:
-  vyper_kb:
-  vyper_learning:
+  vyper_kb:                # DEPRECATED — replaced by SQLite + sync protocol
+  vyper_learning:          # DEPRECATED — replaced by SQLite + sync protocol
 
 networks:
   vyper-net:

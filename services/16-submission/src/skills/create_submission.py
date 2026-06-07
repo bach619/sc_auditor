@@ -74,8 +74,8 @@ class CreateSubmissionSkill(BaseSkill):
         proof_of_concept: str = "",
         **kwargs: Any,
     ) -> dict[str, Any]:
-        from ..storage import SubmissionStorage
         from ..models import BugCategory, SeverityLevel, Submission
+        from ..storage import SubmissionStorage
 
         storage = SubmissionStorage()
 

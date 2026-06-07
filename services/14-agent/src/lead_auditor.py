@@ -10,8 +10,11 @@ The Lead Auditor:
 
 from __future__ import annotations
 
+import json
+import sqlite3
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -32,8 +35,8 @@ from src.organization import (
     get_persona,
     team_descriptions_for_prompt,
 )
-from src.sub_agent import SubAgent
 from src.skills.registry import SkillRegistry
+from src.sub_agent import SubAgent
 
 log = structlog.get_logger()
 
@@ -63,6 +66,15 @@ class LeadAuditor:
         self.sub_agents: dict[AgentRole, SubAgent] = {}
         self._sessions: dict[str, TeamSession] = {}
         self._global_registry: SkillRegistry | None = None
+
+        # ── Session persistence ──
+        self._session_db_path = Path("/data/agent/sessions.db")
+        self._session_db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._session_conn = sqlite3.connect(str(self._session_db_path))
+        self._session_conn.execute("PRAGMA journal_mode=WAL")
+        self._session_conn.execute("PRAGMA synchronous=NORMAL")
+        self._init_session_table()
+        self._load_persisted_sessions()
 
         log.info("lead_auditor_created")
 
@@ -103,23 +115,18 @@ class LeadAuditor:
 
     # ── Public API ─────────────────────────────────────────
 
-    async def run_team_audit(
+    def create_session(
         self,
         task_type: str,
         input_data: dict[str, Any],
         goal: str,
-        max_delegations: int = MAX_DELEGATIONS,
-    ) -> TeamSession:
-        """Run a full team-based audit.
+    ) -> tuple[str, TeamSession]:
+        """Create a new team session and return immediately.
 
-        Args:
-            task_type: Type of audit task
-            input_data: Input data (contract address, chain, etc.)
-            goal: Natural language goal
-            max_delegations: Max delegation cycles
+        Does NOT run the audit — call run_session() to execute.
 
         Returns:
-            TeamSession with all delegation steps and results
+            Tuple of (session_id, TeamSession)
         """
         session_id = f"team-{uuid.uuid4().hex[:12]}"
 
@@ -130,12 +137,44 @@ class LeadAuditor:
             input_data=input_data,
         )
         self._sessions[session_id] = session
+        self._persist_session(session)
+
+        log.info(
+            "team_audit_created",
+            session_id=session_id,
+            task_type=task_type,
+            goal=goal[:100] if goal else "auto",
+        )
+
+        return session_id, session
+
+    async def run_session(
+        self,
+        session_id: str,
+        max_delegations: int = MAX_DELEGATIONS,
+    ) -> TeamSession:
+        """Execute a previously created team session.
+
+        Args:
+            session_id: The session ID from create_session()
+            max_delegations: Max delegation cycles
+
+        Returns:
+            TeamSession with all delegation steps and results
+        """
+        session = self._sessions.get(session_id)
+        if session is None:
+            raise ValueError(f"Session not found: {session_id}")
+
+        goal = session.goal
+        input_data = session.input_data
+        task_type = session.task_type
 
         log.info(
             "team_audit_started",
             session_id=session_id,
             task_type=task_type,
-            goal=goal[:100],
+            goal=goal[:100] if goal else "auto",
         )
 
         # Init memory
@@ -180,7 +219,7 @@ class LeadAuditor:
             )
 
             thought = decision.get("thought", "")
-            action_name = decision.get("action", "FINAL_ANSWER")
+            action_name = decision.get("action") or "FINAL_ANSWER"
             action_input = decision.get("action_input") or {}
             final_answer = decision.get("final_answer")
 
@@ -198,6 +237,7 @@ class LeadAuditor:
                     final_answer or ""
                 )
                 session.updated_at = _now()
+                self._persist_session(session)  # persist terminal state
 
                 log.info(
                     "team_audit_completed",
@@ -356,12 +396,14 @@ class LeadAuditor:
                         "Audit stopped due to repeated failures."
                     )
                     session.updated_at = _now()
+                    self._persist_session(session)  # persist terminal state
                     return session
 
         # Max delegations reached
         session.status = AgentState.STOPPED
         session.error = f"Reached maximum delegations ({max_delegations})"
         session.updated_at = _now()
+        self._persist_session(session)  # persist terminal state
 
         log.warning(
             "team_audit_max_delegations",
@@ -384,7 +426,7 @@ class LeadAuditor:
 
         completed = self.memory.get_working("completed_roles", [])
         if completed:
-            parts.append(f"\n=== COMPLETED DELEGATIONS ===")
+            parts.append("\n=== COMPLETED DELEGATIONS ===")
             for role in completed:
                 sub_state = session.sub_agents.get(role)
                 if sub_state:
@@ -411,7 +453,7 @@ class LeadAuditor:
 
         last_report = self.memory.get_working("last_report")
         if last_report:
-            parts.append(f"\n=== LAST REPORT ===")
+            parts.append("\n=== LAST REPORT ===")
             parts.append(f"  {_truncate_str(str(last_report), 200)}")
 
         return "\n".join(parts)
@@ -438,7 +480,7 @@ class LeadAuditor:
             parts.append(f"{to_serializable(analyzed[-5:])}")
 
         input_data = self.memory.get_working("input_data", {})
-        parts.append(f"\n=== INPUT ===")
+        parts.append("\n=== INPUT ===")
         parts.append(f"{to_serializable(input_data)}")
 
         return "\n".join(parts)
@@ -479,21 +521,124 @@ class LeadAuditor:
 
     # ── Session Management ─────────────────────────────────
 
+    def _init_session_table(self) -> None:
+        """Ensure the sessions table exists."""
+        self._session_conn.executescript("""
+            CREATE TABLE IF NOT EXISTS agent_sessions (
+                session_id      TEXT PRIMARY KEY,
+                status          TEXT DEFAULT 'active',
+                task_type       TEXT,
+                goal            TEXT DEFAULT '',
+                context_json    TEXT DEFAULT '{}',
+                started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                completed_at    TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_sessions_status ON agent_sessions(status);
+            CREATE INDEX IF NOT EXISTS idx_sessions_started ON agent_sessions(started_at);
+        """)
+        self._session_conn.commit()
+
+    def _load_persisted_sessions(self) -> None:
+        """Load completed/failed sessions from SQLite into memory."""
+        try:
+            rows = self._session_conn.execute(
+                "SELECT session_id, status, task_type, goal, context_json, started_at, completed_at "
+                "FROM agent_sessions ORDER BY started_at DESC"
+            ).fetchall()
+            loaded = 0
+            for row in rows:
+                sid = row["session_id"]
+                if sid not in self._sessions:
+                    ctx = json.loads(row["context_json"] or "{}")
+                    self._sessions[sid] = TeamSession(
+                        team_session_id=sid,
+                        task_type=row["task_type"] or "",
+                        goal=row["goal"] or "",
+                        input_data=ctx.get("input_data", {}),
+                        status=AgentState(row["status"]) if row["status"] else AgentState.COMPLETED,
+                        created_at=row["started_at"] or "",
+                        error=ctx.get("error"),
+                    )
+                    loaded += 1
+            if loaded > 0:
+                log.info("lead_auditor_sessions_loaded", count=loaded)
+        except Exception:
+            pass  # Fresh DB or corrupt — no problem
+
+    def _persist_session(self, session: TeamSession) -> None:
+        """Persist a team session to SQLite (upsert)."""
+        try:
+            ctx = json.dumps({
+                "input_data": session.input_data,
+                "error": session.error,
+                "output_summary": str(session.output_data)[:500] if session.output_data else "",
+                "sub_agents": list(session.sub_agents.keys()),
+            })
+            self._session_conn.execute(
+                """INSERT OR REPLACE INTO agent_sessions
+                   (session_id, status, task_type, goal, context_json, started_at, completed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    session.team_session_id,
+                    session.status.value,
+                    session.task_type,
+                    session.goal[:200],
+                    ctx,
+                    session.created_at,
+                    session.updated_at if session.status in (
+                        AgentState.COMPLETED, AgentState.FAILED, AgentState.STOPPED
+                    ) else None,
+                ),
+            )
+            self._session_conn.commit()
+        except Exception as exc:
+            log.warning("session_persist_failed", session_id=session.team_session_id, error=str(exc))
+
     def get_session(self, session_id: str) -> TeamSession | None:
         return self._sessions.get(session_id)
 
     def list_sessions(
         self, limit: int = 20, status: str | None = None
     ) -> list[TeamSession]:
+        # ── Merge in-memory sessions with persisted sessions ──
+        # In-memory sessions take precedence (more recent state)
+        merged: dict[str, TeamSession] = {}
+
+        # Load from persistent DB
+        try:
+            query = "SELECT session_id, status, task_type, goal, context_json, started_at, completed_at FROM agent_sessions"
+            params: list[Any] = []
+            if status:
+                query += " WHERE status = ?"
+                params.append(status)
+            query += " ORDER BY started_at DESC LIMIT ?"
+            params.append(limit)
+
+            rows = self._session_conn.execute(query, params).fetchall()
+            for row in rows:
+                sid = row["session_id"]
+                ctx = json.loads(row["context_json"] or "{}")
+                merged[sid] = TeamSession(
+                    team_session_id=sid,
+                    task_type=row["task_type"] or "",
+                    goal=row["goal"] or "",
+                    input_data=ctx.get("input_data", {}),
+                    status=AgentState(row["status"]) if row["status"] else AgentState.COMPLETED,
+                    created_at=row["started_at"] or "",
+                    error=ctx.get("error"),
+                )
+        except Exception:
+            pass  # Fall through to in-memory only
+
+        # In-memory sessions override (more up-to-date)
+        for sid, s in self._sessions.items():
+            merged[sid] = s
+
         sessions = sorted(
-            self._sessions.values(),
+            merged.values(),
             key=lambda s: s.created_at,
             reverse=True,
         )
-        if status:
-            sessions = [
-                s for s in sessions if s.status.value == status
-            ]
         return sessions[:limit]
 
     @property
@@ -511,7 +656,7 @@ class LeadAuditor:
 
 def _now() -> str:
     import datetime
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
 def _truncate_str(s: str, max_len: int = 200) -> str:

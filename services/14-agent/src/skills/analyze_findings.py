@@ -86,7 +86,7 @@ class AnalyzeFindingsSkill(BaseSkill):
 
         result = data.get("data", {})
         enriched = result.get("findings", [])
-        summary = result.get("summary", {})
+        result.get("summary", {})
 
         tp_count = sum(1 for f in enriched if f.get("ai_verdict") == "true_positive")
         fp_count = sum(1 for f in enriched if f.get("ai_verdict") == "false_positive")

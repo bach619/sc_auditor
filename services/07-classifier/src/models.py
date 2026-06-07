@@ -7,19 +7,18 @@ the classification data model from §7.3.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Classification Enums
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class Classification(str, Enum):
+class Classification(StrEnum):
     """The 4-quadrant detection matrix."""
 
     UNKNOWN = "unknown"
@@ -29,7 +28,7 @@ class Classification(str, Enum):
     FALSE_NEGATIVE = "false_negative"
 
 
-class ClassificationSource(str, Enum):
+class ClassificationSource(StrEnum):
     """Source of a classification decision."""
 
     TOOL_RAW = "tool_raw"
@@ -41,7 +40,7 @@ class ClassificationSource(str, Enum):
     RECLASSIFICATION = "reclassification"
 
 
-class ClassificationStage(str, Enum):
+class ClassificationStage(StrEnum):
     """Finding lifecycle stages from §7.2."""
 
     RAW = "raw"
@@ -52,7 +51,7 @@ class ClassificationStage(str, Enum):
     IMMUNEFI_SUBMITTED = "immunefi_submitted"
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Finding severity levels."""
 
     CRITICAL = "critical"
@@ -62,7 +61,7 @@ class Severity(str, Enum):
     INFO = "info"
 
 
-class PatternType(str, Enum):
+class PatternType(StrEnum):
     """Types of vulnerability patterns the learner can detect."""
 
     CODE_PATTERN = "code_pattern"
@@ -89,7 +88,7 @@ class ClassificationLayer(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str | None = None
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -170,10 +169,10 @@ class Pattern(BaseModel):
     source_feedback_id: str | None = None
     is_active: bool = True
     created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     updated_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -182,7 +181,7 @@ class Pattern(BaseModel):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class FeedbackStatus(str, Enum):
+class FeedbackStatus(StrEnum):
     """Status of a feedback entry in the confirmation workflow."""
 
     INITIAL = "initial"
@@ -203,10 +202,10 @@ class Feedback(BaseModel):
     reviewed_by: str | None = None
     source: ClassificationSource = ClassificationSource.HUMAN_REVIEW
     created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     updated_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -271,7 +270,7 @@ class ReclassifyRequest(BaseModel):
     finding_ids: list[str] | None = None
 
 
-class ExploitStatus(str, Enum):
+class ExploitStatus(StrEnum):
     """Status exploit untuk Stage 2 classification."""
     CONFIRMED = "confirmed"
     FAILED = "failed"
@@ -300,7 +299,7 @@ class ExploitFeedbackRecord(BaseModel):
     new_classification: str
     tx_hash: str | None = None
     created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -309,7 +308,7 @@ class Meta(BaseModel):
 
     status: Literal["ok", "error"] = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -334,5 +333,5 @@ class HealthResponse(BaseModel):
     service: str = "classifier"
     version: str = "0.1.0"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )

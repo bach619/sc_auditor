@@ -1,13 +1,15 @@
 """16-submission — Submission Assistant Skills."""
 from shared.skills.op_skills import (
     AlgorithmAnalyzerSkill,
-    MathVerifierSkill,
     ComplexityAnalyzerSkill,
     DataStructureOptimizerSkill,
+    MathVerifierSkill,
 )
+
+from .collect_evidence import CollectEvidenceSkill
 from .create_submission import CreateSubmissionSkill
 from .generate_draft import GenerateDraftSkill
-from .collect_evidence import CollectEvidenceSkill
+
 
 def create_registry():
     from shared.skills.skill_registry import SkillRegistry

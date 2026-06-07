@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
-from typing import Any, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 
 class MemoryEntry:
@@ -26,7 +26,7 @@ class MemoryEntry:
         self.entry_id = entry_id or str(uuid.uuid4())[:8]
         self.content = content
         self.metadata = metadata or {}
-        self.timestamp = timestamp or datetime.now(timezone.utc).isoformat()
+        self.timestamp = timestamp or datetime.now(UTC).isoformat()
         self.embedding = embedding
 
     def to_dict(self) -> dict[str, Any]:

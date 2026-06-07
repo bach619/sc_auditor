@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .src.global_store import GlobalExperienceStore
+from shared.api_errors import register_error_handlers
 
 logger = structlog.get_logger(service="17-experience")
 
@@ -38,6 +39,7 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+register_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -18,18 +18,15 @@ Revenue: Rescue 1 protocol = 1 bounty claim (avg $50K - $500K)
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.mev_guardian")
 
 
-class ThreatLevel(str, Enum):
+class ThreatLevel(StrEnum):
     LOW = "low"           # Suspicious but likely benign
     MEDIUM = "medium"     # Potentially malicious pattern
     HIGH = "high"         # Likely exploit attempt
@@ -169,7 +166,7 @@ class MEVGuardian:
         self.auto_rescue = auto_rescue
 
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
         # Stats
         self.txs_scanned = 0
@@ -261,7 +258,7 @@ class MEVGuardian:
         6. Prepare Immunefi bounty claim
         """
         rescue = RescueOperation(
-            rescue_id=f"rescue_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            rescue_id=f"rescue_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}",
             threat=assessment,
             status="SIMULATING",
         )
@@ -281,7 +278,7 @@ class MEVGuardian:
             #     return rescue
 
             # Step 2: Build rescue bundle
-            rescue_bundle = await self._build_rescue_bundle(assessment)
+            await self._build_rescue_bundle(assessment)
 
             # Step 3: Submit via Flashbots
             # bundle_hash = await self._submit_flashbots_bundle(rescue_bundle)

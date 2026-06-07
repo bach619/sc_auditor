@@ -13,7 +13,7 @@ untuk mendeteksi:
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from src.models import Program
@@ -37,7 +37,7 @@ class TrendAnalyzer:
 
         Returns summary of what changed recently.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
         recent_programs: set[str] = set()
         bounty_changes: list[dict] = []
         status_changes: list[dict] = []
@@ -56,7 +56,7 @@ class TrendAnalyzer:
                 try:
                     entry_time = datetime.fromisoformat(ts)
                     if entry_time.tzinfo is None:
-                        entry_time = entry_time.replace(tzinfo=timezone.utc)
+                        entry_time = entry_time.replace(tzinfo=UTC)
                 except (ValueError, TypeError):
                     continue
 
@@ -219,5 +219,5 @@ class TrendAnalyzer:
             "status_trends": self.status_trends(programs),
             "tag_trends": self.tag_trends(programs),
             "total_programs": len(programs),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }

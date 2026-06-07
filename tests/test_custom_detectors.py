@@ -1,8 +1,18 @@
 """Tests for custom Slither detector engine — validation, loading, sandbox safety."""
 from __future__ import annotations
-import pytest
+
+import sys
 from pathlib import Path
+from urllib.parse import quote
+
+SERVICE_DIR = Path(__file__).resolve().parents[1] / "services" / "04a-scanner-slither"
+sys.path.insert(0, str(SERVICE_DIR))
+for k in [k for k in sys.modules if k == "src" or k.startswith("src.")]:
+    del sys.modules[k]
+
 from typing import Any
+
+import pytest
 
 # Sample valid detector
 SAMPLE_DETECTOR = '''
@@ -64,14 +74,14 @@ class TestDetectorSandbox:
 
     def test_load_valid_detector(self):
         """Valid detector must load successfully."""
-        from src.detector_loader import DetectorSandbox, DetectorLoadError
+        from src.detector_loader import DetectorSandbox
         cls = DetectorSandbox.load_detector_from_source(SAMPLE_DETECTOR, "test")
         assert cls.NAME == "test-detector"
         assert cls.DESCRIPTION == "Test detector for CI"
 
     def test_load_invalid_detector_raises(self):
         """Invalid detector must raise DetectorLoadError."""
-        from src.detector_loader import DetectorSandbox, DetectorLoadError
+        from src.detector_loader import DetectorLoadError, DetectorSandbox
         with pytest.raises(DetectorLoadError):
             DetectorSandbox.load_detector_from_source(INVALID_DETECTOR, "invalid")
 
@@ -175,7 +185,7 @@ class TestDetectorAPI:
     ):
         """POST /detectors then DELETE /detectors/{name} must work."""
         resp = await async_client.post(
-            f"{scanner_slither_url}/detectors?name=ci-test-detector&source={SAMPLE_DETECTOR}",
+            f"{scanner_slither_url}/detectors?name=ci-test-detector&source={quote(SAMPLE_DETECTOR)}",
         )
         if resp.status_code == 200:
             assert resp.json()["meta"]["status"] == "ok"

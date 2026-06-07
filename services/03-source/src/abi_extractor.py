@@ -7,9 +7,7 @@ events, dan errors dari Solidity source code.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
-from typing import Any
 
 import structlog
 

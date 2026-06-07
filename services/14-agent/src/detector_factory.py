@@ -17,17 +17,15 @@ This is the MOAT. Competitors can copy code. They cannot copy
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.detector_factory")
 
 
-class DetectorStatus(str, Enum):
+class DetectorStatus(StrEnum):
     GENERATED = "generated"       # AI wrote the detector code
     TESTING = "testing"           # Being tested on historical bugs
     VALIDATED = "validated"       # Tested and confirmed effective
@@ -50,7 +48,7 @@ class CustomDetector:
     false_positives: int = 0       # False alarms
     contracts_scanned: int = 0
     effectiveness_score: float = 0.0
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     deployed_at: str = ""
 
 
@@ -70,17 +68,17 @@ class DetectorFactory:
 
     Usage:
         factory = DetectorFactory()
-        
+
         # Feed an Immunefi bug report
         detector = factory.generate_from_bug_report(
             title="Reentrancy via ERC-1155 onERC1155Received callback",
             description="...",
             exploit_code="...",
         )
-        
+
         # Test against historical contracts
         result = factory.test_detector(detector)
-        
+
         # Deploy if effective
         if result["true_positive_rate"] > 0.8:
             factory.deploy(detector)
@@ -185,7 +183,7 @@ class DetectorFactory:
             return False
 
         detector.status = DetectorStatus.DEPLOYED
-        detector.deployed_at = datetime.now(timezone.utc).isoformat()
+        detector.deployed_at = datetime.now(UTC).isoformat()
 
         logger.info("🚀 DETECTOR DEPLOYED: %s", detector.name)
         return True

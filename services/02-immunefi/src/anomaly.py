@@ -13,7 +13,7 @@ Setiap anomaly punya severity: info, warning, critical.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from src.models import Program
@@ -52,7 +52,7 @@ class AnomalyDetector:
     ) -> list[dict]:
         """Detect bounty changes >50% in recent history."""
         anomalies: list[dict] = []
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        cutoff = datetime.now(UTC) - timedelta(hours=48)
 
         for slug, prog in programs.items():
             history = self.storage.get_history(slug, limit=3)
@@ -69,7 +69,7 @@ class AnomalyDetector:
                 try:
                     entry_time = datetime.fromisoformat(ts)
                     if entry_time.tzinfo is None:
-                        entry_time = entry_time.replace(tzinfo=timezone.utc)
+                        entry_time = entry_time.replace(tzinfo=UTC)
                     if entry_time < cutoff:
                         continue
                 except (ValueError, TypeError):
@@ -111,7 +111,7 @@ class AnomalyDetector:
     ) -> list[dict]:
         """Detect programs that went inactive after being active."""
         anomalies: list[dict] = []
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
+        cutoff = datetime.now(UTC) - timedelta(hours=72)
 
         for slug, prog in programs.items():
             if prog.status.lower() in ("inactive", "closed", "completed", "hold"):
@@ -131,7 +131,7 @@ class AnomalyDetector:
                             try:
                                 entry_time = datetime.fromisoformat(ts)
                                 if entry_time.tzinfo is None:
-                                    entry_time = entry_time.replace(tzinfo=timezone.utc)
+                                    entry_time = entry_time.replace(tzinfo=UTC)
                                 if entry_time < cutoff:
                                     continue
                             except (ValueError, TypeError):
@@ -160,7 +160,7 @@ class AnomalyDetector:
     ) -> list[dict]:
         """Detect if many programs changed in a short window."""
         anomalies: list[dict] = []
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
+        cutoff = datetime.now(UTC) - timedelta(hours=6)
 
         # Count changes per slug in the last 6 hours
         changed_slugs: set[str] = set()
@@ -173,7 +173,7 @@ class AnomalyDetector:
                 try:
                     entry_time = datetime.fromisoformat(ts)
                     if entry_time.tzinfo is None:
-                        entry_time = entry_time.replace(tzinfo=timezone.utc)
+                        entry_time = entry_time.replace(tzinfo=UTC)
                     if entry_time >= cutoff:
                         changed_slugs.add(slug)
                 except (ValueError, TypeError):
@@ -188,7 +188,7 @@ class AnomalyDetector:
                 "program_name": "Multiple Programs",
                 "detail": f"{len(changed_slugs)} programs changed in the last 6 hours",
                 "count": len(changed_slugs),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
 
         return anomalies
@@ -215,7 +215,7 @@ class AnomalyDetector:
                     "slug": slug,
                     "program_name": slug,
                     "detail": f"Program '{slug}' in index but not loaded in memory",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 })
 
         return anomalies
@@ -251,7 +251,7 @@ class AnomalyDetector:
                         "repo_owner": repo.owner,
                         "repo_name": repo.repo,
                         "repo_url": repo.url,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     })
 
         return anomalies
@@ -275,5 +275,5 @@ class AnomalyDetector:
             "critical_count": by_severity.get("critical", 0),
             "warning_count": by_severity.get("warning", 0),
             "anomalies": all_anomalies[:50],  # limit to 50
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }

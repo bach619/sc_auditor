@@ -16,7 +16,7 @@ import re
 import string
 from collections import Counter
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 import structlog
 

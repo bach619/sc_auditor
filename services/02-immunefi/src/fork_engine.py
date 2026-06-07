@@ -12,9 +12,8 @@ Membutuhkan GITHUB_TOKEN dengan scope "repo" atau "public_repo".
 from __future__ import annotations
 
 import os
-import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -42,7 +41,7 @@ class ForkResult:
             "status": self.status,
             "fork_url": self.fork_url,
             "error": self.error[:200] if self.error else "",
-            "timestamp": self.timestamp or datetime.now(timezone.utc).isoformat(),
+            "timestamp": self.timestamp or datetime.now(UTC).isoformat(),
             "slug": self.slug,
         }
 
@@ -191,7 +190,7 @@ class ForkEngine:
             )
 
         # Update fork index to pending
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         fork_index[repo_key] = {
             "status": "pending",
             "timestamp": now,
@@ -293,7 +292,7 @@ class ForkEngine:
                 "repo_key": "N/A",
                 "status": "skipped",
                 "error": "GITHUB_TOKEN not set",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }]
 
         unforked = self.find_unforked_repos(programs)
@@ -330,7 +329,7 @@ class ForkEngine:
                 "repo_key": "N/A",
                 "status": "skipped",
                 "error": "GITHUB_TOKEN not set",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }]
 
         results: list[dict] = []

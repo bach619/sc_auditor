@@ -16,6 +16,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from shared.observability import setup_observability
+from shared.api_errors import register_error_handlers
 
 from src.models import (
     ApiResponse,
@@ -42,6 +43,7 @@ app = FastAPI(
     description="Fetches audit contests from the Cantina platform and stores scope data",
     version=SERVICE_VERSION,
 )
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,

@@ -50,8 +50,8 @@ class MonitorHealthSkill(BaseSkill):
         deep_check: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        from ..update import UpdateManager
         from ..backup import BackupManager
+        from ..update import UpdateManager
 
         update_mgr = UpdateManager()
         backup_mgr = BackupManager()

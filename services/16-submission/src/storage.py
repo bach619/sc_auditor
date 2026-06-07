@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -193,5 +192,5 @@ class SubmissionStorage:
         meta.update(kwargs)
         meta["schema_version"] = self.SCHEMA_VERSION
         meta["submission_count"] = len(self.list_all_submissions())
-        meta["last_updated"] = datetime.now(timezone.utc).isoformat()
+        meta["last_updated"] = datetime.now(UTC).isoformat()
         return self.write_atomic(self.data_dir / "_meta.json", meta)

@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import json
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from src.config import config
 
@@ -23,7 +23,7 @@ class PriorityScorer:
     """Calculates and manages priority scores for queued contracts."""
 
     # Chain ranking: Ethereum gets highest priority, then L2s
-    CHAIN_RANKS: Dict[str, int] = {
+    CHAIN_RANKS: dict[str, int] = {
         "ethereum": 100,
         "arbitrum": 90,
         "optimism": 85,
@@ -45,7 +45,7 @@ class PriorityScorer:
     }
 
     def __init__(self) -> None:
-        self._tp_history: Dict[str, int] = {}  # program_slug -> count of TP findings
+        self._tp_history: dict[str, int] = {}  # program_slug -> count of TP findings
         self._load_tp_history()
 
     # ── Persistence ─────────────────────────────────────────────
@@ -72,10 +72,10 @@ class PriorityScorer:
 
     def score(
         self,
-        program: Optional[Dict[str, Any]] = None,
-        similarity_data: Optional[List[Tuple[str, float]]] = None,
+        program: dict[str, Any] | None = None,
+        similarity_data: list[tuple[str, float]] | None = None,
         chain: str = "ethereum",
-        created_at: Optional[datetime] = None,
+        created_at: datetime | None = None,
         program_slug: str = "",
     ) -> float:
         """Compute priority score 0–100.
@@ -113,7 +113,7 @@ class PriorityScorer:
 
     # ── Sub-scores ───────────────────────────────────────────────
 
-    def _score_bounty(self, program: Optional[Dict[str, Any]]) -> float:
+    def _score_bounty(self, program: dict[str, Any] | None) -> float:
         """Score 0–100 based on bounty size."""
         if not program:
             return 50.0  # neutral default
@@ -139,7 +139,7 @@ class PriorityScorer:
         return min(max(log_score, 0.0), 100.0)
 
     def _score_similarity(
-        self, similarity_data: Optional[List[Tuple[str, float]]]
+        self, similarity_data: list[tuple[str, float]] | None
     ) -> float:
         """Score 0–100. Higher if similar to TP-prone contracts."""
         if not similarity_data:
@@ -152,13 +152,13 @@ class PriorityScorer:
         """Score 0–100 based on chain priority."""
         return float(self.CHAIN_RANKS.get(chain.lower(), self.CHAIN_RANKS["others"]))
 
-    def _score_freshness(self, created_at: Optional[datetime]) -> float:
+    def _score_freshness(self, created_at: datetime | None) -> float:
         """Score 0–100. Newly added items score higher; decays over 30 days."""
         if created_at is None:
             return 50.0
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
+            created_at = created_at.replace(tzinfo=UTC)
         age_days = (now - created_at).days
         if age_days < 0:
             return 100.0  # future date = max freshness
@@ -175,7 +175,7 @@ class PriorityScorer:
 
     # ── Queue management ────────────────────────────────────────
 
-    def sort_queue(self, queue: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def sort_queue(self, queue: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Re-sort a list of queue items by priority_score descending."""
         return sorted(queue, key=lambda item: item.get("priority_score", 0), reverse=True)
 

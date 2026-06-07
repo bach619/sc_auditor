@@ -6,11 +6,10 @@ All request/response models follow the Vyper standard envelope:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
 
 # ── Notify Request ──────────────────────────────────────────
 
@@ -76,7 +75,7 @@ class DeliveryResult(BaseModel):
     channel: str
     success: bool = True
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     error: str | None = None
     message_id: str | None = None
@@ -153,7 +152,7 @@ class Meta(BaseModel):
 
     status: Literal["ok", "error"] = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 

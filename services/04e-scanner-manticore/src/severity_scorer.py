@@ -44,7 +44,7 @@ class SeverityScorer:
           - severity: 'critical' or 'high'
           - reasoning: why this score was assigned
         """
-        base_severity = finding.get("severity", "high")
+        finding.get("severity", "high")
         metadata = finding.get("metadata", {})
         proof = finding.get("proof", {})
 
@@ -61,7 +61,7 @@ class SeverityScorer:
         score_components["fund_movement_involved"] = 1.0 if fund_movement else 0.5
 
         # 3. Reachable from any caller?
-        anyone_can_call = metadata.get("caller_dependent", True) == False
+        anyone_can_call = not metadata.get("caller_dependent", True)
         score_components["reachable_without_special_prereq"] = 1.0 if anyone_can_call else 0.6
 
         # 4. Direct state modification?

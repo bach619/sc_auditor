@@ -4,10 +4,7 @@ import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
-import { StatusBadge } from '../components/StatusBadge'
-import { StatCard } from '../components/StatCard'
 import { LoadingState } from '../components/LoadingState'
-import { ErrorBanner } from '../components/ErrorBanner'
 import { PageHeader } from '../components/PageHeader'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Brain, Cpu, Search, Loader2, Play, Square } from 'lucide-react'
@@ -25,13 +22,13 @@ interface SkillMetrics {
 export default function AIConfig() {
   const [daemon, setDaemon] = useState<DaemonStatus | null>(null)
   const [skills, setSkills] = useState<SkillMetrics[]>([])
-  const [memStats, setMemStats] = useState<any>(null)
-  const [learning, setLearning] = useState<any>(null)
+  const [memStats, setMemStats] = useState<Record<string, unknown> | null>(null)
+  const [learning, setLearning] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchStore, setSearchStore] = useState<'vector' | 'episodic' | 'graph'>('vector')
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<unknown[]>([])
   const [searching, setSearching] = useState(false)
 
   useEffect(() => {
@@ -43,8 +40,8 @@ export default function AIConfig() {
     ]).then(([d, s, m, l]) => {
       if (d) setDaemon(d as DaemonStatus)
       if (s) setSkills(Array.isArray(s) ? s as SkillMetrics[] : [])
-      if (m) setMemStats(m)
-      if (l) setLearning(l)
+      if (m) setMemStats(m as Record<string, unknown>)
+      if (l) setLearning(l as Record<string, unknown>)
       setLoading(false)
     })
   }, [])
@@ -54,7 +51,8 @@ export default function AIConfig() {
     setSearching(true)
     try {
       const res = await api.memorySearch(searchQuery, searchStore)
-      setSearchResults(Array.isArray(res.data?.results) ? res.data.results : [])
+      const resData = res.data as Record<string, unknown>
+      setSearchResults(Array.isArray(resData?.results) ? resData.results as unknown[] : [])
     } catch { setSearchResults([]) }
     setSearching(false)
   }
@@ -65,7 +63,7 @@ export default function AIConfig() {
       else await api.daemonStart()
       const res = await api.getAgentDaemonStatus()
       setDaemon(res.data as DaemonStatus)
-    } catch {}
+    } catch (err) { console.error('AIConfig toggle failed', err) }
   }
 
   if (loading) return <LoadingState message="Loading AI configuration..." />
@@ -169,7 +167,7 @@ export default function AIConfig() {
           />
           <select
             value={searchStore}
-            onChange={(e) => setSearchStore(e.target.value as any)}
+            onChange={(e) => setSearchStore(e.target.value as 'vector' | 'episodic' | 'graph')}
             className="h-10 rounded-lg px-3 text-sm dark:bg-[#0a0a12] light:bg-gray-50 dark:border dark:border-[#1a1a28] light:border light:border-[#e4e4e7] dark:text-[#d4d4dc]"
           >
             <option value="vector">Vector</option>
@@ -183,16 +181,19 @@ export default function AIConfig() {
         </div>
         {searchResults.length > 0 && (
           <div className="space-y-2">
-            {searchResults.map((r: any, i: number) => (
+            {searchResults.map((item, i: number) => {
+              const r = item as Record<string, unknown>
+              return (
               <div key={i} className="dark:bg-[#0a0a12] light:bg-gray-50 rounded p-3 text-sm border dark:border-[#1a1a28]">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-vyper-400 font-medium">{r.key}</span>
-                  {r.score !== undefined && <span className="dark:text-[#68687a] text-xs">score: {r.score}</span>}
-                  {r.node_type && <Badge variant="default" className="text-[10px]">{r.node_type}</Badge>}
+                  <span className="text-vyper-400 font-medium">{r.key as string}</span>
+                  {r.score !== undefined && <span className="dark:text-[#68687a] text-xs">score: {String(r.score)}</span>}
+                  {r.node_type ? <Badge variant="default" className="text-[10px]">{r.node_type as string}</Badge> : null}
                 </div>
-                <p className="dark:text-[#68687a] text-xs">{(r.content_preview || r.label || '')}</p>
+                <p className="dark:text-[#68687a] text-xs">{String(r.content_preview || r.label || '')}</p>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
         {searchResults.length === 0 && searchQuery && !searching && (
@@ -208,10 +209,10 @@ export default function AIConfig() {
           {memStats ? (
             <div className="space-y-3 text-sm">
               {[
-                ['Vector Store', memStats.vector_store?.total_entries],
-                ['Vector Searches', memStats.vector_store?.total_searches],
-                ['Episodic Store', memStats.episodic_store?.total_entries],
-                ['Graph Memory', memStats.graph_memory?.total_entries],
+                ['Vector Store', (memStats.vector_store as Record<string, unknown>)?.total_entries as number],
+                ['Vector Searches', (memStats.vector_store as Record<string, unknown>)?.total_searches as number],
+                ['Episodic Store', (memStats.episodic_store as Record<string, unknown>)?.total_entries as number],
+                ['Graph Memory', (memStats.graph_memory as Record<string, unknown>)?.total_entries as number],
               ].map(([label, value]) => (
                 <div key={String(label)} className="flex justify-between">
                   <span className="dark:text-[#68687a]">{String(label)}</span>
@@ -231,23 +232,23 @@ export default function AIConfig() {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="dark:text-[#68687a]">Sessions Analyzed</span>
-                <span className="font-medium dark:text-[#d4d4dc]">{learning.total_sessions_analyzed}</span>
+                <span className="font-medium dark:text-[#d4d4dc]">{learning.total_sessions_analyzed as number}</span>
               </div>
               <div className="flex justify-between">
                 <span className="dark:text-[#68687a]">Patterns Found</span>
-                <span className="font-medium dark:text-[#d4d4dc]">{learning.patterns_found}</span>
+                <span className="font-medium dark:text-[#d4d4dc]">{learning.patterns_found as number}</span>
               </div>
-              {learning.top_error_patterns && Object.keys(learning.top_error_patterns).length > 0 && (
+              {learning.top_error_patterns && typeof learning.top_error_patterns === 'object' && Object.keys(learning.top_error_patterns as Record<string, unknown>).length > 0 ? (
                 <div className="pt-3 border-t dark:border-[#1a1a28]">
                   <div className="text-xs font-medium uppercase tracking-wider text-red-400 mb-2">Top Error Patterns</div>
-                  {Object.entries(learning.top_error_patterns).slice(0, 5).map(([pattern, count]: [string, any]) => (
+                  {Object.entries(learning.top_error_patterns as Record<string, unknown>).slice(0, 5).map(([pattern, count]) => (
                     <div key={pattern} className="flex justify-between mt-1">
                       <span className="text-xs dark:text-[#68687a] truncate mr-2">{pattern}</span>
-                      <span className="text-xs text-red-400 font-medium">{count}x</span>
+                      <span className="text-xs text-red-400 font-medium">{String(count)}x</span>
                     </div>
                   ))}
                 </div>
-              )}
+              ) : null}
             </div>
           ) : (
             <p className="dark:text-[#68687a] text-sm">No learning data yet.</p>

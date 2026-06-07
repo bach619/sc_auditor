@@ -5,6 +5,11 @@ on:
     # Run weekly on Monday at 6:00 UTC
     - cron: '0 6 * * 1'
   workflow_dispatch: # Allow manual trigger
+  push:
+    branches: [main]
+    paths:
+      - 'services/*/requirements.txt'
+      - 'services/15-dashboard/frontend/package-lock.json'
 
 jobs:
   python-scan:
@@ -18,11 +23,26 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
       - name: Scan Python dependencies
+        id: scan
         run: |
+          total_vulns=0
           for req in services/*/requirements.txt; do
             echo "=== Scanning $req ==="
-            pip-audit -r "$req" --desc 2>/dev/null || true
+            out=$(pip-audit -r "$req" --desc 2>&1 || true)
+            echo "$out"
+            vulns=$(echo "$out" | grep -c "CVE-\|GHSA-\|PYSEC-" || echo "0")
+            total_vulns=$((total_vulns + vulns))
           done
+          echo "total_vulns=$total_vulns" >> "$GITHUB_OUTPUT"
+      - name: Quality Gate — zero known vulnerabilities
+        run: |
+          total=${{ steps.scan.outputs.total_vulns }}
+          echo "Total vulnerabilities found: $total"
+          if [ "$total" -gt 0 ]; then
+            echo "ERROR: $total known vulnerabilities detected. Upgrade affected packages."
+            exit 1
+          fi
+          echo "Security scan PASSED — 0 CVEs"
 
   npm-scan:
     name: NPM Dependency Scan
@@ -35,4 +55,4 @@ jobs:
       - name: Audit frontend dependencies
         run: |
           cd services/15-dashboard/frontend
-          npm audit --audit-level=high || true
+          npm audit --audit-level=high

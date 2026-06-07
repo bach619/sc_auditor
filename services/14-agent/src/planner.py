@@ -59,7 +59,7 @@ class Planner:
         available_skills: list[str],
     ) -> ExecutionPlan:
         """Generate a default plan for smart contract audit tasks."""
-        goal_lower = goal.lower()
+        goal.lower()
 
         # Determine steps based on goal type
         steps = []

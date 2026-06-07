@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 SEVERITY_BADGES: dict[str, str] = {
     "critical": "🟣 CRITICAL",
     "high": "🔴 HIGH",

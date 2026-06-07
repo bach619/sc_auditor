@@ -7,14 +7,13 @@ primary deliverable for Immunefi bug bounty submissions.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import structlog
-from jinja2 import Environment, FileSystemLoader, PackageLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from src.filters import register_filters, severity_badge
+from src.filters import register_filters
 from src.models import ExploitResult, Finding
 
 log = structlog.get_logger()
@@ -94,7 +93,7 @@ class ImmunefiReportGenerator:
         )
         high_count = sum(c for sev, c in severity_counts if sev.lower() == "high")
 
-        generated_at = datetime.now(timezone.utc).isoformat()
+        generated_at = datetime.now(UTC).isoformat()
 
         content = self.template.render(
             audit_id=audit_id,

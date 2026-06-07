@@ -1,12 +1,7 @@
 """pytest configuration for 04b-scanner-echidna unit tests.
 
-Adds the service source path so that ``from src.intelligence.*`` imports work.
+NOTE: sys.path manipulation is done inline in each test file, not here.
+Each test file adds the echidna source path before imports and removes it
+afterwards (sys.path.pop(0)), preventing namespace collision with the
+other 27 services that also use ``src/`` as their package name.
 """
-
-import sys
-from pathlib import Path
-
-SERVICE_DIR = Path(__file__).resolve().parents[2] / "services" / "04b-scanner-echidna"
-
-if SERVICE_DIR.exists() and str(SERVICE_DIR) not in sys.path:
-    sys.path.insert(0, str(SERVICE_DIR))

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +19,11 @@ import httpx
 import structlog
 
 from src.models import SourceResult
-from src.providers.github import GitHubProvider, _detect_compiler_from_source, _detect_license_from_source
+from src.providers.github import (
+    GitHubProvider,
+    _detect_compiler_from_source,
+    _detect_license_from_source,
+)
 
 log = structlog.get_logger()
 
@@ -74,7 +77,7 @@ class ForkAwareGitHubProvider:
             Dict dengan fork_info (clone_url, dll) atau None.
         """
         fork_index = self._load_fork_index()
-        addr_lower = address.lower().replace("0x", "")
+        address.lower().replace("0x", "")
 
         for repo_key, fork_info in fork_index.items():
             if not isinstance(fork_info, dict):
@@ -134,7 +137,7 @@ class ForkAwareGitHubProvider:
 
             try:
                 search_resp = await client.get(
-                    f"https://api.github.com/search/code",
+                    "https://api.github.com/search/code",
                     params={"q": query, "per_page": 5, "sort": "indexed"},
                 )
                 if search_resp.status_code == 403:

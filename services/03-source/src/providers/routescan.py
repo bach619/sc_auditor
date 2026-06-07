@@ -14,7 +14,6 @@ import structlog
 
 from src.models import SourceResult
 from src.utils import parse_standard_input_json
-from src.providers import SourceProvider
 
 log = structlog.get_logger()
 

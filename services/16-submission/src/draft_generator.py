@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import structlog
 
-from src.models import BugCategory, Submission
+from src.models import Submission
 
 log = structlog.get_logger()
 

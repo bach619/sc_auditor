@@ -9,7 +9,6 @@ Menjawab pertanyaan seperti:
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 INTENT_PATTERNS: list[dict[str, Any]] = [
@@ -176,8 +175,8 @@ class CompilerNLP:
     @staticmethod
     def _fallback(query: str) -> tuple[str, list]:
         return (
-            f"Coba: 'summary', 'blocking errors', 'warnings', "
-            f"'how to fix import', 'show syntax errors'.",
+            "Coba: 'summary', 'blocking errors', 'warnings', "
+            "'how to fix import', 'show syntax errors'.",
             [],
         )
 

@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from shared.observability import setup_observability
+from shared.api_errors import register_error_handlers
 from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -160,6 +161,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+register_error_handlers(app)
 
 # -- Middleware --------------------------------------------------------------
 app.add_middleware(

@@ -16,14 +16,13 @@ import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.propagation")
 
 
-class PropagationStatus(str, Enum):
+class PropagationStatus(StrEnum):
     QUEUED = "queued"
     SCANNING = "scanning"
     FOUND = "found"            # Same vulnerability found in this protocol
@@ -70,7 +69,7 @@ class PropagationReport:
     potential_bounties: int = 0
     estimated_total_value: str = "$0"
     findings: list[dict] = field(default_factory=list)
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -136,7 +135,7 @@ class DeFiPropagationEngine:
 
     Usage:
         engine = DeFiPropagationEngine()
-        
+
         # Found a reentrancy in Uniswap v4 hook
         pattern = VulnerabilityPattern(
             name="Uniswap v4 Hook Reentrancy",
@@ -144,7 +143,7 @@ class DeFiPropagationEngine:
             code_signatures=["beforeSwap(", "afterSwap(", "modifyLiquidity("],
             source_contract="Uniswap v4",
         )
-        
+
         report = await engine.propagate_and_scan(pattern)
         # → Finds same vulnerability in PancakeSwap v4, Balancer v3
         # → 3 new bounty claims queued
@@ -276,7 +275,7 @@ class DeFiPropagationEngine:
             for proto in group:
                 if proto["name"].lower() in pattern.source_contract.lower():
                     continue  # Skip the source protocol
-                
+
                 key = f"{proto['name']}:{proto['chain']}"
                 if key in seen:
                     continue

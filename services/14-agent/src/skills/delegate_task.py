@@ -6,15 +6,15 @@ from typing import Any
 
 import structlog
 
-from src.skills.base import BaseSkill
 from src.models import SkillResult
+from src.skills.base import BaseSkill
 
 log = structlog.get_logger()
 
 
 class DelegateTaskSkill(BaseSkill):
     """Skill to delegate tasks to backend agents via the AgentRegistry.
-    
+
     Antonio's ReAct loop calls this skill when it decides
     a task should be handled by a specialized backend agent.
     """

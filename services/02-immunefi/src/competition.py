@@ -6,7 +6,7 @@ untuk menilai seberapa kompetitif suatu program bounty.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from src.models import Program
@@ -77,7 +77,7 @@ class CompetitionIntelligence:
             "total_repos": len(program.repos),
             "chains": program.chains,
             "recommended_strategy": strategy,
-            "analyzed_at": datetime.now(timezone.utc).isoformat(),
+            "analyzed_at": datetime.now(UTC).isoformat(),
         }
 
     def _bounty_attractiveness(self, program: Program) -> float:

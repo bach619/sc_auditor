@@ -4,7 +4,7 @@ These values are used across service tests to ensure consistent,
 realistic test inputs.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 # ── Contract Addresses ──────────────────────────────────────────
 
@@ -12,7 +12,7 @@ WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 UNISWAP_V2_ROUTER = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 
-MOCK_CONTRACT_ADDRESSES: List[str] = [
+MOCK_CONTRACT_ADDRESSES: list[str] = [
     WETH_ADDRESS,
     USDC_ADDRESS,
     UNISWAP_V2_ROUTER,
@@ -20,7 +20,7 @@ MOCK_CONTRACT_ADDRESSES: List[str] = [
 
 # ── Audit Payloads ──────────────────────────────────────────────
 
-SAMPLE_AUDIT_PAYLOAD: Dict[str, Any] = {
+SAMPLE_AUDIT_PAYLOAD: dict[str, Any] = {
     "chain": "ethereum",
     "address": WETH_ADDRESS,
     "program": "test-program",
@@ -28,14 +28,14 @@ SAMPLE_AUDIT_PAYLOAD: Dict[str, Any] = {
     "metadata": {"source": "integration-test"},
 }
 
-SAMPLE_AUDIT_PAYLOAD_BSC: Dict[str, Any] = {
+SAMPLE_AUDIT_PAYLOAD_BSC: dict[str, Any] = {
     "chain": "bsc",
     "address": "0x0000000000000000000000000000000000001004",
     "program": "test-bsc",
     "priority": 3,
 }
 
-SAMPLE_AUDIT_PAYLOAD_POLYGON: Dict[str, Any] = {
+SAMPLE_AUDIT_PAYLOAD_POLYGON: dict[str, Any] = {
     "chain": "polygon",
     "address": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
     "program": "test-polygon",
@@ -44,7 +44,7 @@ SAMPLE_AUDIT_PAYLOAD_POLYGON: Dict[str, Any] = {
 
 # ── Scanner Finding Templates ───────────────────────────────────
 
-SLITHER_REENTRANCY_FINDING: Dict[str, Any] = {
+SLITHER_REENTRANCY_FINDING: dict[str, Any] = {
     "detector": "slither",
     "vulnerability_class": "reentrancy",
     "contract": "Vault",
@@ -55,7 +55,7 @@ SLITHER_REENTRANCY_FINDING: Dict[str, Any] = {
     "recommendation": "Apply checks-effects-interactions pattern.",
 }
 
-MYTHRIL_REENTRANCY_FINDING: Dict[str, Any] = {
+MYTHRIL_REENTRANCY_FINDING: dict[str, Any] = {
     "detector": "mythril",
     "vulnerability_class": "reentrancy",
     "contract": "Vault",
@@ -66,7 +66,7 @@ MYTHRIL_REENTRANCY_FINDING: Dict[str, Any] = {
     "recommendation": "Use reentrancy guard.",
 }
 
-ECHIDNA_FUZZ_FINDING: Dict[str, Any] = {
+ECHIDNA_FUZZ_FINDING: dict[str, Any] = {
     "detector": "echidna",
     "vulnerability_class": "integer-overflow",
     "contract": "Token",
@@ -77,7 +77,7 @@ ECHIDNA_FUZZ_FINDING: Dict[str, Any] = {
     "recommendation": "Use SafeMath or Solidity 0.8+ built-in overflow checks.",
 }
 
-FORGE_BUILD_FINDING: Dict[str, Any] = {
+FORGE_BUILD_FINDING: dict[str, Any] = {
     "detector": "forge",
     "vulnerability_class": "compiler-warning",
     "contract": "Contract",
@@ -88,7 +88,7 @@ FORGE_BUILD_FINDING: Dict[str, Any] = {
     "recommendation": "Remove unused return or use it.",
 }
 
-HALMOS_FORMAL_FINDING: Dict[str, Any] = {
+HALMOS_FORMAL_FINDING: dict[str, Any] = {
     "detector": "halmos",
     "vulnerability_class": "access-control",
     "contract": "Vault",
@@ -99,7 +99,7 @@ HALMOS_FORMAL_FINDING: Dict[str, Any] = {
     "recommendation": "Add onlyOwner modifier to emergencyWithdraw.",
 }
 
-SCANNER_FINDINGS: List[Dict[str, Any]] = [
+SCANNER_FINDINGS: list[dict[str, Any]] = [
     SLITHER_REENTRANCY_FINDING,
     MYTHRIL_REENTRANCY_FINDING,
     ECHIDNA_FUZZ_FINDING,
@@ -109,7 +109,7 @@ SCANNER_FINDINGS: List[Dict[str, Any]] = [
 
 # ── Service Names ───────────────────────────────────────────────
 
-ALL_SERVICES: List[str] = [
+ALL_SERVICES: list[str] = [
     "01-config",
     "02-immunefi",
     "03-source",

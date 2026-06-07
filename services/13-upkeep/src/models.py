@@ -6,11 +6,10 @@ All request/response models follow the Vyper standard envelope:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
 
 # ── API Envelope ─────────────────────────────────────────────
 
@@ -20,7 +19,7 @@ class Meta(BaseModel):
 
     status: Literal["ok", "error"] = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -63,7 +62,7 @@ class UpdateCheckResult(BaseModel):
     update_available: bool = False
     changelog_summary: str = ""
     checked_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -180,7 +179,7 @@ class AggregatedMetrics(BaseModel):
     total_services: int = 0
     available_services: int = 0
     collected_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     summary: dict[str, Any] = Field(default_factory=dict)
 

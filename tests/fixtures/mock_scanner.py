@@ -9,10 +9,10 @@ These mocks simulate the raw output from:
   - Halmos (formal verification)
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 
-def mock_slither_output(contract: str = "Vault") -> List[Dict[str, Any]]:
+def mock_slither_output(contract: str = "Vault") -> list[dict[str, Any]]:
     """Simulated Slither JSON output."""
     return [
         {
@@ -40,7 +40,7 @@ def mock_slither_output(contract: str = "Vault") -> List[Dict[str, Any]]:
     ]
 
 
-def mock_mythril_output(contract: str = "Vault") -> List[Dict[str, Any]]:
+def mock_mythril_output(contract: str = "Vault") -> list[dict[str, Any]]:
     """Simulated Mythril JSON output."""
     return [
         {
@@ -57,7 +57,7 @@ def mock_mythril_output(contract: str = "Vault") -> List[Dict[str, Any]]:
     ]
 
 
-def mock_echidna_output(contract: str = "Token") -> List[Dict[str, Any]]:
+def mock_echidna_output(contract: str = "Token") -> list[dict[str, Any]]:
     """Simulated Echidna fuzzing output."""
     return [
         {
@@ -74,7 +74,7 @@ def mock_echidna_output(contract: str = "Token") -> List[Dict[str, Any]]:
     ]
 
 
-def mock_forge_output(contract: str = "Contract") -> List[Dict[str, Any]]:
+def mock_forge_output(contract: str = "Contract") -> list[dict[str, Any]]:
     """Simulated Forge build/compiler output."""
     return [
         {
@@ -90,7 +90,7 @@ def mock_forge_output(contract: str = "Contract") -> List[Dict[str, Any]]:
     ]
 
 
-def mock_halmos_output(contract: str = "Vault") -> List[Dict[str, Any]]:
+def mock_halmos_output(contract: str = "Vault") -> list[dict[str, Any]]:
     """Simulated Halmos formal verification output."""
     return [
         {
@@ -107,7 +107,7 @@ def mock_halmos_output(contract: str = "Vault") -> List[Dict[str, Any]]:
     ]
 
 
-def mock_all_scanners(contract: str = "Vault") -> Dict[str, List[Dict[str, Any]]]:
+def mock_all_scanners(contract: str = "Vault") -> dict[str, list[dict[str, Any]]]:
     """Aggregate output from all 5 scanner tools."""
     return {
         "slither": mock_slither_output(contract),

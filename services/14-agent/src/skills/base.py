@@ -15,11 +15,10 @@ from abc import abstractmethod
 from typing import Any
 
 import structlog
-
 from shared.skills.base_skill import BaseSkill as SharedBaseSkill
 
 from src.models import SkillDefinition, SkillResult
-from src.utils.circuit_breaker import CircuitBreaker, circuit_breaker
+from src.utils.circuit_breaker import circuit_breaker
 
 log = structlog.get_logger()
 

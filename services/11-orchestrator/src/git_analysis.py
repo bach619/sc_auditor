@@ -8,13 +8,12 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger("vyper.orchestrator.git_analysis")
 
 # ── Patterns ────────────────────────────────────────────────────
 
-_SECURITY_KEYWORDS: List[str] = [
+_SECURITY_KEYWORDS: list[str] = [
     "fix", "security", "bug", "vuln", "exploit", "reentrancy",
     "overflow", "underflow", "access control", "race condition",
     "cve", "patch", "hotfix", "critical", "dos", "dos",
@@ -37,7 +36,7 @@ class CommitInfo:
     author: str
     date: datetime
     message: str
-    files_changed: List[str]
+    files_changed: list[str]
     additions: int
     deletions: int
     is_security_relevant: bool = False
@@ -54,7 +53,7 @@ class FileChurn:
     total_additions: int
     total_deletions: int
     security_commits: int = 0
-    contributors: Set[str] = field(default_factory=set)
+    contributors: set[str] = field(default_factory=set)
 
     @property
     def churn_score(self) -> float:
@@ -69,11 +68,11 @@ class RepoAnalysis:
     total_commits: int = 0
     total_contributors: int = 0
     security_commits: int = 0
-    high_churn_files: List[FileChurn] = field(default_factory=list)
+    high_churn_files: list[FileChurn] = field(default_factory=list)
     recent_activity_score: float = 0.0  # 0–1
     bug_density: float = 0.0  # bug-keyword commits / total
     analysis_date: datetime = field(default_factory=datetime.now)
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 # ── Analyzer ────────────────────────────────────────────────────
@@ -83,7 +82,7 @@ class GitHistoryAnalyzer:
 
     REPO_BASE_DIR = Path("/tmp/vyper_repos")
 
-    def __init__(self, repo_base_dir: Optional[Path] = None) -> None:
+    def __init__(self, repo_base_dir: Path | None = None) -> None:
         self._base_dir = repo_base_dir or self.REPO_BASE_DIR
         self._base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -138,10 +137,10 @@ class GitHistoryAnalyzer:
             commits = list(repo.iter_commits())
 
         analysis.total_commits = len(commits)
-        file_churn_map: Dict[str, FileChurn] = defaultdict(
+        file_churn_map: dict[str, FileChurn] = defaultdict(
             lambda: FileChurn(filepath="")
         )
-        contributors: Set[str] = set()
+        contributors: set[str] = set()
         security_count = 0
         bug_commit_count = 0
 
@@ -204,7 +203,7 @@ class GitHistoryAnalyzer:
 
         return analysis
 
-    def get_commit_metrics(self, repo_path: Path) -> Dict[str, object]:
+    def get_commit_metrics(self, repo_path: Path) -> dict[str, object]:
         """Quick summary stats without full analysis."""
         import git
 

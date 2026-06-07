@@ -1,13 +1,15 @@
 """12-webhook — Webhook Notifications Skills."""
 from shared.skills.op_skills import (
     AlgorithmAnalyzerSkill,
-    MathVerifierSkill,
     ComplexityAnalyzerSkill,
     DataStructureOptimizerSkill,
+    MathVerifierSkill,
 )
+
+from .analyze_logs import AnalyzeLogsSkill
 from .deliver_webhook import DeliverWebhookSkill
 from .manage_endpoints import ManageEndpointsSkill
-from .analyze_logs import AnalyzeLogsSkill
+
 
 def create_registry():
     from shared.skills.skill_registry import SkillRegistry

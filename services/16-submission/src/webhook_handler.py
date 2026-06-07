@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+from datetime import UTC
 from typing import Any
 from uuid import uuid4
 
@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from src.draft_generator import generate_draft
 from src.evidence_collector import EvidenceCollector
 from src.intent_classifier import classify_intent
-from src.models import BugCategory, Message, MessageRole, Submission
+from src.models import BugCategory, Message, MessageRole
 from src.storage import SubmissionStorage
 
 log = structlog.get_logger()
@@ -93,8 +93,8 @@ async def handle_immunefi_webhook(
         from src.models import SubmissionStatus
         new_status = SubmissionStatus.accepted if intent_result.intent == "accepted" else SubmissionStatus.rejected
         submission.status = new_status
-        from datetime import datetime, timezone
-        submission.updated_at = datetime.now(timezone.utc)
+        from datetime import datetime
+        submission.updated_at = datetime.now(UTC)
         storage.save_submission(submission)
 
     log.info(

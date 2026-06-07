@@ -6,16 +6,18 @@ Run: pytest tests/test_immunefi_storage.py -v
 from __future__ import annotations
 
 import json
-import os
+import sys
 import tempfile
 from pathlib import Path
-from datetime import datetime, timezone
 
 import pytest
 
-from src.models import Program, Contract, Repo
-from src.storage import EnhancedJSONStorage
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services" / "02-immunefi"))
+for _k in [k for k in sys.modules if k == "src" or k.startswith("src.")]:
+    del sys.modules[_k]
 
+from src.models import Contract, Program, Repo
+from src.storage import EnhancedJSONStorage
 
 # ── Fixtures ────────────────────────────────────────────────
 
@@ -93,7 +95,7 @@ class TestInit:
     def test_create_directories(self):
         """Should create programs/, history/, indexes/ directories."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            storage = EnhancedJSONStorage(Path(tmpdir))
+            EnhancedJSONStorage(Path(tmpdir))
             assert (Path(tmpdir) / "programs").exists()
             assert (Path(tmpdir) / "history").exists()
             assert (Path(tmpdir) / "indexes").exists()
@@ -104,7 +106,7 @@ class TestInit:
             (Path(tmpdir) / "programs").mkdir()
             (Path(tmpdir) / "history").mkdir()
             (Path(tmpdir) / "indexes").mkdir()
-            storage = EnhancedJSONStorage(Path(tmpdir))  # should not raise
+            EnhancedJSONStorage(Path(tmpdir))  # should not raise
 
 
 # ── Tests: Atomic Write ─────────────────────────────────────

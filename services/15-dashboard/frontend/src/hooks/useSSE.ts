@@ -2,11 +2,12 @@ import { useEffect, useRef } from 'react';
 
 interface SSEMessage {
   event: string;
-  data: any;
+  data: unknown;
 }
 
 export function useSSE(onEvent?: (msg: SSEMessage) => void) {
   const cbRef = useRef(onEvent);
+  // eslint-disable-next-line react-hooks/refs -- intentional: keep latest callback in ref for event handlers
   cbRef.current = onEvent;
 
   useEffect(() => {

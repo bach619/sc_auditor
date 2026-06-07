@@ -7,8 +7,6 @@ team where Lead Auditor delegates to sub-agents.
 
 from __future__ import annotations
 
-from typing import Any
-
 import structlog
 
 from src.models import AgentRole

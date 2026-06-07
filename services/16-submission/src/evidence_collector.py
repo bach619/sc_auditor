@@ -5,8 +5,6 @@ from typing import Any
 import httpx
 import structlog
 
-from src.models import BugCategory
-
 log = structlog.get_logger()
 
 CATEGORY_SERVICE_PRIORITY: dict[str, list[str]] = {

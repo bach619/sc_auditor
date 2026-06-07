@@ -25,8 +25,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
+from enum import StrEnum
 from typing import Any
 
 import structlog
@@ -42,7 +41,7 @@ from src.intelligence.scorer import CompositeScorer, RiskScore, create_scorer
 log = structlog.get_logger()
 
 
-class PipelineStage(str, Enum):
+class PipelineStage(StrEnum):
     FP_PATTERN = "fp_pattern"
     NOISE_FILTER = "noise_filter"
     AI_VERIFY = "ai_verify"
@@ -344,7 +343,7 @@ class QualityPipeline:
                 reverse=True,
             )
             # Re-assign sorted list
-            pf_map = {id(pf): pf for pf in processed}
+            {id(pf): pf for pf in processed}
             for pf in processed:
                 if not pf.dropped and pf in non_dropped:
                     pass  # Already sorted by reference

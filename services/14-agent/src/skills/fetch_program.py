@@ -8,7 +8,6 @@ import httpx
 import structlog
 
 from src.skills.base import BaseSkill
-from src.models import SkillResult
 
 log = structlog.get_logger()
 

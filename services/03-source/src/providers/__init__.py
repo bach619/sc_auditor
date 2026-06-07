@@ -24,15 +24,14 @@ class SourceProvider(Protocol):
 
 # Re-export all providers for easy import
 from .blockscout import BlockscoutProvider
+from .eth_call import EthCallProvider
 from .etherscan import EtherscanProvider
 from .etherscan_chain import EtherscanChainProvider
-from .eth_call import EthCallProvider
 from .fork_aware import ForkAwareGitHubProvider
 from .github import GitHubProvider
 from .routescan import RoutescanProvider
 from .sourcify import SourcifyProvider
 from .zksync import ZkSyncProvider
-
 
 __all__ = [
     "SourceProvider",

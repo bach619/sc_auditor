@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import os
 import platform
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -144,7 +143,7 @@ class DesktopNotifier:
         """Fallback: append notification to a log file."""
         try:
             self._fallback_path.parent.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now(timezone.utc).isoformat()
+            timestamp = datetime.now(UTC).isoformat()
             line = f"[{timestamp}] {title}: {message}\n"
 
             with open(str(self._fallback_path), "a", encoding="utf-8") as f:

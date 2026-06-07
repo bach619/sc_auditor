@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from shared.observability import setup_observability
+from shared.api_errors import register_error_handlers
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -101,6 +102,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+register_error_handlers(app)
 
 # -- Middleware --------------------------------------------------------------
 app.add_middleware(
@@ -233,9 +236,18 @@ async def upsert_config_value(
 ) -> ConfigResponse:
     """Create or update a single configuration key."""
     mgr = request.app.state.vyper.manager
-    mgr.set(key, body.value)
-    log.info("config_key_upserted", key=key)
-    return ConfigResponse(data={key: body.value})
+    old_value = mgr.get(key)
+    new_value = body.value
+    client_ip = request.client.host if request.client else request.headers.get("X-Forwarded-For", "unknown")
+    mgr.set(key, new_value)
+    log.info(
+        "config_key_upserted",
+        key=key,
+        old_value=str(old_value),
+        new_value=str(new_value),
+        client_ip=client_ip,
+    )
+    return ConfigResponse(data={key: new_value})
 
 
 @app.delete("/config/{key:path}", response_model=ConfigResponse)

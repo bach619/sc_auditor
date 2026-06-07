@@ -25,20 +25,19 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.hybrid_manticore")
 
 
-class ExecutionMode(str, Enum):
+class ExecutionMode(StrEnum):
     CONCRETE = "concrete"     # Fast — real values, no constraints
     SYMBOLIC = "symbolic"      # Precise — constraint solving
     HYBRID = "hybrid"          # Auto-select based on exploration
 
 
-class PathState(str, Enum):
+class PathState(StrEnum):
     UNEXPLORED = "unexplored"
     EXPLORING = "exploring"
     EXPLORED = "explored"
@@ -71,7 +70,7 @@ class HybridScanResult:
     coverage_pct: float = 0.0
     execution_time_ms: float = 0.0
     speedup_vs_standard: float = 0.0  # How much faster than pure symbolic
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class HybridManticore:
@@ -105,8 +104,8 @@ class HybridManticore:
 
     def analyze(self, contract_address: str, source_code: str, contract_name: str = "") -> HybridScanResult:
         """Run hybrid concrete-symbolic analysis."""
-        import time
         import random
+        import time
 
         start_time = time.perf_counter()
 
@@ -185,7 +184,7 @@ class HybridManticore:
         self._bugs.append({
             "path_hash": path_hash,
             "description": description,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         })
 
     @property

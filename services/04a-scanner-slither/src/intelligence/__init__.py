@@ -13,27 +13,27 @@ Levels:
   L7 — Quality Pipeline (end-to-end post-processing)
 """
 
+from src.intelligence.ai_verifier import AIVerificationResult, AIVerifier, create_ai_verifier
 from src.intelligence.classifier import ContractClassifier, ContractType, create_classifier
-from src.intelligence.scorer import CompositeScorer, RiskScore, create_scorer
-from src.intelligence.fp_db import FalsePositiveDB, create_fp_db
 from src.intelligence.fixer import FixGenerator, create_fixer
-from src.intelligence.path_predictor import ExploitPathPredictor, create_path_predictor
-from src.intelligence.nlp import NaturalLanguageQuery, create_nlp
-from src.intelligence.ai_verifier import AIVerifier, AIVerificationResult, create_ai_verifier
+from src.intelligence.fp_db import FalsePositiveDB, create_fp_db
 from src.intelligence.fp_patterns import (
-    FpPatternMatcher,
-    FpMatchResult,
-    FalsePositivePattern,
-    create_fp_pattern_matcher,
     KNOWN_FP_PATTERNS,
+    FalsePositivePattern,
+    FpMatchResult,
+    FpPatternMatcher,
+    create_fp_pattern_matcher,
 )
+from src.intelligence.nlp import NaturalLanguageQuery, create_nlp
+from src.intelligence.path_predictor import ExploitPathPredictor, create_path_predictor
 from src.intelligence.pipeline import (
+    PipelineStage,
+    ProcessedFinding,
     QualityPipeline,
     QualityReport,
-    ProcessedFinding,
-    PipelineStage,
     create_pipeline,
 )
+from src.intelligence.scorer import CompositeScorer, RiskScore, create_scorer
 
 __all__ = [
     "AIVerifier",

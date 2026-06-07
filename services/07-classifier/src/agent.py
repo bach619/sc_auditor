@@ -14,7 +14,6 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
-from shared.skills.skill_registry import SkillRegistry
 
 from .classify import Classifier
 from .metrics import MetricsTracker

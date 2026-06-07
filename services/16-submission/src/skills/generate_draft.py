@@ -60,10 +60,10 @@ class GenerateDraftSkill(BaseSkill):
         tone: str = "professional",
         **kwargs: Any,
     ) -> dict[str, Any]:
-        from ..storage import SubmissionStorage
-        from ..evidence_collector import EvidenceCollector
         from ..draft_generator import generate_draft
+        from ..evidence_collector import EvidenceCollector
         from ..intent_classifier import classify_intent
+        from ..storage import SubmissionStorage
 
         storage = SubmissionStorage()
         evidence = EvidenceCollector()

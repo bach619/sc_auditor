@@ -14,12 +14,11 @@ import asyncio
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
 
 import structlog
 
-from src.llm import LLMClient, CircuitBreakerOpenError
-from src.models import AnalyzedFinding, Finding, LlmAnalysis, Verdict
+from src.llm import CircuitBreakerOpenError, LLMClient
+from src.models import AnalyzedFinding, Finding, LlmAnalysis
 
 log = structlog.get_logger()
 

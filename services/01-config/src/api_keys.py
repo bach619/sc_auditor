@@ -13,11 +13,10 @@ from __future__ import annotations
 
 import os
 import secrets
-from typing import Dict
 
 # Default keys — auto-generated, disimpan di file YAML config
 # Override via Config Service → settings page
-SERVICE_API_KEYS: Dict[str, str] = {}
+SERVICE_API_KEYS: dict[str, str] = {}
 
 
 def generate_api_key() -> str:

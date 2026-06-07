@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-
 from shared.skills.base_skill import BaseSkill
 
 log = structlog.get_logger()

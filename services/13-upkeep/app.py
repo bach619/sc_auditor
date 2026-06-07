@@ -22,7 +22,8 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.agent import UpkeepAgent
-from src.backup import BackupManager, create_backup_manager
+from src.backup import BackupManager, BackupScheduler, create_backup_manager, create_backup_scheduler
+from src.health_aggregator import aggregate_health
 from src.metrics import MetricsAggregator, create_metrics_aggregator
 from src.resource_governor import ResourceGovernor, SystemLoad
 from src.models import (
@@ -39,6 +40,7 @@ from src.models import (
 )
 from shared.observability import setup_observability
 from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
+from shared.api_errors import register_error_handlers
 from src.update import UpdateManager, create_update_manager
 
 # ── Constants ──────────────────────────────────────────────
@@ -62,6 +64,7 @@ class AppState:
     def __init__(self) -> None:
         self.update_mgr: UpdateManager = create_update_manager()
         self.backup_mgr: BackupManager = create_backup_manager()
+        self.backup_scheduler: BackupScheduler = create_backup_scheduler()
         self.metrics_mgr: MetricsAggregator = create_metrics_aggregator()
         self.agent: UpkeepAgent = UpkeepAgent(
             update_mgr=self.update_mgr,
@@ -148,6 +151,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+register_error_handlers(app)
+
 # CORS — permissive for local development / Docker compose
 app.add_middleware(
     CORSMiddleware,
@@ -201,6 +206,21 @@ async def health(request: Request) -> ApiResponse:
             uptime_seconds=round(state.uptime_seconds, 2),
         )
     )
+
+
+@app.get("/health/aggregate")
+async def health_aggregate(request: Request) -> ApiResponse:
+    """Aggregated health check across all Vyper services.
+
+    Queries every registered service's ``/health`` endpoint
+    concurrently and returns an up/down summary.
+    """
+    try:
+        result = await aggregate_health()
+        return ok(result)
+    except Exception as exc:
+        log.exception("health.aggregate_failed", error=str(exc))
+        raise err(f"Health aggregation failed: {exc}", status_code=500)
 
 
 # ── Update ─────────────────────────────────────────────────
@@ -308,6 +328,26 @@ async def restore_backup(backup_name: str, request: Request) -> ApiResponse:
         pre_restore=result.pre_restore_backup,
     )
     return ok(result)
+
+
+@app.post("/backup/trigger")
+async def trigger_backup(request: Request) -> ApiResponse:
+    """Trigger an immediate full backup of all data directories.
+
+    Creates a ``full_backup_YYYYMMDD_HHMMSS.tar.gz`` archive in
+    ``/data/backups/`` and returns the result.
+    """
+    state = _get_state(request)
+
+    try:
+        result = await state.backup_scheduler.backup_all()
+        if not result.get("success"):
+            raise err(str(result.get("error", "Backup failed")), status_code=500)
+        log.info("backup.triggered", name=result.get("name"))
+        return ok(result)
+    except Exception as exc:
+        log.exception("backup.trigger_failed", error=str(exc))
+        raise err(f"Backup trigger failed: {exc}", status_code=500)
 
 
 # ── Metrics ────────────────────────────────────────────────

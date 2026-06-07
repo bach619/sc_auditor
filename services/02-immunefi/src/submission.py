@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -175,7 +175,7 @@ class ImmunefiSubmissionBot:
             return {
                 "status": "failed",
                 "error": "IMMUNEFI_API_KEY not set",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         # 1. Validate
@@ -189,7 +189,7 @@ class ImmunefiSubmissionBot:
             return {
                 "status": "validation_failed",
                 "checks": validation["checks"],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         # 2. Prepare submission payload
@@ -231,7 +231,7 @@ class ImmunefiSubmissionBot:
                 },
             )
 
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             submission_record = {
                 "submission_id": submission_id,
                 "program_slug": program_slug,
@@ -271,7 +271,7 @@ class ImmunefiSubmissionBot:
                 result_status = "error"
 
         except httpx.HTTPStatusError as e:
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             submission_record = {
                 "submission_id": submission_id,
                 "program_slug": program_slug,
@@ -284,7 +284,7 @@ class ImmunefiSubmissionBot:
             result_status = "error"
 
         except Exception as e:
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             submission_record = {
                 "submission_id": submission_id,
                 "program_slug": program_slug,

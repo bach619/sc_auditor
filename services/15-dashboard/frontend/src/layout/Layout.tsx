@@ -25,6 +25,7 @@ export default function Layout() {
 
   useEffect(() => {
     const saved = localStorage.getItem('vyper-theme')
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: sync localStorage theme on mount
     if (saved === 'light') setTheme('light')
   }, [])
 
@@ -40,7 +41,7 @@ export default function Layout() {
       .catch(() => {})
     const es = new EventSource('/events')
     es.addEventListener('daemon_status', (e: MessageEvent) => {
-      try { setDaemonStatus(JSON.parse(e.data).status) } catch {}
+      try { setDaemonStatus(JSON.parse(e.data).status) } catch (err) { console.error('daemon event parse failed', err) }
     })
     return () => es.close()
   }, [])

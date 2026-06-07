@@ -16,7 +16,6 @@ from typing import Any
 
 import httpx
 import structlog
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.models import SourceResult
 
@@ -92,7 +91,7 @@ class GitHubProvider:
             for item in items[:3]:
                 repo_full_name = item.get("repository", {}).get("full_name", "")
                 file_path = item.get("path", "")
-                html_url = item.get("html_url", "")
+                item.get("html_url", "")
 
                 log.info("github.found_file", repo=repo_full_name, path=file_path)
 

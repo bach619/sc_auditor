@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 from shared.skills.base_skill import BaseSkill
 
 
@@ -24,7 +25,7 @@ class ScheduleAuditSkill(BaseSkill):
     async def run(
         self, address: str, chain: str, interval_hours: int, **kwargs: Any
     ) -> dict[str, Any]:
-        result = await self._daemon.schedule(
+        await self._daemon.schedule(
             address=address,
             chain=chain,
             interval_hours=interval_hours,

@@ -24,13 +24,39 @@ class ExperienceStore:
       experiences — tabel utama untuk AuditExperience
       consolidations — tabel untuk pattern/knowledge yang sudah di-consolidate
       experience_tags — many-to-many tags untuk experiences
+
+    Resilience:
+      Jika database tidak bisa ditulis (read-only filesystem, permission denied),
+      ExperienceStore otomatis fallback ke in-memory SQLite. Agent tetap bisa
+      start tanpa persistence. Log warning ditulis via logger.
     """
 
     def __init__(self, db_path: str | Path) -> None:
         self._db_path = Path(db_path)
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._readonly_fallback = False
         self._local = threading.local()
-        self._init_db()
+
+        try:
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._init_db()
+        except (sqlite3.OperationalError, PermissionError) as exc:
+            # Fallback ke in-memory jika filesystem read-only atau permission denied
+            import structlog
+            _log = structlog.get_logger("vyper.experience")
+            _log.warning(
+                "experience.store.readonly_fallback",
+                db_path=str(self._db_path),
+                error=str(exc),
+                reason=(
+                    "Database is on a read-only filesystem or directory has "
+                    "wrong ownership. Falling back to in-memory store. "
+                    "Experiences will NOT be persisted across restarts."
+                ),
+            )
+            self._readonly_fallback = True
+            self._db_path = Path(":memory:")
+            self._local = threading.local()
+            self._init_db()
 
     @property
     def _conn(self) -> sqlite3.Connection:
@@ -38,8 +64,10 @@ class ExperienceStore:
         if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(str(self._db_path))
             self._local.conn.row_factory = sqlite3.Row
-            self._local.conn.execute("PRAGMA journal_mode=WAL")
-            self._local.conn.execute("PRAGMA synchronous=NORMAL")
+            # WAL dan synchronous hanya untuk file-based DB, skip untuk :memory:
+            if not self._readonly_fallback:
+                self._local.conn.execute("PRAGMA journal_mode=WAL")
+                self._local.conn.execute("PRAGMA synchronous=NORMAL")
         return self._local.conn
 
     def _init_db(self) -> None:
@@ -412,7 +440,7 @@ class ExperienceStore:
             "success_rate": round(successes / total, 2) if total > 0 else 0,
             "unique_agents": agents,
             "consolidations": consolidations,
-            "db_size_bytes": os.path.getsize(self._db_path) if self._db_path.exists() else 0,
+            "db_size_bytes": 0 if self._readonly_fallback else (os.path.getsize(self._db_path) if self._db_path.exists() else 0),
         }
 
     # ── Helpers ────────────────────────────────────────────

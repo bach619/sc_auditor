@@ -309,7 +309,7 @@ class EchidnaRunner:
 
     def _build_config(self, contract_name: str, harness: Path, config: dict | None, resolved_sources: list[Path] | None = None) -> str:
         lines = [
-            f'contractAddr: "0x00a329c0648769a73afac7f9381e08fb43dbea70"',
+            'contractAddr: "0x00a329c0648769a73afac7f9381e08fb43dbea70"',
             'sender: ["0x1000", "0x2000", "0x3000"]',
             'deployer: "0x1000"',
             "testLimit: 50000",

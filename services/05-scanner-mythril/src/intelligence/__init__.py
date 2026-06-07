@@ -9,17 +9,17 @@ Levels:
   L4 — Composite Scorer, Fix Generator, Exploit Chain, NLP
 """
 
-from src.intelligence.models import (
-    IntelFinding,
-    IntelScore,
-    IntelFix,
-    IntelAnalysis,
-)
 from src.intelligence.classifier import MythrilClassifier, create_classifier
-from src.intelligence.scorer import MythrilScorer, create_scorer
 from src.intelligence.fixer import MythrilFixer, create_fixer
-from src.intelligence.path_predictor import MythrilChainPredictor, create_path_predictor
+from src.intelligence.models import (
+    IntelAnalysis,
+    IntelFinding,
+    IntelFix,
+    IntelScore,
+)
 from src.intelligence.nlp import MythrilNLP, create_nlp
+from src.intelligence.path_predictor import MythrilChainPredictor, create_path_predictor
+from src.intelligence.scorer import MythrilScorer, create_scorer
 
 __all__ = [
     "IntelAnalysis",

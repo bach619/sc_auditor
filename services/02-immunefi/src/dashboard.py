@@ -9,7 +9,7 @@ Menyediakan endpoint data yang siap dikonsumsi oleh frontend dashboard:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from src.models import Program
@@ -70,7 +70,7 @@ class DashboardData:
                 }
                 for p in top_programs
             ],
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     def chain_heatmap(self, programs: dict[str, Program]) -> dict[str, Any]:
@@ -104,7 +104,7 @@ class DashboardData:
         return {
             "chains": sorted(chain_data.values(), key=lambda x: -x["total_bounty"]),
             "total_chains": len(chain_data),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     def bounty_timeline(self, programs: dict[str, Program]) -> dict[str, Any]:
@@ -136,7 +136,7 @@ class DashboardData:
             "timeline": sorted(daily_changes.values(), key=lambda x: x["date"]),
             "total_changes": recent.get("bounty_changes", 0),
             "programs_modified": recent.get("programs_modified", 0),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     def full_dashboard(self, programs: dict[str, Program]) -> dict[str, Any]:
@@ -145,5 +145,5 @@ class DashboardData:
             "overview": self.overview(programs),
             "chain_heatmap": self.chain_heatmap(programs),
             "bounty_timeline": self.bounty_timeline(programs),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }

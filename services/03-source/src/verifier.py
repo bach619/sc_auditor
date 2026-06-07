@@ -14,8 +14,6 @@ via ``pip install py-solc-x`` dan binary solc terpisah.
 from __future__ import annotations
 
 import hashlib
-import json
-from typing import Any
 
 import httpx
 import structlog
@@ -98,7 +96,7 @@ class CompilerVerifier:
             )
 
         # 3. Compute hashes
-        raw_bytecode_hash = hashlib.sha256(bytecode.encode()).hexdigest()
+        hashlib.sha256(bytecode.encode()).hexdigest()
 
         # 4. Strip metadata hash (CBOR) dari bytecode
         cleaned_bytecode = self._strip_metadata(bytecode)

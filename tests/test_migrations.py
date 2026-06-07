@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from services.shared.storage.sqlite_store import SqliteStore
 from services.shared.storage.migrations import Migration, MigrationEngine
+from services.shared.storage.sqlite_store import SqliteStore
 from services.shared.storage.types import StoreConfig
 
 

@@ -12,13 +12,11 @@ identifikasi kontrak terkenal.
 from __future__ import annotations
 
 import hashlib
-from typing import Any
 
 import httpx
 import structlog
 
 from src.models import SourceResult
-from src.providers import SourceProvider
 
 log = structlog.get_logger()
 

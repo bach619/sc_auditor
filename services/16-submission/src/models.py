@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 
-class BugCategory(str, Enum):
+class BugCategory(StrEnum):
     reentrancy = "reentrancy"
     oracle_manipulation = "oracle_manipulation"
     flash_loan = "flash_loan"
@@ -25,7 +25,7 @@ class BugCategory(str, Enum):
     other = "other"
 
 
-class SubmissionStatus(str, Enum):
+class SubmissionStatus(StrEnum):
     draft = "draft"
     submitted = "submitted"
     in_review = "in_review"
@@ -48,11 +48,11 @@ class Submission(BaseModel):
     category_evidence: dict[str, Any] = Field(default_factory=dict)
     status: SubmissionStatus = SubmissionStatus.draft
     immunefi_submission_id: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class MessageRole(str, Enum):
+class MessageRole(StrEnum):
     us = "us"
     immunefi = "immunefi"
 
@@ -66,7 +66,7 @@ class Message(BaseModel):
     intent: str = ""
     intent_context: dict[str, Any] | None = None
     suggested_reply: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class IntentClassification(BaseModel):
@@ -110,7 +110,7 @@ class CreateSubmissionRequest(BaseModel):
 class Meta(BaseModel):
     status: str = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 

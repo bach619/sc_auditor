@@ -72,9 +72,9 @@ class ExplainFindingSkill(BaseSkill):
             explanation_lines.extend([
                 "",
                 "**Affected Code:**",
-                f"  ```solidity",
+                "  ```solidity",
                 f"  {source_code[:2000]}",
-                f"  ```",
+                "  ```",
             ])
 
         severity_map = {

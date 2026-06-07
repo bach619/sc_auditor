@@ -103,9 +103,9 @@ class OverflowChainModule(BaseAnalysisModule):
                     bug_type="precision_loss_fund",
                     title="Division precision loss leads to incorrect value",
                     description=(
-                        f"Integer division truncation in function leads to "
-                        f"precision loss that affects fund calculations. "
-                        f"Attackers can exploit rounding errors for profit."
+                        "Integer division truncation in function leads to "
+                        "precision loss that affects fund calculations. "
+                        "Attackers can exploit rounding errors for profit."
                     ),
                     state=state,
                     metadata={

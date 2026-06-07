@@ -78,6 +78,7 @@ from src.skills.notify import NotifySkill
 from src.skills.delegate_task import DelegateTaskSkill
 from src.skills.deduplicate_findings import DeduplicateFindingsSkill
 from shared.agent_protocol.registry import AgentRegistry
+from shared.api_errors import register_error_handlers
 
 # ── Constants ──────────────────────────────────────────────
 
@@ -221,6 +222,22 @@ async def _load_providers(client: httpx.AsyncClient) -> dict[str, dict[str, str]
             base_url=providers[pid]["base_url"] or "(default)",
             model=providers[pid]["model"] or "(default)",
         )
+
+    # ── Merge with PROVIDER_DEFAULTS for missing base_url / model ──
+    from src.llm import PROVIDER_DEFAULTS  # noqa: PLC0415
+
+    for pid, cfg in providers.items():
+        defaults = PROVIDER_DEFAULTS.get(pid, {})
+        if not cfg["base_url"] and defaults.get("base_url"):
+            cfg["base_url"] = defaults["base_url"].rstrip("/")
+            log.info(
+                "provider_base_url_defaulting",
+                provider=pid,
+                base_url=cfg["base_url"],
+            )
+        if not cfg["model"] and defaults.get("model"):
+            cfg["model"] = defaults["model"]
+        cfg["api_type"] = defaults.get("api_type", "openai_compatible")
 
     # ── Validate provider configs ──
     validation_errors = _validate_provider_urls(providers)
@@ -410,6 +427,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Load system knowledge into vector memory
     knowledge_count = await _load_system_knowledge(state.agent.memory)
 
+    # Auto-start the daemon for background skill execution
+    if state.daemon and not state.daemon.is_running:
+        try:
+            state.daemon.start()
+            log.info("daemon_auto_started")
+        except Exception as exc:
+            log.warning("daemon_auto_start_failed", error=str(exc))
+
+    # Warmup: execute a lightweight skill to populate initial metrics
+    try:
+        result = await state.registry.execute("deduplicate_findings", findings=[])
+        log.info("skill_warmup_complete", skill="deduplicate_findings", success=result.success)
+    except Exception as exc:
+        log.warning("skill_warmup_failed", error=str(exc))
+
     # Count configured providers
     configured_providers = state.llm.configured_providers() if state.llm else []
 
@@ -441,6 +473,7 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -464,840 +497,6 @@ def _err(detail: str, status_code: int = 400) -> HTTPException:
     return HTTPException(status_code=status_code, detail=detail)
 
 
-# ── Endpoints ──────────────────────────────────────────────
-
-
-@app.get("/health")
-async def health() -> ApiResponse:
-    """Health check — service status, skills loaded, active sessions."""
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-    return _ok(
-        HealthData(
-            status="ok",
-            service=SERVICE_NAME,
-            version=SERVICE_VERSION,
-            active_sessions=state.agent.active_sessions,
-            skills_loaded=state.registry.count if state.registry else 0,
-            memory_entries=state.agent.memory.total_entries,
-        )
-    )
-
-
-@app.get("/agent/provider-defaults")
-async def agent_provider_defaults() -> ApiResponse:
-    """Get the default provider configuration values.
-
-    Returns the PROVIDER_DEFAULTS dict so the frontend can
-    reset misconfigured providers to known-good values.
-    """
-    from src.llm import PROVIDER_DEFAULTS  # noqa: PLC0415
-
-    return _ok({
-        "defaults": PROVIDER_DEFAULTS,
-        "note": "Set base_url and api_type to these defaults to fix misconfiguration",
-    })
-
-
-@app.get("/agent/manifest")
-async def agent_manifest() -> ApiResponse:
-    """Publish Antonio manifest for discovery by backend agents."""
-    if state is None or state.registry is None:
-        raise _err("Service not initialized", 503)
-
-    skills_info = []
-    for skill in state.registry.list_skills():
-        skills_info.append({
-            "name": skill.name,
-            "description": skill.description,
-            "parameters": skill.parameters,
-            "input_schema": {"type": "object", "properties": skill.parameters or {}},
-            "output_schema": {"type": "object"},
-        })
-
-    active = state.agent.active_sessions if state.agent else 0
-
-    manifest = {
-        "service_name": "14-agent",
-        "agent_role": "antonio",
-        "version": "0.2.0",
-        "capabilities": skills_info,
-        "constraints": {
-            "max_concurrent_tasks": 5,
-            "requires_api_key": True,
-            "max_context_length": 16000,
-        },
-        "current_load": {
-            "active_tasks": active,
-            "queue_depth": 0,
-            "status": "idle" if active == 0 else "busy",
-        },
-    }
-    return _ok(manifest)
-
-
-@app.get("/agent/registry")
-async def agent_registry_status() -> ApiResponse:
-    """List all discovered backend agents and their capabilities."""
-    if state is None or state.agent_registry is None:
-        raise _err("Agent registry not initialized", 503)
-
-    agents = state.agent_registry.get_all_agents()
-    return _ok({
-        "total_agents": len(agents),
-        "agents": [
-            {
-                "service": a.service_name,
-                "role": a.agent_role,
-                "capabilities": [c.name.value for c in a.capabilities],
-                "status": a.current_load.get("status", "unknown"),
-                "active_tasks": a.current_load.get("active_tasks", 0),
-            }
-            for a in agents
-        ],
-    })
-
-
-@app.post("/agent/run")
-async def run_agent(body: AgentRequest) -> ApiResponse:
-    """Start an agent task.
-
-    The agent will run the ReAct loop, calling skills
-    as needed until the task is complete.
-
-    **Request body**::
-
-        {
-            "task_type": "full_audit",
-            "input_data": {
-                "contract_address": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
-                "chain": "ethereum",
-                "program_slug": "ethena"
-            },
-            "goal": "Full audit of USDe contract",
-            "max_steps": 25
-        }
-    """
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    if not body.input_data:
-        raise _err("input_data is required")
-
-    log.info(
-        "agent.run_requested",
-        task_type=body.task_type.value,
-        goal=body.goal[:100] if body.goal else "auto",
-    )
-
-    try:
-        session: AgentSession = await state.agent.run(
-            task_type=body.task_type,
-            input_data=body.input_data,
-            goal=body.goal,
-            max_steps=body.max_steps,
-        )
-    except Exception as exc:
-        log.exception("agent.run_failed")
-        raise _err(f"Agent execution failed: {exc}", 500)
-
-    return _ok(
-        AgentResponse(
-            session_id=session.session_id,
-            status=session.status,
-            steps=session.steps,
-            output=session.output_data,
-            error=session.error,
-        )
-    )
-
-
-@app.post("/agent/chat")
-async def agent_chat(body: ChatRequest) -> ApiResponse:
-    """Chat dengan Antonio menggunakan natural language.
-
-    Antonio akan memahami intent user, memanggil skill yang diperlukan
-    (audit, search memory, dll), dan merespon dalam bahasa yang sama.
-
-    **Request body**::
-
-        {
-            "message": "audit contract 0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
-            "session_id": null
-        }
-
-    Returns:
-        ChatResponse dengan jawaban natural language Antonio.
-    """
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    log.info(
-        "agent.chat_requested",
-        message=body.message[:100],
-        has_session=body.session_id is not None,
-    )
-
-    try:
-        result: ChatResponse = await state.agent.chat(
-            message=body.message,
-            session_id=body.session_id,
-        )
-    except Exception as exc:
-        err_msg = str(exc).strip() or type(exc).__name__
-        log.exception("agent.chat_failed", error=err_msg)
-        raise _err(
-            f"Chat failed: {err_msg}. "
-            "Check your AI provider configuration in Settings > AI Providers.",
-            500,
-        )
-
-    return _ok(result.model_dump())
-
-
-@app.get("/agent/chat/sessions")
-async def list_chat_sessions() -> ApiResponse:
-    """List all chat sessions with full message history.
-
-    Returns all chat conversations that have been persisted
-    to local storage (~/.sc_auditor/learning/chat_sessions.json).
-    """
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    sessions = state.agent.list_chat_sessions()
-    return _ok({
-        "sessions": sessions,
-        "total": len(sessions),
-    })
-
-
-@app.get("/agent/sessions")
-async def list_sessions(
-    limit: int = Query(20, ge=1, le=100),
-    status: str | None = Query(None),
-) -> ApiResponse:
-    """List all agent sessions."""
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    sessions = state.agent.list_sessions(limit=limit, status=status)
-    return _ok({
-        "sessions": [
-            {
-                "session_id": s.session_id,
-                "task_type": s.task_type.value,
-                "status": s.status.value,
-                "goal": s.goal[:100],
-                "steps": len(s.steps),
-                "created_at": s.created_at,
-                "error": s.error,
-            }
-            for s in sessions
-        ],
-        "total": len(sessions),
-    })
-
-
-@app.get("/agent/{session_id}")
-async def get_session(session_id: str) -> ApiResponse:
-    """Get agent session details with all steps."""
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    session = state.agent.get_session(session_id)
-    if session is None:
-        raise _err(f"Session not found: {session_id}", 404)
-
-    return _ok(
-        AgentResponse(
-            session_id=session.session_id,
-            status=session.status,
-            steps=session.steps,
-            output=session.output_data,
-            error=session.error,
-        )
-    )
-
-
-@app.get("/skills")
-async def list_skills() -> ApiResponse:
-    """List all registered skills that the agent can use."""
-    if state is None or state.registry is None:
-        raise _err("Service not initialized", 503)
-
-    skills = state.registry.list_skills()
-    return _ok({
-        "total": len(skills),
-        "skills": [
-            {
-                "name": s.name,
-                "description": s.description,
-                "parameters": s.parameters,
-            }
-            for s in skills
-        ],
-    })
-
-
-@app.get("/skills/metrics")
-async def skill_metrics() -> ApiResponse:
-    """Get usage metrics for all skills."""
-    if state is None or state.registry is None:
-        raise _err("Service not initialized", 503)
-
-    return _ok(state.registry.get_all_metrics())
-
-
-@app.get("/memory")
-async def get_memory() -> ApiResponse:
-    """Get current agent memory contents."""
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    memory = state.agent.memory
-    return _ok({
-        "working": {k: _truncate(v) for k, v in memory.working.items()},
-        "episodic": [
-            {
-                "key": e.key,
-                "content": _truncate(e.content),
-                "timestamp": e.timestamp,
-            }
-            for e in memory.last_episodes(10)
-        ],
-        "semantic": {k: _truncate(v) for k, v in list(memory.semantic.items())[:10]},
-        "total_entries": memory.total_entries,
-    })
-
-
-# ── Daemon Endpoints (T8+T10) ──────────────────────────────
-
-
-@app.post("/daemon/start")
-async def daemon_start() -> ApiResponse:
-    """Start the autonomous daemon background loop."""
-    if state is None or state.daemon is None:
-        raise _err("Service not initialized", 503)
-
-    started = state.daemon.start()
-    return _ok({
-        "running": state.daemon.is_running,
-        "started": started,
-        "message": "Daemon started" if started else "Daemon already running",
-    })
-
-
-@app.post("/daemon/stop")
-async def daemon_stop() -> ApiResponse:
-    """Stop the daemon background loop."""
-    if state is None or state.daemon is None:
-        raise _err("Service not initialized", 503)
-
-    stopped = await state.daemon.stop()
-    return _ok({
-        "running": state.daemon.is_running,
-        "stopped": stopped,
-        "message": "Daemon stopped" if stopped else "Daemon was not running",
-    })
-
-
-@app.get("/daemon/status")
-async def daemon_status() -> ApiResponse:
-    """Get daemon status and statistics."""
-    if state is None or state.daemon is None:
-        raise _err("Service not initialized", 503)
-
-    return _ok(state.daemon.get_status())
-
-
-# ── Memory Search Endpoint (T11) ───────────────────────────
-
-
-class MemorySearchRequest(BaseModel):
-    query: str
-    store: str = "vector"  # vector | episodic | graph
-    limit: int = 10
-    filters: dict[str, Any] = Field(default_factory=dict)
-
-
-@app.post("/memory/search")
-async def memory_search(body: MemorySearchRequest) -> ApiResponse:
-    """Search across memory stores.
-
-    **Request body**::
-
-        {
-            "query": "reentrancy vulnerability",
-            "store": "vector",
-            "limit": 10
-        }
-    """
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    memory = state.agent.memory
-
-    try:
-        if body.store == "vector":
-            results = await memory.vector.search(
-                body.query, limit=body.limit, **body.filters
-            )
-        elif body.store == "episodic":
-            results = await memory.episodic_store.search(
-                body.query, limit=body.limit, **body.filters
-            )
-        elif body.store == "graph":
-            results = await memory.graph.search(
-                body.query, limit=body.limit, **body.filters
-            )
-        else:
-            raise _err(f"Unknown store: {body.store}", 400)
-
-        return _ok({
-            "store": body.store,
-            "query": body.query,
-            "results": results,
-            "total": len(results),
-        })
-    except Exception as exc:
-        raise _err(f"Memory search failed: {exc}", 500)
-
-
-# ── Feedback & Learning Endpoints (T9+T12+T14) ────────────
-
-
-class FeedbackRequest(BaseModel):
-    session_id: str
-    rating: int = Field(default=3, ge=1, le=5)
-    comment: str = ""
-    tags: list[str] = Field(default_factory=list)
-
-
-@app.post("/learning/feedback")
-async def submit_feedback(body: FeedbackRequest) -> ApiResponse:
-    """Submit feedback for a completed session."""
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    session = state.agent.get_session(body.session_id)
-    if session is None:
-        raise _err(f"Session not found: {body.session_id}", 404)
-
-    # Store feedback in vector memory
-    memory = state.agent.memory
-    try:
-        await memory.vector.store(
-            f"feedback_{body.session_id[:8]}",
-            f"Session {body.session_id[:8]}: rating={body.rating}/5, {body.comment}",
-            metadata={
-                "type": "feedback",
-                "session_id": body.session_id,
-                "rating": body.rating,
-                "tags": body.tags,
-                "comment": body.comment[:200],
-            },
-        )
-    except Exception as exc:
-        log.warning("feedback_store_failed", error=str(exc))
-
-    return _ok({
-        "submitted": True,
-        "session_id": body.session_id,
-        "rating": body.rating,
-    })
-
-
-@app.get("/learning/stats")
-async def learning_stats() -> ApiResponse:
-    """Get learning statistics."""
-    if state is None or state.learner is None:
-        raise _err("Service not initialized", 503)
-
-    return _ok(state.learner.get_stats())
-
-
-@app.get("/learning/recommendations")
-async def learning_recommendations(
-    task_type: str | None = None,
-) -> ApiResponse:
-    """Get learning-based recommendations.
-
-    **Query params**::
-        task_type: Optional filter by task type
-    """
-    if state is None or state.learner is None:
-        raise _err("Service not initialized", 503)
-
-    recommendations = await state.learner.get_recommendations(
-        task_type=task_type
-    )
-    return _ok(recommendations)
-
-
-# ── Circuit Breaker Endpoint ───────────────────────────────
-
-
-@app.get("/circuit-breakers")
-async def get_circuit_breakers() -> ApiResponse:
-    """Get status of all circuit breakers."""
-    return _ok(all_circuit_breakers())
-
-
-@app.post("/circuit-breakers/reset")
-async def reset_circuit_breakers() -> ApiResponse:
-    """Reset all circuit breakers."""
-    from src.utils.circuit_breaker import reset_all
-    reset_all()
-    return _ok({"message": "All circuit breakers reset"})
-
-
-# ── Memory Stats Endpoint (T14) ────────────────────────────
-
-
-@app.get("/memory/stats")
-async def memory_stats() -> ApiResponse:
-    """Get detailed memory store statistics."""
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    return _ok(state.agent.memory.get_all_stats())
-
-
-# ── Knowledge Endpoint ─────────────────────────────────────
-
-
-@app.get("/knowledge")
-async def get_knowledge() -> ApiResponse:
-    """Get system knowledge loaded from SYSTEM_KNOWLEDGE.md.
-
-    Returns all knowledge chunks currently in vector memory
-    that have metadata.source == 'system_knowledge'.
-    """
-    if state is None or state.agent is None:
-        raise _err("Service not initialized", 503)
-
-    try:
-        entries = state.agent.memory.vector_store.get_all()
-        knowledge_entries = [
-            e.to_dict()
-            for e in entries
-            if e.metadata.get("source") == "system_knowledge"
-        ]
-
-        return _ok({
-            "total_chunks": len(knowledge_entries),
-            "chunks": sorted(knowledge_entries, key=lambda e: e.get("metadata", {}).get("section_index", 0)),
-            "source": "SYSTEM_KNOWLEDGE.md",
-            "note": "Antonio uses this knowledge in MODE 1 (direct answers) and for semantic search during audits.",
-        })
-    except Exception as exc:
-        log.warning("knowledge_retrieval_failed", error=str(exc))
-        return _ok({
-            "total_chunks": 0,
-            "chunks": [],
-            "error": str(exc),
-        })
-
-
-# ── Team Endpoints ───────────────────────────────────────────
-
-
-@app.post("/team/run")
-async def run_team_audit(body: dict[str, Any]) -> ApiResponse:
-    """Start a team-based audit with Lead Auditor + sub-agents.
-
-    The Lead Auditor will plan the audit, delegate tasks to
-    specialized team members, and synthesize results.
-
-    **Request body**::
-
-        {
-            "task_type": "full_audit",
-            "input_data": {
-                "contract_address": "0x...",
-                "chain": "ethereum",
-                "program_slug": "ethena"
-            },
-            "goal": "Full audit of USDe contract",
-            "max_delegations": 15
-        }
-    """
-    if state is None or state.lead_auditor is None:
-        raise _err("Service not initialized", 503)
-
-    task_type = body.get("task_type", "full_audit")
-    input_data = body.get("input_data", {})
-    goal = body.get("goal", "")
-    max_delegations = body.get("max_delegations", 15)
-
-    if input_data is None:
-        raise _err("input_data is required")
-
-    log.info(
-        "team_audit_requested",
-        task_type=task_type,
-        goal=goal[:100] if goal else "auto",
-    )
-
-    try:
-        session = await state.lead_auditor.run_team_audit(
-            task_type=task_type,
-            input_data=input_data,
-            goal=goal,
-            max_delegations=max_delegations,
-        )
-    except Exception as exc:
-        log.exception("team_audit_failed")
-        raise _err(f"Team audit failed: {exc}", 500)
-
-    return _ok({
-        "team_session_id": session.team_session_id,
-        "status": session.status.value,
-        "goal": session.goal,
-        "lead_steps": [
-            {
-                "step": s.step_number,
-                "action": s.action,
-                "status": s.status.value,
-                "observation": s.observation[:200] if s.observation else "",
-            }
-            for s in session.lead_steps
-        ],
-        "sub_agents": {
-            role: {
-                "status": sa.status.value,
-                "task": sa.task[:100],
-                "steps": len(sa.steps),
-                "summary": sa.summary[:200] if sa.summary else "",
-            }
-            for role, sa in session.sub_agents.items()
-        },
-        "output": to_serializable(session.output_data),
-        "error": session.error,
-    })
-
-
-@app.get("/team/sessions")
-async def list_team_sessions(
-    limit: int = Query(20, ge=1, le=100),
-    status: str | None = Query(None),
-) -> ApiResponse:
-    """List all team audit sessions."""
-    if state is None or state.lead_auditor is None:
-        raise _err("Service not initialized", 503)
-
-    sessions = state.lead_auditor.list_sessions(limit=limit, status=status)
-    return _ok({
-        "sessions": [
-            {
-                "team_session_id": s.team_session_id,
-                "task_type": s.task_type,
-                "status": s.status.value,
-                "goal": s.goal[:100],
-                "lead_steps": len(s.lead_steps),
-                "sub_agents": list(s.sub_agents.keys()),
-                "created_at": s.created_at,
-                "error": s.error,
-            }
-            for s in sessions
-        ],
-        "total": len(sessions),
-    })
-
-
-@app.get("/team/structure")
-async def get_team_structure() -> ApiResponse:
-    """Get the team organizational structure with all roles."""
-    if state is None or state.lead_auditor is None:
-        raise _err("Service not initialized", 503)
-
-    roles = []
-    for persona in get_all_personas():
-        sub = state.lead_auditor.get_sub_agent(persona.role) if persona.role != AgentRole.LEAD_AUDITOR else None
-        roles.append({
-            "role": persona.role.value,
-            "title": persona.title,
-            "expertise": persona.expertise,
-            "allowed_skills": persona.allowed_skills,
-            "registered": sub is not None if persona.role != AgentRole.LEAD_AUDITOR else True,
-            "skills_loaded": sub.registry.count if sub else 0,
-        })
-
-    return _ok({
-        "team_size": len(roles),
-        "roles": roles,
-    })
-
-
-@app.get("/team/{session_id}")
-async def get_team_session(session_id: str) -> ApiResponse:
-    """Get team session details with all delegation steps."""
-    if state is None or state.lead_auditor is None:
-        raise _err("Service not initialized", 503)
-
-    session = state.lead_auditor.get_session(session_id)
-    if session is None:
-        raise _err(f"Team session not found: {session_id}", 404)
-
-    return _ok({
-        "team_session_id": session.team_session_id,
-        "task_type": session.task_type,
-        "status": session.status.value,
-        "goal": session.goal,
-        "input_data": session.input_data,
-        "lead_steps": [
-            {
-                "step": s.step_number,
-                "thought": s.thought,
-                "action": s.action,
-                "action_input": s.action_input,
-                "observation": s.observation,
-                "action_output": to_serializable(s.action_output),
-                "status": s.status.value,
-                "duration_ms": s.duration_ms,
-            }
-            for s in session.lead_steps
-        ],
-        "sub_agents": {
-            role: {
-                "role": sa.role.value,
-                "status": sa.status.value,
-                "task": sa.task,
-                "summary": sa.summary,
-                "steps": [
-                    {
-                        "step": s.step_number,
-                        "action": s.action,
-                        "status": s.status.value,
-                        "observation": s.observation[:300],
-                        "duration_ms": s.duration_ms,
-                    }
-                    for s in sa.steps
-                ],
-                "output": to_serializable(sa.output),
-                "error": sa.error,
-            }
-            for role, sa in session.sub_agents.items()
-        },
-        "output": to_serializable(session.output_data),
-        "error": session.error,
-        "created_at": session.created_at,
-        "updated_at": session.updated_at,
-    })
-
-
-# ═══════════════════════════════════════════════════════════
-# Antonio Gateway — Supreme Controller Endpoints
-# All external requests route through Antonio for awareness,
-# context, and audit trail. Orchestrator is backend-only.
-# ═══════════════════════════════════════════════════════════
-
-
-@app.post("/audit", status_code=201)
-async def gateway_start_audit(body: dict[str, Any], request: Request) -> JSONResponse:
-    """Start an audit — gatewayed through Antonio.
-    
-    Accepts the same payload as Orchestrator's /audit endpoint:
-    { chain, address, program, priority, metadata }.
-    
-    Antonio logs the request, delegates to Orchestrator,
-    and returns the result with an Antonio processing header.
-    """
-    chain = body.get("chain", "ethereum")
-    address = body.get("address", "")
-    program = body.get("program", "")
-    priority = body.get("priority", 5)
-    use_ai = body.get("use_ai", True)
-    metadata = body.get("metadata", {})
-
-    if not address.startswith("0x"):
-        raise _err("Address must be 0x-prefixed")
-
-    log.info(
-        "antonio.gateway.audit_requested",
-        chain=chain,
-        address=address,
-        program=program,
-        priority=priority,
-    )
-
-    orchestrator_payload = {
-        "chain": chain,
-        "address": address,
-        "program": program,
-        "priority": priority,
-        "use_ai": use_ai,
-        "metadata": metadata,
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                f"{ORCHESTRATOR_URL}/audit",
-                json=orchestrator_payload,
-            )
-            resp.raise_for_status()
-            result = resp.json()
-    except httpx.RequestError as exc:
-        log.error("antonio.gateway.orchestrator_unreachable", error=str(exc))
-        raise _err(f"Orchestrator unreachable: {exc}", 502)
-    except Exception as exc:
-        log.error("antonio.gateway.audit_failed", error=str(exc))
-        raise _err(f"Audit failed: {exc}", 500)
-
-    # Add Antonio gateway mark
-    if isinstance(result, dict) and "meta" in result:
-        result["meta"]["gateway"] = "antonio"
-
-    return JSONResponse(
-        content=result,
-        status_code=201,
-        headers={"X-Antonio-Gateway": "true"},
-    )
-
-
-@app.post("/orchestrator/daemon/start")
-async def gateway_daemon_start() -> JSONResponse:
-    """Start the Orchestrator daemon via Antonio gateway."""
-    log.info("antonio.gateway.daemon_start")
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(f"{ORCHESTRATOR_URL}/daemon/start")
-            resp.raise_for_status()
-            return JSONResponse(content=resp.json())
-    except Exception as exc:
-        raise _err(f"Daemon start failed: {exc}", 502)
-
-
-@app.post("/orchestrator/daemon/stop")
-async def gateway_daemon_stop() -> JSONResponse:
-    """Stop the Orchestrator daemon via Antonio gateway."""
-    log.info("antonio.gateway.daemon_stop")
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(f"{ORCHESTRATOR_URL}/daemon/stop")
-            resp.raise_for_status()
-            return JSONResponse(content=resp.json())
-    except Exception as exc:
-        raise _err(f"Daemon stop failed: {exc}", 502)
-
-
-@app.get("/orchestrator/daemon/status")
-async def gateway_daemon_status() -> JSONResponse:
-    """Get Orchestrator daemon status via Antonio gateway."""
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(f"{ORCHESTRATOR_URL}/daemon/status")
-            resp.raise_for_status()
-            return JSONResponse(content=resp.json())
-    except Exception as exc:
-        raise _err(f"Daemon status failed: {exc}", 502)
-
-
-# ── Helpers ──────────────────────────────────────────────────
-
-
 def _truncate(value: Any, max_len: int = 200) -> Any:
     """Truncate long string values for display."""
     if isinstance(value, str) and len(value) > max_len:
@@ -1307,6 +506,29 @@ def _truncate(value: Any, max_len: int = 200) -> Any:
     if isinstance(value, list):
         return [_truncate(v, max_len) for v in value[:5]]
     return value
+
+
+# ── Route Modules ──────────────────────────────────────────
+
+from src.routes.routes_core import router as core_router
+from src.routes.routes_sessions import router as sessions_router
+from src.routes.routes_skills import router as skills_router
+from src.routes.routes_memory import router as memory_router
+from src.routes.routes_learning import router as learning_router
+from src.routes.routes_daemon import router as daemon_router
+from src.routes.routes_circuit import router as circuit_router
+from src.routes.routes_team import router as team_router
+from src.routes.routes_gateway import router as gateway_router
+
+app.include_router(core_router)
+app.include_router(sessions_router)
+app.include_router(skills_router)
+app.include_router(memory_router)
+app.include_router(learning_router)
+app.include_router(daemon_router)
+app.include_router(circuit_router)
+app.include_router(team_router)
+app.include_router(gateway_router)
 
 
 # ── Exception Handler ─────────────────────────────────────

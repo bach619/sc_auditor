@@ -16,7 +16,7 @@ from typing import Any
 import structlog
 
 from src.llm import LLMClient
-from src.models import AnalyzedFinding, Finding, FixSuggestion, LlmAnalysis
+from src.models import Finding, FixSuggestion
 
 log = structlog.get_logger()
 
@@ -122,7 +122,7 @@ class FixSuggester:
         )
 
         # Build a fix-focused prompt
-        fix_prompt = self._build_fix_prompt(
+        self._build_fix_prompt(
             source_code=source_code,
             finding=finding,
             compiler=compiler,
@@ -213,17 +213,6 @@ class FixSuggester:
         )
 
         # Build a prompt instructing the LLM to apply the fix
-        patch_prompt = (
-            "You are a smart contract developer. Apply the following fix "
-            "to the source code below.\n\n"
-            f"## Finding\n{finding.title}: {finding.description}\n\n"
-            f"## Fix to Apply\n{fix.fix_code}\n\n"
-            f"## Explanation\n{fix.explanation}\n\n"
-            "## Original Source Code\n```solidity\n{source_code}\n```\n\n"
-            "Return ONLY the complete modified source code in a single code block. "
-            "Do NOT add any explanation or commentary. "
-            "Only apply the specific fix described — do not change anything else."
-        )
 
         try:
             result = await self.llm.suggest_fix(

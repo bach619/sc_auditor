@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 import structlog
@@ -100,12 +100,12 @@ class ServiceProxy:
 
     def __init__(
         self,
-        urls: Optional[ServiceURLs] = None,
+        urls: ServiceURLs | None = None,
         timeout: float = 30.0,
     ) -> None:
         self.urls = urls or ServiceURLs()
         self._timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
         logger.info("ServiceProxy initialised", urls=urls or self.urls)
 
     # ── Lifecycle ────────────────────────────────────────────────
@@ -143,7 +143,7 @@ class ServiceProxy:
 
     # ── Helpers ──────────────────────────────────────────────────
 
-    async def _get(self, url: str, params: Optional[Dict[str, Any]] = None) -> Any:
+    async def _get(self, url: str, params: dict[str, Any] | None = None) -> Any:
         resp = await self.client.get(url, params=params)
         if resp.status_code >= 400:
             try:
@@ -155,7 +155,7 @@ class ServiceProxy:
         return self._safe_json(resp, url)
 
     async def _post(
-        self, url: str, json: Optional[Dict[str, Any]] = None
+        self, url: str, json: dict[str, Any] | None = None
     ) -> Any:
         resp = await self.client.post(url, json=json)
         if resp.status_code >= 400:
@@ -176,7 +176,7 @@ class ServiceProxy:
             return {"data": None, "meta": {"status": "error", "error": f"Non-JSON response ({resp.status_code})"}}
 
     async def _put(
-        self, url: str, json: Optional[Dict[str, Any]] = None
+        self, url: str, json: dict[str, Any] | None = None
     ) -> Any:
         resp = await self.client.put(url, json=json)
         if resp.status_code >= 400:
@@ -195,18 +195,18 @@ class ServiceProxy:
     # Orchestrator Service
     # ═══════════════════════════════════════════════════════════
 
-    async def get_health(self) -> Dict[str, Any]:
+    async def get_health(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.orchestrator}/health")
 
     async def get_audits(
         self,
-        state: Optional[str] = None,
-        program: Optional[str] = None,
-        chain: Optional[str] = None,
+        state: str | None = None,
+        program: str | None = None,
+        chain: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if state:
             params["state"] = state
         if program:
@@ -215,7 +215,7 @@ class ServiceProxy:
             params["chain"] = chain
         return await self._get(f"{self.urls.orchestrator}/audits", params=params)
 
-    async def get_audit(self, audit_id: str) -> Dict[str, Any]:
+    async def get_audit(self, audit_id: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.orchestrator}/audit/{audit_id}")
 
     async def start_audit(
@@ -224,8 +224,8 @@ class ServiceProxy:
         address: str,
         program: str = "",
         priority: int = 5,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         body = {
             "chain": chain,
             "address": address,
@@ -236,22 +236,22 @@ class ServiceProxy:
         # Antonio Supremacy — all audit requests route through Antonio
         return await self._post(f"{self.urls.agent}/audit", json=body)
 
-    async def start_daemon(self) -> Dict[str, Any]:
+    async def start_daemon(self) -> dict[str, Any]:
         # Antonio Supremacy — daemon control through Antonio
         return await self._post(f"{self.urls.agent}/orchestrator/daemon/start")
 
-    async def stop_daemon(self) -> Dict[str, Any]:
+    async def stop_daemon(self) -> dict[str, Any]:
         # Antonio Supremacy — daemon control through Antonio
         return await self._post(f"{self.urls.agent}/orchestrator/daemon/stop")
 
-    async def get_daemon_status(self) -> Dict[str, Any]:
+    async def get_daemon_status(self) -> dict[str, Any]:
         # Antonio Supremacy — daemon status through Antonio
         return await self._get(f"{self.urls.agent}/orchestrator/daemon/status")
 
-    async def get_orchestrator_stats(self) -> Dict[str, Any]:
+    async def get_orchestrator_stats(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.orchestrator}/stats")
 
-    async def retry_audit(self, audit_id: str) -> Dict[str, Any]:
+    async def retry_audit(self, audit_id: str) -> dict[str, Any]:
         return await self._post(f"{self.urls.orchestrator}/pipeline/retry/{audit_id}")
 
     async def add_to_queue(
@@ -261,7 +261,7 @@ class ServiceProxy:
         address: str,
         program: str = "",
         priority_score: float = 0.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         body = {
             "contract_id": contract_id,
             "chain": chain,
@@ -271,25 +271,25 @@ class ServiceProxy:
         }
         return await self._post(f"{self.urls.orchestrator}/queue", json=body)
 
-    async def get_queue(self) -> Dict[str, Any]:
+    async def get_queue(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.orchestrator}/queue")
 
     # ═══════════════════════════════════════════════════════════
     # Config Service
     # ═══════════════════════════════════════════════════════════
 
-    async def get_config(self, key: str) -> Dict[str, Any]:
+    async def get_config(self, key: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.config}/config/{key}")
 
-    async def get_all_config(self) -> Dict[str, Any]:
+    async def get_all_config(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.config}/config")
 
-    async def set_config(self, key: str, value: Any) -> Dict[str, Any]:
+    async def set_config(self, key: str, value: Any) -> dict[str, Any]:
         return await self._put(
             f"{self.urls.config}/config/{key}", json={"value": value}
         )
 
-    async def set_bulk_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    async def set_bulk_config(self, config: dict[str, Any]) -> dict[str, Any]:
         return await self._put(
             f"{self.urls.config}/config/bulk", json={"config": config}
         )
@@ -298,7 +298,7 @@ class ServiceProxy:
     # Classifier Service
     # ═══════════════════════════════════════════════════════════
 
-    async def get_metrics(self) -> Dict[str, Any]:
+    async def get_metrics(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.classifier}/metrics")
 
     async def submit_feedback(
@@ -306,7 +306,7 @@ class ServiceProxy:
         finding_id: str,
         feedback: str,
         status: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         body = {
             "finding_id": finding_id,
             "feedback": feedback,
@@ -314,7 +314,7 @@ class ServiceProxy:
         }
         return await self._post(f"{self.urls.classifier}/feedback", json=body)
 
-    async def get_feedback_list(self) -> Dict[str, Any]:
+    async def get_feedback_list(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.classifier}/feedback")
 
     # ═══════════════════════════════════════════════════════════
@@ -323,31 +323,31 @@ class ServiceProxy:
 
     async def get_programs(
         self,
-        search: Optional[str] = None,
-        chain: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {}
+        search: str | None = None,
+        chain: str | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
         if search:
             params["search"] = search
         if chain:
             params["chain"] = chain
         return await self._get(f"{self.urls.immunefi}/programs", params=params)
 
-    async def get_program(self, slug: str) -> Dict[str, Any]:
+    async def get_program(self, slug: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.immunefi}/programs/{slug}")
 
-    async def get_updates(self) -> Dict[str, Any]:
+    async def get_updates(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.immunefi}/updates")
 
     async def get_scope_contracts(
         self,
-        chain: Optional[str] = None,
+        chain: str | None = None,
         min_bounty: float = 0,
         offset: int = 0,
         limit: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get in-scope smart contracts ready for audit."""
-        params: Dict[str, Any] = {"offset": offset, "limit": limit}
+        params: dict[str, Any] = {"offset": offset, "limit": limit}
         if chain:
             params["chain"] = chain
         if min_bounty > 0:
@@ -358,7 +358,7 @@ class ServiceProxy:
     # Notifier Service
     # ═══════════════════════════════════════════════════════════
 
-    async def send_test_notification(self, channel: str) -> Dict[str, Any]:
+    async def send_test_notification(self, channel: str) -> dict[str, Any]:
         return await self._post(
             f"{self.urls.notifier}/test", json={"channel": channel}
         )
@@ -367,7 +367,7 @@ class ServiceProxy:
     # Reporter Service
     # ═══════════════════════════════════════════════════════════
 
-    async def generate_report(self, audit_id: str, format: str = "immunefi") -> Dict[str, Any]:
+    async def generate_report(self, audit_id: str, format: str = "immunefi") -> dict[str, Any]:
         return await self._post(
             f"{self.urls.reporter}/generate",
             json={"audit_id": audit_id, "format": format},
@@ -378,16 +378,16 @@ class ServiceProxy:
     # Agent Service
     # ═══════════════════════════════════════════════════════════
 
-    async def get_team_structure(self) -> Dict[str, Any]:
+    async def get_team_structure(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/team/structure")
 
     async def run_team_audit(
         self,
         task_type: str = "full_audit",
-        input_data: Optional[Dict[str, Any]] = None,
+        input_data: dict[str, Any] | None = None,
         goal: str = "",
         max_delegations: int = 15,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         body = {
             "task_type": task_type,
             "input_data": input_data or {},
@@ -397,23 +397,23 @@ class ServiceProxy:
         return await self._post(f"{self.urls.agent}/team/run", json=body)
 
     async def get_team_sessions(
-        self, limit: int = 20, status: Optional[str] = None
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit}
+        self, limit: int = 20, status: str | None = None
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
         if status:
             params["status"] = status
         return await self._get(f"{self.urls.agent}/team/sessions", params=params)
 
-    async def get_team_session(self, session_id: str) -> Dict[str, Any]:
+    async def get_team_session(self, session_id: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/team/{session_id}")
 
     async def run_agent(
         self,
         task_type: str = "full_audit",
-        input_data: Optional[Dict[str, Any]] = None,
+        input_data: dict[str, Any] | None = None,
         goal: str = "",
         max_steps: int = 25,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         body = {
             "task_type": task_type,
             "input_data": input_data or {},
@@ -423,35 +423,35 @@ class ServiceProxy:
         return await self._post(f"{self.urls.agent}/agent/run", json=body)
 
     async def get_agent_sessions(
-        self, limit: int = 20, status: Optional[str] = None
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit}
+        self, limit: int = 20, status: str | None = None
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
         if status:
             params["status"] = status
         return await self._get(f"{self.urls.agent}/agent/sessions", params=params)
 
-    async def get_agent_session(self, session_id: str) -> Dict[str, Any]:
+    async def get_agent_session(self, session_id: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/agent/{session_id}")
 
-    async def get_agent_skills(self) -> Dict[str, Any]:
+    async def get_agent_skills(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/skills")
 
-    async def get_skill_metrics(self) -> Dict[str, Any]:
+    async def get_skill_metrics(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/skills/metrics")
 
-    async def get_agent_memory(self) -> Dict[str, Any]:
+    async def get_agent_memory(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/memory")
 
-    async def get_memory_stats(self) -> Dict[str, Any]:
+    async def get_memory_stats(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/memory/stats")
 
-    async def get_learning_stats(self) -> Dict[str, Any]:
+    async def get_learning_stats(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/learning/stats")
 
-    async def get_agent_health(self) -> Dict[str, Any]:
+    async def get_agent_health(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.agent}/health")
 
-    async def get_agent_provider_status(self) -> Dict[str, Any]:
+    async def get_agent_provider_status(self) -> dict[str, Any]:
         """Get Antonio's LLM provider configuration status.
 
         Aggregates health, provider defaults, and circuit breaker status.
@@ -476,9 +476,13 @@ class ServiceProxy:
             "note": "Check provider_defaults for expected base URLs. Circuit breakers show skill health."
         }
 
+    async def reload_agent_providers(self) -> dict[str, Any]:
+        """Tell Antonio to reload AI provider configs from Config Service."""
+        return await self._post(f"{self.urls.agent}/agent/reload-providers")
+
     async def send_chat_message(
-        self, message: str, session_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, message: str, session_id: str | None = None
+    ) -> dict[str, Any]:
         """Send a chat message to Antonio and get response.
 
         Retries up to 2 times with backoff on connection errors,
@@ -486,12 +490,12 @@ class ServiceProxy:
         Uses a longer timeout (120s) because LLM reasoning with
         large prompts can take 60-90 seconds.
         """
-        body: Dict[str, Any] = {"message": message}
+        body: dict[str, Any] = {"message": message}
         if session_id:
             body["session_id"] = session_id
 
         url = f"{self.urls.agent}/agent/chat"
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for attempt in range(3):
             try:
@@ -547,7 +551,7 @@ class ServiceProxy:
     # Health Check All Services
     # ═══════════════════════════════════════════════════════════
 
-    async def check_all_services(self) -> Dict[str, Any]:
+    async def check_all_services(self) -> dict[str, Any]:
         """Ping all services in parallel and return health status."""
         services = {
             "01-config": f"{self.urls.config}/health",
@@ -591,17 +595,17 @@ class ServiceProxy:
     # Pipeline
     # ═══════════════════════════════════════════════════════════
 
-    async def get_pipeline_status(self) -> Dict[str, Any]:
+    async def get_pipeline_status(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.orchestrator}/pipeline")
 
-    async def get_pipeline_steps(self) -> Dict[str, Any]:
+    async def get_pipeline_steps(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.orchestrator}/pipeline/steps")
 
     # ═══════════════════════════════════════════════════════════
     # Scanner Tools
     # ═══════════════════════════════════════════════════════════
 
-    async def get_scanner_tools_status(self) -> Dict[str, Any]:
+    async def get_scanner_tools_status(self) -> dict[str, Any]:
         """Ping all scanner tool services."""
         scanners = {
             "slither": self.urls.scanner_slither,
@@ -618,55 +622,61 @@ class ServiceProxy:
                 results[name] = {"status": "unreachable", "error": str(e)}
         return results
 
-    async def get_scanner_results(self, audit_id: str) -> Dict[str, Any]:
+    async def get_scanner_results(self, audit_id: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.scanner}/scan/{audit_id}")
 
     # ═══════════════════════════════════════════════════════════
     # Exploit
     # ═══════════════════════════════════════════════════════════
 
-    async def get_exploit_detail(self, finding_id: str) -> Dict[str, Any]:
+    async def get_exploit_detail(self, finding_id: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.exploit}/exploit/{finding_id}")
 
     # ═══════════════════════════════════════════════════════════
     # Notifier
     # ═══════════════════════════════════════════════════════════
 
-    async def get_notifier_channels(self) -> Dict[str, Any]:
+    async def get_notifier_channels(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.notifier}/channels")
 
-    async def get_notifier_logs(self, limit: int = 50) -> Dict[str, Any]:
+    async def get_notifier_logs(self, limit: int = 50) -> dict[str, Any]:
         return await self._get(f"{self.urls.notifier}/delivery-log", params={"limit": limit})
 
     # ═══════════════════════════════════════════════════════════
     # Webhook
     # ═══════════════════════════════════════════════════════════
 
-    async def get_webhook_logs(self, limit: int = 50) -> Dict[str, Any]:
+    async def get_webhook_logs(self, limit: int = 50) -> dict[str, Any]:
         return await self._get(f"{self.urls.webhook}/logs", params={"limit": limit})
 
     # ═══════════════════════════════════════════════════════════
     # Source
     # ═══════════════════════════════════════════════════════════
 
-    async def get_source_code(self, audit_id: str) -> Dict[str, Any]:
+    async def get_source_code(self, audit_id: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.source}/source/{audit_id}")
 
     # ═══════════════════════════════════════════════════════════
     # Reports
     # ═══════════════════════════════════════════════════════════
 
-    async def list_reports(self, limit: int = 50) -> Dict[str, Any]:
+    async def list_reports(self, limit: int = 50) -> dict[str, Any]:
         return await self._get(f"{self.urls.reporter}/reports", params={"limit": limit})
+
+    async def get_immunefi_report(self, audit_id: str) -> dict[str, Any]:
+        return await self._get(f"{self.urls.reporter}/report/{audit_id}/immunefi")
+
+    async def get_full_report(self, audit_id: str) -> dict[str, Any]:
+        return await self._get(f"{self.urls.reporter}/report/{audit_id}/full")
 
     # ═══════════════════════════════════════════════════════════
     # Upkeep / Scheduler
     # ═══════════════════════════════════════════════════════════
 
-    async def get_upkeep_status(self) -> Dict[str, Any]:
+    async def get_upkeep_status(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.upkeep}/status")
 
-    async def get_upkeep_logs(self, limit: int = 50) -> Dict[str, Any]:
+    async def get_upkeep_logs(self, limit: int = 50) -> dict[str, Any]:
         return await self._get(f"{self.urls.upkeep}/logs", params={"limit": limit})
 
 
@@ -675,44 +685,44 @@ class ServiceProxy:
     # ═══════════════════════════════════════════════════════════
 
     async def get_submissions(
-        self, category: Optional[str] = None, status: Optional[str] = None
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {}
+        self, category: str | None = None, status: str | None = None
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
         if category:
             params["category"] = category
         if status:
             params["status"] = status
         return await self._get(f"{self.urls.submission}/submissions", params=params)
 
-    async def get_submission(self, finding_id: str) -> Dict[str, Any]:
+    async def get_submission(self, finding_id: str) -> dict[str, Any]:
         return await self._get(f"{self.urls.submission}/submissions/{finding_id}")
 
-    async def create_submission(self, body: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_submission(self, body: dict[str, Any]) -> dict[str, Any]:
         return await self._post(f"{self.urls.submission}/submissions", json=body)
 
     async def generate_submission_draft(
-        self, finding_id: str, body: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, finding_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
         return await self._post(
             f"{self.urls.submission}/submissions/{finding_id}/draft", json=body
         )
 
     async def respond_to_immunefi(
-        self, finding_id: str, body: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, finding_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
         return await self._post(
             f"{self.urls.submission}/submissions/{finding_id}/respond", json=body
         )
 
-    async def get_submission_evidence(self, finding_id: str) -> Dict[str, Any]:
+    async def get_submission_evidence(self, finding_id: str) -> dict[str, Any]:
         return await self._get(
             f"{self.urls.submission}/submissions/{finding_id}/evidence"
         )
 
-    async def get_submission_stats(self) -> Dict[str, Any]:
+    async def get_submission_stats(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.submission}/stats")
 
-    async def get_submission_category_stats(self) -> Dict[str, Any]:
+    async def get_submission_category_stats(self) -> dict[str, Any]:
         return await self._get(f"{self.urls.submission}/stats/categories")
 
 

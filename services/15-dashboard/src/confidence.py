@@ -13,17 +13,18 @@ All factors stack sequentially up to the Critical cap.
 
 from __future__ import annotations
 
+from enum import StrEnum
+from pathlib import Path
+from typing import Any
+
 import structlog
 import yaml
-from enum import Enum
-from pathlib import Path
-from typing import Any, List, Optional, Tuple
 
 logger = structlog.get_logger(service="confidence")
 
 # ── Label Definition ──────────────────────────────────────────────
 
-class ConfidenceLabel(str, Enum):
+class ConfidenceLabel(StrEnum):
     """Empat label confidence — hanya ini, tidak ada yang lain."""
     LOW = "Low"
     MEDIUM = "Medium"
@@ -65,7 +66,7 @@ def hitung_confidence_label(
     has_poc: bool = False,
     pattern_weight: int = 0,
     vuln_category: str = "unknown",
-) -> Tuple[ConfidenceLabel, list[str]]:
+) -> tuple[ConfidenceLabel, list[str]]:
     """Hitung confidence label berdasarkan 4 faktor (Agenda 06 spec).
 
     Parameters
@@ -150,7 +151,7 @@ def load_patterns(patterns_path: Path) -> list[dict[str, Any]]:
     if not patterns_path.exists():
         return []
     try:
-        with open(patterns_path, "r", encoding="utf-8") as f:
+        with open(patterns_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
             if isinstance(data, list):
                 return data
@@ -200,8 +201,8 @@ def update_pattern_learning(
     function: str,
     is_confirmed: bool,
     case_id: str,
-    bounty: Optional[float] = None,
-    patterns_path: Optional[Path] = None,
+    bounty: float | None = None,
+    patterns_path: Path | None = None,
 ) -> None:
     """Update learning patterns.yaml setelah case di-close.
 

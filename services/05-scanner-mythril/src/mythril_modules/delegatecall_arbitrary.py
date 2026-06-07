@@ -73,9 +73,9 @@ class DelegatecallArbitraryModule(BaseAnalysisModule):
                 bug_type="arbitrary_delegatecall_calldata",
                 title="DELEGATECALL with user-controlled calldata",
                 description=(
-                    f"DELEGATECALL uses user-controlled calldata. "
-                    f"Attackers can craft calldata to execute arbitrary logic "
-                    f"in the target implementation."
+                    "DELEGATECALL uses user-controlled calldata. "
+                    "Attackers can craft calldata to execute arbitrary logic "
+                    "in the target implementation."
                 ),
                 state=state,
                 metadata={

@@ -26,14 +26,13 @@ Impact: 3x faster average scan tanpa kehilangan coverage.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from dataclasses import dataclass
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.smart_router")
 
 
-class Tool(str, Enum):
+class Tool(StrEnum):
     SLITHER = "slither"
     MYTHRIL = "mythril"
     ECHIDNA = "echidna"

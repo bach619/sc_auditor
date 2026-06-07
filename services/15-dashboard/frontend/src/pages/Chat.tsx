@@ -1,4 +1,4 @@
-import { MessageSquareText, Trash2, Bot, Loader2, Copy } from 'lucide-react'
+import { MessageSquareText, Trash2, Bot, Copy } from 'lucide-react'
 import { ChatMessage, ChatInput, ChatHistory } from '../components/chat'
 import { useChat } from '../components/chat/useChat'
 

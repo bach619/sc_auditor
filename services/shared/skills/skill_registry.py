@@ -56,7 +56,7 @@ class SkillCallMetrics:
     @property
     def success_rate(self) -> float:
         if self.call_count == 0:
-            return 1.0
+            return 0.0  # No calls = no success (was 1.0 — misleading)
         return round(self.success_count / self.call_count, 2)
 
     def to_dict(self) -> dict[str, Any]:

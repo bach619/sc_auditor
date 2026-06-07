@@ -32,7 +32,7 @@ class SherlockClient:
         self.timeout = timeout
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "SherlockClient":
+    async def __aenter__(self) -> SherlockClient:
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=httpx.Timeout(self.timeout),

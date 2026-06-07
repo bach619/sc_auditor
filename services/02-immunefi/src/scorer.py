@@ -15,7 +15,7 @@ Score disimpan di index agar bisa diquery cepat via /programs?sort=score.
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from src.models import Program
@@ -148,10 +148,10 @@ class ProgramScorer:
         except (ValueError, TypeError):
             return 0.0
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Naive datetime → assume UTC
         if updated.tzinfo is None:
-            updated = updated.replace(tzinfo=timezone.utc)
+            updated = updated.replace(tzinfo=UTC)
 
         delta = now - updated
         days = delta.days

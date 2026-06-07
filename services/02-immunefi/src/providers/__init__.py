@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-
 # ── Provider Protocol ───────────────────────────────────────
 
 @runtime_checkable
@@ -32,7 +31,7 @@ class BountyProvider(Protocol):
 
     async def fetch_program_list(self) -> list[dict[str, Any]]:
         """Fetch list semua program dari provider ini.
-        
+
         Returns list of dict dengan keys minimal:
           slug, name, chains, maxBounty, status
         """
@@ -62,7 +61,7 @@ class BountyProvider(Protocol):
 
 class ProviderInfo:
     """Informasi dan status sebuah provider."""
-    
+
     def __init__(
         self,
         name: str,
@@ -108,7 +107,7 @@ def get_available_providers() -> list:
             instance = cls() if isinstance(cls, type) else cls
             if instance.is_available():
                 available.append(instance)
-        except Exception as e:
+        except Exception:
             continue
     # Sort by priority
     available.sort(key=lambda p: getattr(p, 'priority', 99))
@@ -139,14 +138,14 @@ def get_provider_statuses() -> list[dict]:
 
 # ── Lazy Imports (dilakukan di akhir untuk avoid circular) ──
 
-from .immunefi_official import ImmunefiOfficialProvider  # noqa: E402, F401
-from .immunefi_mirror import ImmunefiMirrorProvider  # noqa: E402, F401
-
-# Immunefi Web Scraper (live site)
-from .immunefi_web_scraper import ImmunefiWebScraper  # noqa: E402, F401
+from .cantina import CantinaProvider  # noqa: E402, F401
+from .code4rena import Code4renaProvider  # noqa: E402, F401
 
 # External providers
 from .hackerone import HackerOneProvider  # noqa: E402, F401
-from .cantina import CantinaProvider  # noqa: E402, F401
-from .code4rena import Code4renaProvider  # noqa: E402, F401
+from .immunefi_mirror import ImmunefiMirrorProvider  # noqa: E402, F401
+from .immunefi_official import ImmunefiOfficialProvider  # noqa: E402, F401
+
+# Immunefi Web Scraper (live site)
+from .immunefi_web_scraper import ImmunefiWebScraper  # noqa: E402, F401
 from .sherlock import SherlockProvider  # noqa: E402, F401

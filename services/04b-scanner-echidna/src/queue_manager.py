@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 
 @dataclass
@@ -25,17 +26,17 @@ class QueueItem:
 
 class ScanQueue:
     """Manages concurrent Echidna scan executions.
-    
+
     Usage:
         queue = ScanQueue(max_concurrent=1)
         result = await queue.enqueue("audit-123", runner.run, audit_dir, ...)
     """
-    
+
     def __init__(self, max_concurrent: int = 1) -> None:
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._items: dict[str, QueueItem] = {}
         self._max_concurrent = max_concurrent
-    
+
     async def enqueue(
         self,
         audit_id: str,
@@ -44,18 +45,18 @@ class ScanQueue:
         **kwargs: Any,
     ) -> Any:
         """Enqueue a scan request and wait for result.
-        
+
         Args:
             audit_id: Unique identifier for this scan.
             coro_factory: Async callable that runs the scan.
             *args, **kwargs: Passed to coro_factory.
-        
+
         Returns:
             The result from coro_factory.
         """
         item = QueueItem(audit_id=audit_id)
         self._items[audit_id] = item
-        
+
         async with self._semaphore:
             item.status = "running"
             item.started_at = time.time()
@@ -68,7 +69,7 @@ class ScanQueue:
                 item.status = "failed"
                 item.error = str(exc)
                 raise
-    
+
     def get_status(self, audit_id: str) -> dict[str, Any] | None:
         """Get status of a queued item."""
         item = self._items.get(audit_id)
@@ -81,7 +82,7 @@ class ScanQueue:
             "started_at": item.started_at,
             "wait_time_seconds": round(time.time() - item.created_at, 2) if item.status == "running" else None,
         }
-    
+
     def get_queue_summary(self) -> dict[str, Any]:
         """Get summary of all queue items."""
         statuses: dict[str, int] = {}

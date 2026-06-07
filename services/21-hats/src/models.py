@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
-
 from pydantic import BaseModel, Field
-
-from vyper_lib.models import ApiResponse, HealthData, Meta
 
 
 class ContractRef(BaseModel):

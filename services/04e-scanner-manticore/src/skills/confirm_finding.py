@@ -1,4 +1,3 @@
-from typing import Any
 from shared.skills.base_skill import BaseSkill
 
 
@@ -34,7 +33,7 @@ class ConfirmFindingSkill(BaseSkill):
 
     async def run(self, **kwargs) -> dict:
         sources = kwargs.get("sources", {})
-        finding = kwargs.get("finding", {})
+        kwargs.get("finding", {})
         return {
             "skill": self.name,
             "confidence": 0.90,

@@ -27,13 +27,11 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
-from shared.skills.skill_registry import SkillRegistry
 
-from src.slither import SlitherRunner
 from src.intelligence.classifier import ContractClassifier, ContractType
-from src.intelligence.pipeline import QualityPipeline, PipelineStage, create_pipeline
-from src.intelligence.fp_db import FalsePositiveDB
-from src.intelligence.scorer import CompositeScorer
+from src.intelligence.pipeline import PipelineStage, QualityPipeline
+from src.slither import SlitherRunner
+
 from .skills import create_registry
 
 

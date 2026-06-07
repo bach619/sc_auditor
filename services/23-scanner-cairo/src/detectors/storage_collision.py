@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from src.detectors.base import BaseCairoDetector
 
@@ -13,8 +13,8 @@ class StorageCollisionDetector(BaseCairoDetector):
     severity_focus = "medium"
     category = "storage"
 
-    def analyze(self, ir_contract: Dict[str, Any]) -> List[Dict[str, Any]]:
-        findings: List[Dict[str, Any]] = []
+    def analyze(self, ir_contract: dict[str, Any]) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
         storage_layout = ir_contract.get("storage_layout", {})
         functions = ir_contract.get("functions", {})
 

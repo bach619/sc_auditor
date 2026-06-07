@@ -112,7 +112,6 @@ class OverflowCriticalDetector(Plugin):
             return
 
         severity = "critical" if self._overflow_flows_to_value else "high"
-        confidence = 0.95 if self._overflow_flows_to_value else 0.80
 
         self._report_finding(
             severity=severity,

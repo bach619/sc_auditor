@@ -19,7 +19,7 @@ from typing import Any
 import structlog
 
 from src.memory import AgentMemory
-from src.models import AgentSession, AgentState, TaskType
+from src.models import AgentSession, AgentState
 
 log = structlog.get_logger()
 

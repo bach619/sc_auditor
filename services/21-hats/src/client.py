@@ -32,7 +32,7 @@ class HatsFinanceClient:
         self.timeout = timeout
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "HatsFinanceClient":
+    async def __aenter__(self) -> HatsFinanceClient:
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=httpx.Timeout(self.timeout),

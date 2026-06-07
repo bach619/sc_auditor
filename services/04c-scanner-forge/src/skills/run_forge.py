@@ -1,4 +1,3 @@
-from typing import Any
 from shared.skills.base_skill import BaseSkill
 
 

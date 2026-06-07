@@ -8,9 +8,7 @@ This runs BEFORE the scan to tune which detectors are enabled.
 
 from __future__ import annotations
 
-import re
-from enum import Enum
-from pathlib import Path
+from enum import StrEnum
 from typing import Any
 
 import structlog
@@ -18,7 +16,7 @@ import structlog
 log = structlog.get_logger()
 
 
-class ContractType(str, Enum):
+class ContractType(StrEnum):
     """Known contract types detected by the classifier."""
 
     UNKNOWN = "unknown"

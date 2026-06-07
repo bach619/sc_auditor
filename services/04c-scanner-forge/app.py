@@ -43,6 +43,7 @@ from vyper_lib.models import (
     Meta,
     ScanResponse,
 )
+from shared.api_errors import register_error_handlers
 from shared.observability import setup_observability
 from vyper_lib.solc_manager import SolcManager, create_solc_manager
 from vyper_lib.deps import DependencyResolver, create_dependency_resolver
@@ -138,6 +139,7 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,

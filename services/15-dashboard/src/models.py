@@ -6,23 +6,22 @@ All models follow the standard Vyper envelope format:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── Enums ───────────────────────────────────────────────────────
 
-class DaemonStatus(str, Enum):
+class DaemonStatus(StrEnum):
     STOPPED = "stopped"
     RUNNING = "running"
     PAUSED = "paused"
     ERROR = "error"
 
 
-class PipelineState(str, Enum):
+class PipelineState(StrEnum):
     PENDING = "PENDING"
     FETCHING_PROGRAM = "FETCHING_PROGRAM"
     FETCHING_SOURCE = "FETCHING_SOURCE"
@@ -44,7 +43,7 @@ class PipelineState(str, Enum):
     UNKNOWN_FAILED = "UNKNOWN_FAILED"
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     CRITICAL = "Critical"
     HIGH = "High"
     MEDIUM = "Medium"
@@ -63,7 +62,7 @@ SEVERITY_MAP = {
 }
 
 
-class FeedbackStatus(str, Enum):
+class FeedbackStatus(StrEnum):
     UNKNOWN = "unknown"
     CONFIRMED_TP = "confirmed_tp"
     REJECTED_FP = "rejected_fp"
@@ -76,7 +75,7 @@ class FeedbackStatus(str, Enum):
 class Meta(BaseModel):
     status: str = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -90,18 +89,18 @@ class ApiResponse(BaseModel):
 class HealthData(BaseModel):
     service: str = "dashboard"
     version: str = "1.0.0"
-    uptime_seconds: Optional[float] = None
+    uptime_seconds: float | None = None
 
 
 class DaemonState(BaseModel):
     status: DaemonStatus = DaemonStatus.STOPPED
-    started_at: Optional[datetime] = None
-    stopped_at: Optional[datetime] = None
-    last_run_at: Optional[datetime] = None
-    next_run_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    stopped_at: datetime | None = None
+    last_run_at: datetime | None = None
+    next_run_at: datetime | None = None
     total_contracts_audited: int = 0
     total_cycles_completed: int = 0
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
 
 class FindingExport(BaseModel):
@@ -124,8 +123,8 @@ class AuditOverview(BaseModel):
     high_count: int = 0
     medium_count: int = 0
     low_count: int = 0
-    duration_seconds: Optional[float] = None
-    created_at: Optional[str] = None
+    duration_seconds: float | None = None
+    created_at: str | None = None
 
 
 class MetricsSummary(BaseModel):
@@ -143,23 +142,23 @@ class MetricsSummary(BaseModel):
     recall: float = 0.0
     f1_score: float = 0.0
     true_positive_rate: float = 0.0
-    per_tool: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    per_tool: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 class ProgramSummary(BaseModel):
     slug: str
     name: str = ""
-    max_bounty: Optional[str] = None
-    chains: List[str] = Field(default_factory=list)
+    max_bounty: str | None = None
+    chains: list[str] = Field(default_factory=list)
     status: str = "active"
 
 
 class FeedbackItem(BaseModel):
     finding_id: str
     original_classification: str
-    user_feedback: Optional[str] = None
+    user_feedback: str | None = None
     status: FeedbackStatus = FeedbackStatus.PENDING_REVIEW
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
 
 class ConfigEntry(BaseModel):
@@ -176,9 +175,9 @@ class BackupInfo(BaseModel):
 
 class UpdateInfo(BaseModel):
     current_version: str = "1.0.0"
-    latest_version: Optional[str] = None
+    latest_version: str | None = None
     update_available: bool = False
-    changelog: Optional[str] = None
+    changelog: str | None = None
 
 
 class NotificationConfig(BaseModel):
@@ -195,7 +194,7 @@ class NotificationConfig(BaseModel):
 
 class WebhookConfig(BaseModel):
     url: str = ""
-    events: List[str] = Field(default_factory=list)
+    events: list[str] = Field(default_factory=list)
     secret: str = ""
     active: bool = True
 
@@ -203,13 +202,13 @@ class WebhookConfig(BaseModel):
 class ProgramDetail(BaseModel):
     slug: str
     name: str = ""
-    website: Optional[str] = None
-    max_bounty: Optional[str] = None
+    website: str | None = None
+    max_bounty: str | None = None
     status: str = "active"
-    chains: List[str] = Field(default_factory=list)
-    contracts: List[Dict[str, str]] = Field(default_factory=list)
-    repos: List[str] = Field(default_factory=list)
-    audit_history: List[Dict[str, Any]] = Field(default_factory=list)
+    chains: list[str] = Field(default_factory=list)
+    contracts: list[dict[str, str]] = Field(default_factory=list)
+    repos: list[str] = Field(default_factory=list)
+    audit_history: list[dict[str, Any]] = Field(default_factory=list)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -217,7 +216,7 @@ class ProgramDetail(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 
-class ConfidenceLabel(str, Enum):
+class ConfidenceLabel(StrEnum):
     """Empat label confidence — Agenda 06: Confidence atas Temuan."""
     LOW = "Low"
     MEDIUM = "Medium"
@@ -234,12 +233,12 @@ CONFIDENCE_LABEL_ORDER: dict[str, int] = {
 }
 
 
-class CaseStatus(str, Enum):
+class CaseStatus(StrEnum):
     OPEN = "OPEN"
     CLOSED = "CLOSED"
 
 
-class ClosedReason(str, Enum):
+class ClosedReason(StrEnum):
     CONFIRMED = "confirmed"
     REJECTED = "rejected"
     DUPLICATE = "duplicate"
@@ -255,7 +254,7 @@ class ScannerFinding(BaseModel):
 class CaseCreate(BaseModel):
     """Payload from Agent to create a new case."""
     project: str
-    scanners: List[ScannerFinding]
+    scanners: list[ScannerFinding]
     severity: str = "Medium"
     title: str
     contract: str = ""
@@ -281,7 +280,7 @@ class CaseCreate(BaseModel):
 class CaseClose(BaseModel):
     """Payload from User to close a case."""
     closed_reason: ClosedReason
-    bounty_amount: Optional[float] = None
+    bounty_amount: float | None = None
     notes: str = ""
 
 
@@ -290,10 +289,10 @@ class Case(BaseModel):
     case_id: str
     status: CaseStatus = CaseStatus.OPEN
     project: str = ""
-    scanners: List[ScannerFinding] = Field(default_factory=list)
+    scanners: list[ScannerFinding] = Field(default_factory=list)
     confidence: float = 0.0
     confidence_label: str = "Medium"
-    confidence_factors: List[str] = Field(default_factory=list)
+    confidence_factors: list[str] = Field(default_factory=list)
     scanner_count: int = 0
     severity: str = "Medium"
     title: str = ""
@@ -304,11 +303,11 @@ class Case(BaseModel):
     recommendation: str = ""
     proof_of_concept: str = ""
     platform: str = ""
-    bounty_amount: Optional[float] = None
+    bounty_amount: float | None = None
     notes: str = ""
     created_at: str = ""
-    closed_at: Optional[str] = None
-    closed_reason: Optional[str] = None
+    closed_at: str | None = None
+    closed_reason: str | None = None
 
 
 class CaseStats(BaseModel):
@@ -318,7 +317,7 @@ class CaseStats(BaseModel):
     closed_cases: int = 0
     total_bounty: float = 0.0
     avg_confidence: float = 0.0
-    by_severity: Dict[str, int] = Field(default_factory=dict)
-    by_scanner: Dict[str, int] = Field(default_factory=dict)
-    label_distribution: Dict[str, int] = Field(default_factory=dict)
-    recent_cases: List[Case] = Field(default_factory=list)
+    by_severity: dict[str, int] = Field(default_factory=dict)
+    by_scanner: dict[str, int] = Field(default_factory=dict)
+    label_distribution: dict[str, int] = Field(default_factory=dict)
+    recent_cases: list[Case] = Field(default_factory=list)

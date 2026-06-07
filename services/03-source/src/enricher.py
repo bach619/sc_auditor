@@ -12,11 +12,10 @@ Menambahkan intelligence ke source code:
 from __future__ import annotations
 
 import re
-from typing import Any
 
 import structlog
 
-from src.models import EnrichedContract, SourceResult
+from src.models import EnrichedContract
 from src.storage import EnhancedJSONStorage
 
 log = structlog.get_logger()
@@ -198,7 +197,7 @@ class MetadataEnricher:
             content,
         ))
 
-        returns = len(re.findall(r"\breturn\s", content))
+        len(re.findall(r"\breturn\s", content))
 
         # M = E - N + 2P (simplified)
         # For single function: cyclomatic = decision_points + 1

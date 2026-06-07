@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 
 import httpx
 import structlog
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 
 from src.providers import register_provider
 
@@ -550,7 +550,7 @@ class ImmunefiWebScraper:
 
         # Pattern: Cari JSON objects dalam RSC stream
         # RSC sering mengandung stringified JSON arrays
-        json_pattern = re.compile(r'\$(\d+)?[LSC]\s*(\{.*?\})\s*', re.DOTALL)
+        re.compile(r'\$(\d+)?[LSC]\s*(\{.*?\})\s*', re.DOTALL)
 
         # Cari array of program objects
         for match in re.finditer(r'\[.*?"slug".*?\]', text, re.DOTALL):

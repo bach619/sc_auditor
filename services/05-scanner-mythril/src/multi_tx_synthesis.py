@@ -18,14 +18,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.multitx_synthesis")
 
 
-class AttackComplexity(str, Enum):
+class AttackComplexity(StrEnum):
     SIMPLE = "simple"          # 1 transaction, direct exploit
     MEDIUM = "medium"          # 2-3 transactions, oracle/flash
     COMPLEX = "complex"        # 4+ transactions, multi-protocol
@@ -61,7 +60,7 @@ class AttackSynthesis:
     found: bool = False
     exploit_code: str = ""              # Generated Solidity PoC
     cve_equivalent: str = ""            # CWE mapping
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -177,7 +176,7 @@ class MultiTXSynthesizer:
 
         # For now: pattern-match against known attack types
         attack = AttackSynthesis(
-            attack_id=f"mtx_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+            attack_id=f"mtx_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}",
         )
 
         # Check each attack pattern

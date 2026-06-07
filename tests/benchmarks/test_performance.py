@@ -14,6 +14,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from pathlib import Path
@@ -76,9 +77,7 @@ async def _wait_for_service(url: str, timeout: float = 30.0) -> float:
 @pytest.mark.asyncio
 async def test_service_startup_time():
     """Benchmark: time each service takes to become healthy."""
-    import httpx
-    import asyncio
-    
+
     results = {}
     for svc in ALL_SERVICES:
         port = SERVICE_PORTS[svc]
@@ -88,13 +87,13 @@ async def test_service_startup_time():
             results[svc] = round(elapsed, 2)
         except TimeoutError as e:
             results[svc] = str(e)
-    
+
     # Print results
     print("\n=== Service Startup Times ===")
     for svc, elapsed in results.items():
         status = "✅" if isinstance(elapsed, float) and elapsed < THRESHOLDS["service_startup"]["cold"] else "❌"
         print(f"  {status} {svc}: {elapsed}s")
-    
+
     # Assert all started within threshold
     cold_max = THRESHOLDS["service_startup"]["cold"]
     failures = [

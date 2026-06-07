@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +28,6 @@ from src.models import (
     ClassificationSource,
     ClassificationStage,
     Finding,
-    Pattern,
     Severity,
 )
 
@@ -53,7 +52,7 @@ AUTO_TP_SEVERITIES: frozenset[str] = frozenset({"critical", "high"})
 
 def _now_iso() -> str:
     """Return current UTC time as ISO-8601 string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _load_findings() -> dict[str, dict[str, Any]]:
@@ -117,7 +116,6 @@ class Classifier:
             from shared.knowledge_base import KnowledgeRepository
             kb = KnowledgeRepository()
             # Check if this or similar finding was already confirmed
-            contract_hash = finding.audit_id or ""
             matches = kb.find_matching_pattern(
                 attack_type=finding.title[:50],
             )

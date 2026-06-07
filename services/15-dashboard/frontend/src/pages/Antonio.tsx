@@ -5,11 +5,11 @@ import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { StatusBadge } from '../components/StatusBadge'
-import { StatCard } from '../components/StatCard'
 import { LoadingState } from '../components/LoadingState'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorBanner } from '../components/ErrorBanner'
 import { AuditErrorAlert } from '../components/AuditErrorAlert'
+import { TeamAuditProcess } from '../components/TeamAuditProcess'
 import { PageHeader } from '../components/PageHeader'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
@@ -58,12 +58,12 @@ export default function Antonio() {
 
   // Skills
   const [skills, setSkills] = useState<SkillMetrics[]>([])
-  const [memStats, setMemStats] = useState<any>(null)
-  const [learning, setLearning] = useState<any>(null)
+  const [memStats, setMemStats] = useState<Record<string, unknown> | null>(null)
+  const [learning, setLearning] = useState<Record<string, unknown> | null>(null)
 
   // Memory search
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<unknown[]>([])
   const [searching, setSearching] = useState(false)
 
   // Run audit
@@ -71,6 +71,8 @@ export default function Antonio() {
   const [genLoading, setGenLoading] = useState(false)
   const [genError, setGenError] = useState('')
   const [genSuccess, setGenSuccess] = useState('')
+  const [activeAuditId, setActiveAuditId] = useState<string | null>(null)
+  const [activeAuditGoal, setActiveAuditGoal] = useState('')
 
   // Service agents health
   const [serviceStatuses, setServiceStatuses] = useState<Record<string, ServiceStatus>>({})
@@ -88,24 +90,48 @@ export default function Antonio() {
           api.getHealthAll().catch(() => ({ data: {} })),
         ])
         if (!cancelled) {
-          setTeam(Array.isArray(teamRes.data) ? teamRes.data : [])
-          setSessions(Array.isArray(sessionsRes.data) ? sessionsRes.data : [])
+          // Team structure: backend returns {team_size, roles[]} — normalize to TeamMember[]
+          const teamData = teamRes.data as Record<string, unknown>
+          const teamMembers: TeamMember[] = Array.isArray(teamData)
+            ? teamData as TeamMember[]
+            : teamData && Array.isArray(teamData.roles)
+              ? (teamData.roles as Record<string, unknown>[]).map((r) => ({
+                  name: (r.title || r.role || 'Unknown') as string,
+                  role: (r.role || '') as string,
+                  skills: (r.allowed_skills || []) as string[],
+                  status: r.registered ? 'registered' : 'unregistered',
+                }))
+              : []
+          setTeam(teamMembers)
+          const sessionsData = sessionsRes.data as Record<string, unknown> | null
+          const rawSessions = Array.isArray(sessionsData)
+            ? sessionsData
+            : Array.isArray((sessionsData as Record<string, unknown>)?.sessions)
+              ? (sessionsData as Record<string, unknown>).sessions as Record<string, unknown>[]
+              : []
+          setSessions(rawSessions.map((s: Record<string, unknown>) => ({
+            ...s,
+            session_id: (s.session_id || s.team_session_id || s.id || '') as string,
+            goal: (s.goal || s.task_type || '') as string,
+            status: (s.status || 'unknown') as string,
+            created_at: (s.created_at || '') as string,
+          })) as Session[])
           setSkills(Array.isArray(skillsRes.data) ? skillsRes.data as SkillMetrics[] : [])
 
-          const memD = memRes.data as any
+          const memD = memRes.data as Record<string, unknown> | null
           setMemStats(memD)
-          setLearning(learnRes.data)
+          setLearning(learnRes.data as Record<string, unknown> | null)
 
           // Map health results to service agents
-          const healthData = healthRes.data as Record<string, any> || {}
+          const healthData = healthRes.data as Record<string, unknown> || {}
           const statuses: Record<string, ServiceStatus> = {}
           for (const svc of SERVICE_AGENTS) {
-            const h = healthData[svc.id]
+            const h = healthData[svc.id] as Record<string, unknown> | undefined
             statuses[svc.id] = h ? (h.status === 'healthy' ? 'healthy' : h.status === 'unreachable' ? 'down' : 'degraded') : 'unknown'
           }
           setServiceStatuses(statuses)
         }
-      } catch {}
+      } catch (err) { console.error('Antonio load failed', err) }
       if (!cancelled) setLoading(false)
     }
     load()
@@ -123,22 +149,46 @@ export default function Antonio() {
     const chain = String(data.get('chain') || 'ethereum')
     const goal = String(data.get('goal') || '')
     try {
-      await api.runTeamAudit({
+      // Non-blocking: returns session_id immediately
+      const res = await api.runTeamAudit({
         task_type: 'full_audit',
         input_data: { address, chain },
         goal: goal || undefined,
         max_delegations: 15,
       })
-      // Refresh sessions before closing modal
-      try {
-        const res = await api.getTeamSessions({ limit: 10 })
-        setSessions(Array.isArray(res.data) ? res.data : [])
-      } catch { /* refresh best-effort */ }
-      setModalOpen(false)
-      setGenSuccess(`Team audit started for ${address.slice(0, 10)}... on ${chain}`)
-    } catch (err: any) {
-      setGenError(err?.message || 'Failed to run audit')
+      const result = res.data as Record<string, unknown> | null
+      const sessionId = (result?.session_id || result?.team_session_id || '') as string
+      if (sessionId) {
+        setActiveAuditId(sessionId)
+        setActiveAuditGoal(goal || `Audit of ${address.slice(0, 10)}... on ${chain}`)
+        setModalOpen(false)
+        setGenSuccess(`Audit started: ${sessionId.slice(0, 16)}...`)
+      } else {
+        setGenError('No session_id returned from agent')
+      }
+    } catch (err: unknown) {
+      setGenError((err as { message?: string })?.message || 'Failed to start audit')
     } finally { setGenLoading(false) }
+  }
+
+  function handleAuditComplete(session: Record<string, unknown>) {
+    setGenSuccess(`Audit completed: ${(session.session_id || session.team_session_id || '')?.toString().slice(0, 16)}...`)
+    // Refresh sessions list
+    api.getTeamSessions({ limit: 10 }).then(res => {
+      const sessionsData = res.data as Record<string, unknown> | null
+      const rawSessions = Array.isArray(sessionsData)
+        ? sessionsData
+        : Array.isArray((sessionsData as Record<string, unknown>)?.sessions)
+          ? (sessionsData as Record<string, unknown>).sessions as Record<string, unknown>[]
+          : []
+      setSessions(rawSessions.map((s: Record<string, unknown>) => ({
+        ...s,
+        session_id: (s.session_id || s.team_session_id || s.id || '') as string,
+        goal: (s.goal || s.task_type || '') as string,
+        status: (s.status || 'unknown') as string,
+        created_at: (s.created_at || '') as string,
+      })) as Session[])
+    }).catch(() => {})
   }
 
   const handleSearch = async () => {
@@ -146,7 +196,8 @@ export default function Antonio() {
     setSearching(true)
     try {
       const res = await api.memorySearch(searchQuery, 'vector')
-      setSearchResults(Array.isArray(res.data?.results) ? res.data.results : [])
+      const resData = res.data as Record<string, unknown>
+      setSearchResults(Array.isArray(resData?.results) ? resData.results as unknown[] : [])
     } catch { setSearchResults([]) }
     setSearching(false)
   }
@@ -245,6 +296,20 @@ export default function Antonio() {
               </div>
             )}
           </Card>
+
+          {/* Live Audit Process View */}
+          {activeAuditId && (
+            <div className="mt-4">
+              <TeamAuditProcess
+                sessionId={activeAuditId}
+                goal={activeAuditGoal}
+                onComplete={(session) => {
+                  handleAuditComplete(session as unknown as Record<string, unknown>)
+                }}
+                onDismiss={() => { setActiveAuditId(null); setActiveAuditGoal('') }}
+              />
+            </div>
+          )}
         </TabsContent>
 
         {/* ═══════ SKILLS TAB ═══════ */}
@@ -272,11 +337,11 @@ export default function Antonio() {
                       <TableCell className="font-medium dark:text-[#d4d4dc]">{s.skill_name}</TableCell>
                       <TableCell className="text-right">{s.call_count}</TableCell>
                       <TableCell className="text-right">
-                        <span className={s.success_rate >= 0.8 ? 'text-green-400' : 'text-yellow-400'}>
-                          {(s.success_rate * 100).toFixed(0)}%
+                        <span className={s.call_count === 0 ? 'dark:text-[#68687a]' : s.success_rate >= 0.8 ? 'text-green-400' : 'text-yellow-400'}>
+                          {s.call_count === 0 ? 'N/A' : (s.success_rate * 100).toFixed(0) + '%'}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-xs">{s.avg_duration_ms}ms</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{s.call_count === 0 ? '—' : s.avg_duration_ms.toFixed(0) + 'ms'}</TableCell>
                       <TableCell className="text-right">
                         <span className={s.error_count > 0 ? 'text-red-400' : 'dark:text-[#68687a]'}>{s.error_count}</span>
                       </TableCell>
@@ -295,11 +360,11 @@ export default function Antonio() {
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="dark:text-[#68687a]">Sessions Analyzed</span>
-                    <span className="font-medium dark:text-[#d4d4dc]">{learning.total_sessions_analyzed}</span>
+                    <span className="font-medium dark:text-[#d4d4dc]">{learning.total_sessions_analyzed as number}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="dark:text-[#68687a]">Patterns Found</span>
-                    <span className="font-medium dark:text-[#d4d4dc]">{learning.patterns_found}</span>
+                    <span className="font-medium dark:text-[#d4d4dc]">{learning.patterns_found as number}</span>
                   </div>
                 </div>
               </Card>
@@ -307,9 +372,9 @@ export default function Antonio() {
                 <h3 className="font-semibold mb-4 dark:text-[#d4d4dc] light:text-[#09090b]">Memory Stats</h3>
                 <div className="space-y-3 text-sm">
                   {[
-                    ['Vector Store', memStats?.vector_store?.total_entries],
-                    ['Episodic Store', memStats?.episodic_store?.total_entries],
-                    ['Graph Memory', memStats?.graph_memory?.total_entries],
+                    ['Vector Store', (memStats?.vector_store as Record<string, unknown>)?.total_entries as number],
+                    ['Episodic Store', (memStats?.episodic_store as Record<string, unknown>)?.total_entries as number],
+                    ['Graph Memory', (memStats?.graph_memory as Record<string, unknown>)?.total_entries as number],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="flex justify-between">
                       <span className="dark:text-[#68687a]">{String(label)}</span>
@@ -341,16 +406,19 @@ export default function Antonio() {
             </div>
             {searchResults.length > 0 && (
               <div className="space-y-2">
-                {searchResults.map((r: any, i: number) => (
+                {searchResults.map((item, i: number) => {
+                  const r = item as Record<string, unknown>
+                  return (
                   <div key={i} className="dark:bg-[#0a0a12] light:bg-gray-50 rounded p-3 text-sm border dark:border-[#1a1a28]">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-vyper-400 font-medium">{r.key}</span>
-                      {r.score !== undefined && <span className="dark:text-[#68687a] text-xs">score: {r.score}</span>}
-                      {r.node_type && <Badge variant="default" className="text-[10px]">{r.node_type}</Badge>}
+                      <span className="text-vyper-400 font-medium">{r.key as string}</span>
+                      {r.score !== undefined && <span className="dark:text-[#68687a] text-xs">score: {String(r.score)}</span>}
+                      {r.node_type ? <Badge variant="default" className="text-[10px]">{r.node_type as string}</Badge> : null}
                     </div>
-                    <p className="dark:text-[#68687a] text-xs">{(r.content_preview || r.label || '')}</p>
+                    <p className="dark:text-[#68687a] text-xs">{String(r.content_preview || r.label || '')}</p>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
             {searchResults.length === 0 && searchQuery && !searching && (

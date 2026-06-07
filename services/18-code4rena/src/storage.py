@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +55,7 @@ def save_contests(contests: list[dict]) -> bool:
     _ensure_dir()
     path = DATA_DIR / "contests.json"
     ok = _write_json(path, {
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
         "count": len(contests),
         "contests": contests,
     })
@@ -76,7 +76,7 @@ def save_contest_detail(contest_id: str, detail: dict) -> bool:
     """Save contest detail to /data/code4rena/contest_{id}.json."""
     _ensure_dir()
     path = DATA_DIR / f"contest_{contest_id}.json"
-    detail["saved_at"] = datetime.now(timezone.utc).isoformat()
+    detail["saved_at"] = datetime.now(UTC).isoformat()
     ok = _write_json(path, detail)
     log.info("storage.contest_detail_saved", contest_id=contest_id)
     return ok

@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 import structlog
 
@@ -30,7 +29,7 @@ class SyncManager:
     async def run_sync(self) -> SyncStatus:
         """Fetch all vaults from Hats Finance REST API and store as JSON files."""
         sync_id = uuid.uuid4().hex[:12]
-        started_at = datetime.now(timezone.utc).isoformat()
+        started_at = datetime.now(UTC).isoformat()
         start_time = time.monotonic()
 
         status = SyncStatus(
@@ -79,7 +78,7 @@ class SyncManager:
             status.vaults_new = vaults_new
             status.vaults_updated = vaults_updated
             status.status = "completed"
-            status.completed_at = datetime.now(timezone.utc).isoformat()
+            status.completed_at = datetime.now(UTC).isoformat()
             status.duration_seconds = round(time.monotonic() - start_time, 2)
 
             log.info(
@@ -93,7 +92,7 @@ class SyncManager:
 
         except Exception as e:
             status.status = "failed"
-            status.completed_at = datetime.now(timezone.utc).isoformat()
+            status.completed_at = datetime.now(UTC).isoformat()
             status.errors.append(str(e))
             status.duration_seconds = round(time.monotonic() - start_time, 2)
             log.error("sync.failed", sync_id=sync_id, error=str(e))

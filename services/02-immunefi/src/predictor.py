@@ -10,9 +10,8 @@ terpisah dan simpan di /models/bounty_predictor.pkl.
 
 from __future__ import annotations
 
-import json
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -140,7 +139,7 @@ class BountyPredictor:
             "volatility": round(volatility, 2),
             "reasons": reasons,
             "ml_model_used": model is not None,
-            "predicted_at": datetime.now(timezone.utc).isoformat(),
+            "predicted_at": datetime.now(UTC).isoformat(),
         }
 
     # ── Internal ──────────────────────────────────────────
@@ -219,8 +218,8 @@ class BountyPredictor:
         try:
             updated = datetime.fromisoformat(program.updated_at)
             if updated.tzinfo is None:
-                updated = updated.replace(tzinfo=timezone.utc)
-            days = (datetime.now(timezone.utc) - updated).days
+                updated = updated.replace(tzinfo=UTC)
+            days = (datetime.now(UTC) - updated).days
             if days < 7:
                 return 1.0
             elif days < 30:

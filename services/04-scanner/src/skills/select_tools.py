@@ -10,6 +10,7 @@ Menganalisis source code dan memilih tools terbaik:
 from __future__ import annotations
 
 from typing import Any
+
 from shared.skills.base_skill import BaseSkill
 
 

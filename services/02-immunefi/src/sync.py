@@ -9,14 +9,14 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 import structlog
 
-from src.models import Contract, Program, Repo, SyncStatus
+from src.models import Contract, Program, SyncStatus
 from src.providers import get_available_providers, get_provider_statuses
 from src.repo_detector import RepoDetector
 from src.scraper import ImmunefiScraper, ProgramNotFoundError
@@ -116,7 +116,7 @@ class SyncManager:
 
         # Update metadata
         self.storage.write_meta(
-            last_synced=datetime.now(timezone.utc).isoformat(),
+            last_synced=datetime.now(UTC).isoformat(),
         )
 
         if all_ok:
@@ -158,7 +158,7 @@ class SyncManager:
             return
 
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             log.warning("sync.background.no_event_loop", action="skipped")
             return
@@ -184,7 +184,7 @@ class SyncManager:
                     log.error("sync.background.error", error=str(e)[:200])
 
                 # Update next_sync_at and sleep
-                self.next_sync_at = datetime.now(timezone.utc).isoformat()
+                self.next_sync_at = datetime.now(UTC).isoformat()
                 await asyncio.sleep(self.interval_minutes * 60)
 
         self._sync_task = asyncio.create_task(_loop())
@@ -219,7 +219,7 @@ class SyncManager:
         Returns a SyncStatus that can be polled via get_sync_status().
         """
         sync_id = uuid.uuid4().hex[:12]
-        started_at = datetime.now(timezone.utc).isoformat()
+        started_at = datetime.now(UTC).isoformat()
 
         status = SyncStatus(
             sync_id=sync_id,
@@ -245,7 +245,7 @@ class SyncManager:
             if not all_raw:
                 log.warning("sync.all.no_data_from_any_provider")
                 status.status = "completed"
-                status.completed_at = datetime.now(timezone.utc).isoformat()
+                status.completed_at = datetime.now(UTC).isoformat()
                 status.total = 0
                 return status
 
@@ -278,7 +278,7 @@ class SyncManager:
             self.storage.rebuild_indexes(programs)
 
             # Step 6: Update metadata
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             self.storage.write_meta(last_synced=now)
 
             # Step 7: Record sync log
@@ -303,7 +303,7 @@ class SyncManager:
 
         except Exception as e:
             status.status = "failed"
-            status.completed_at = datetime.now(timezone.utc).isoformat()
+            status.completed_at = datetime.now(UTC).isoformat()
             status.error = str(e)
             log.error("sync.all.failed", sync_id=sync_id, error=str(e))
 
@@ -345,7 +345,7 @@ class SyncManager:
                 reason="no_changes",
                 total=len(self._programs),
                 programs_synced=0,
-                started_at=datetime.now(timezone.utc).isoformat(),
+                started_at=datetime.now(UTC).isoformat(),
             )
 
         # Get changed files between commits
@@ -392,14 +392,14 @@ class SyncManager:
         self.storage.write_meta(commit_hash=latest_commit)
         self.storage.rebuild_indexes(self._programs)
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.storage.append_sync_log({
             "sync_id": "incremental",
             "status": "completed",
             "programs_synced": synced,
             "programs_removed": len(removed_slugs),
             "total": len(self._programs),
-            "started_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": datetime.now(UTC).isoformat(),
             "completed_at": now,
         })
 
@@ -409,7 +409,7 @@ class SyncManager:
             status="completed",
             total=len(self._programs),
             programs_synced=synced,
-            started_at=datetime.now(timezone.utc).isoformat(),
+            started_at=datetime.now(UTC).isoformat(),
             completed_at=now,
         )
 
@@ -625,7 +625,7 @@ class SyncManager:
         }
 
     @property
-    def onchain_monitor(self) -> "OnChainMonitor":
+    def onchain_monitor(self) -> OnChainMonitor:
         from src.onchain import OnChainMonitor  # noqa: PLC0415
         return OnChainMonitor(self.storage)
 
@@ -769,7 +769,7 @@ class SyncManager:
         return meta.get("commit_hash")
 
     @property
-    def fork_engine(self) -> "ForkEngine":
+    def fork_engine(self) -> ForkEngine:
         """Lazy-initialized ForkEngine instance (no client — for read ops)."""
         from src.fork_engine import ForkEngine  # noqa: PLC0415
         return ForkEngine(self.storage)
@@ -814,7 +814,7 @@ class SyncManager:
                         provider=name,
                         count=len(raw),
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     log.warning(
                         "sync.all.provider_timeout",
                         provider=name,

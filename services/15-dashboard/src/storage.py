@@ -26,32 +26,27 @@ Case ID format: CASE-XXX (zero-padded, e.g. CASE-001, CASE-042)
 
 from __future__ import annotations
 
-import os
 import re
-import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import structlog
 import yaml
 
+from src.confidence import (
+    get_pattern_weight,
+    hitung_confidence_label,
+    load_patterns,
+    update_pattern_learning,
+)
 from src.models import (
+    CONFIDENCE_LABEL_ORDER,
     Case,
     CaseCreate,
     CaseStats,
     CaseStatus,
     ClosedReason,
-    CONFIDENCE_LABEL_ORDER,
     ScannerFinding,
-    Severity,
-)
-
-from src.confidence import (
-    hitung_confidence_label,
-    load_patterns,
-    get_pattern_weight,
-    update_pattern_learning,
 )
 
 logger = structlog.get_logger(service="case_storage")
@@ -133,8 +128,8 @@ def _evidence_dir(case_id: str) -> Path:
 
 def create_case(data: CaseCreate) -> Case:
     """Create a new case from scanner findings.
-    
-    Dedup: If an OPEN case already exists with the same contract + function + 
+
+    Dedup: If an OPEN case already exists with the same contract + function +
     vulnerability class (detector), MERGE the new findings into the existing case
     instead of creating a new one (per Spec Section 2.4 Rule 2 & 2.5).
     """
@@ -152,7 +147,7 @@ def create_case(data: CaseCreate) -> Case:
 
     # ── Step 2: No match — create new case ────────────────────
     case_id = _next_case_id()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     # Calculate confidence label and factors
     scanner_count = len(data.scanners)
@@ -214,8 +209,8 @@ def _find_matching_open_case(
     project: str,
     contract: str,
     function: str,
-    new_scanners: List[ScannerFinding],
-) -> Optional[Case]:
+    new_scanners: list[ScannerFinding],
+) -> Case | None:
     """Find an existing OPEN case that matches the same bug.
 
     Matching criteria (Spec Section 2.5):
@@ -266,7 +261,7 @@ def _find_matching_open_case(
 
 def _merge_into_existing(existing: Case, data: CaseCreate) -> Case:
     """Merge new scanner findings into an existing case.
-    
+
     The following happen:
     - New scanners (not already present) are appended
     - Confidence is recalculated as the average of ALL scanner confidences
@@ -330,7 +325,7 @@ def _merge_into_existing(existing: Case, data: CaseCreate) -> Case:
     return existing
 
 
-def get_case(case_id: str) -> Optional[Case]:
+def get_case(case_id: str) -> Case | None:
     """Get a case by ID. Returns None if not found or invalid case_id."""
     if not _validate_case_id(case_id):
         return None
@@ -340,13 +335,13 @@ def get_case(case_id: str) -> Optional[Case]:
     return _read_yaml(case_id)
 
 
-def list_cases(status: Optional[str] = None, search: Optional[str] = None,
-               severity: Optional[str] = None,
-               confidence: Optional[str] = None, sort: str = "created_at",
-               order: str = "desc", limit: int = 100, offset: int = 0) -> List[Case]:
+def list_cases(status: str | None = None, search: str | None = None,
+               severity: str | None = None,
+               confidence: str | None = None, sort: str = "created_at",
+               order: str = "desc", limit: int = 100, offset: int = 0) -> list[Case]:
     """List cases with optional filtering, sorting, and pagination."""
     ensure_dirs()
-    cases: List[Case] = []
+    cases: list[Case] = []
 
     if not CASES_DIR.exists():
         return cases
@@ -399,18 +394,18 @@ def list_cases(status: Optional[str] = None, search: Optional[str] = None,
 
 
 def list_cases_with_total(
-    status: Optional[str] = None,
-    search: Optional[str] = None,
-    severity: Optional[str] = None,
-    confidence: Optional[str] = None,
+    status: str | None = None,
+    search: str | None = None,
+    severity: str | None = None,
+    confidence: str | None = None,
     sort: str = "created_at",
     order: str = "desc",
     limit: int = 100,
     offset: int = 0,
-) -> Tuple[List[Case], int]:
+) -> tuple[list[Case], int]:
     """Like list_cases but also returns total count (single I/O pass)."""
     ensure_dirs()
-    all_filtered: List[Case] = []
+    all_filtered: list[Case] = []
 
     if not CASES_DIR.exists():
         return [], 0
@@ -458,8 +453,8 @@ def list_cases_with_total(
     return all_filtered[offset:offset + limit], total
 
 
-def close_case(case_id: str, reason: ClosedReason, bounty: Optional[float] = None,
-               notes: str = "") -> Optional[Case]:
+def close_case(case_id: str, reason: ClosedReason, bounty: float | None = None,
+               notes: str = "") -> Case | None:
     """Close a case. Returns None if case not found or already closed."""
     case = get_case(case_id)
     if case is None:
@@ -468,7 +463,7 @@ def close_case(case_id: str, reason: ClosedReason, bounty: Optional[float] = Non
         return None  # No ghost reopen
 
     case.status = CaseStatus.CLOSED
-    case.closed_at = datetime.now(timezone.utc).isoformat()
+    case.closed_at = datetime.now(UTC).isoformat()
     case.closed_reason = reason.value
     if bounty is not None:
         case.bounty_amount = bounty
@@ -553,7 +548,7 @@ def get_case_stats() -> CaseStats:
     return stats
 
 
-def get_report_md(case_id: str) -> Optional[str]:
+def get_report_md(case_id: str) -> str | None:
     """Get the Markdown report content for a case."""
     path = _report_md_path(case_id)
     if not path.exists():
@@ -564,7 +559,7 @@ def get_report_md(case_id: str) -> Optional[str]:
     return path.read_text(encoding="utf-8")
 
 
-def get_report_pdf(case_id: str) -> Optional[bytes]:
+def get_report_pdf(case_id: str) -> bytes | None:
     """Get the PDF report for a case. Generates if not exists."""
     path = _report_pdf_path(case_id)
     if not path.exists():
@@ -587,18 +582,18 @@ def _write_yaml(case: Case) -> None:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 
-def _read_yaml(case_id: str) -> Optional[Case]:
+def _read_yaml(case_id: str) -> Case | None:
     """Read a case from its meta.yaml file by case_id."""
     path = _meta_path(case_id)
     return _read_yaml_from_path(case_id, path)
 
 
-def _read_yaml_from_path(case_id: str, path: Path) -> Optional[Case]:
+def _read_yaml_from_path(case_id: str, path: Path) -> Case | None:
     """Read a case from a given meta.yaml path."""
     if not path.exists():
         return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         if data is None:
             return None
@@ -691,7 +686,7 @@ def _generate_report_md(case: Case) -> None:
 
 def _generate_report_pdf(case: Case) -> None:
     """Generate a PDF report from the Markdown report.
-    
+
     Uses weasyprint if available, falls back to a placeholder.
     """
     md_content = get_report_md(case.case_id)
@@ -775,7 +770,7 @@ def _md_to_html(md_content: str, case: Case) -> str:
                 body_lines.append("</table>")
                 in_table = False
             body_lines.append(f"<p>{line}</p>")
-    
+
     if in_table:
         body_lines.append("</table>")
 
@@ -810,7 +805,7 @@ def _archive_to_learning(case: Case) -> None:
         patterns: list = []
 
         if patterns_file.exists():
-            with open(patterns_file, "r", encoding="utf-8") as f:
+            with open(patterns_file, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
                 if isinstance(data, list):
                     patterns = data

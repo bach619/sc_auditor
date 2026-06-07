@@ -6,7 +6,7 @@ All request/response models follow the Vyper standard format:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -19,6 +19,8 @@ class ConfigValue(BaseModel):
         value: The configuration value (any JSON-serializable type).
     """
 
+    model_config = {"strict": True, "extra": "forbid"}
+
     value: Any
 
 
@@ -28,6 +30,8 @@ class BulkConfig(BaseModel):
     Attributes:
         config: A dictionary of key-value pairs to upsert.
     """
+
+    model_config = {"strict": True, "extra": "forbid"}
 
     config: dict[str, Any]
 
@@ -41,7 +45,7 @@ class Meta(BaseModel):
     """
 
     status: Literal["ok", "error"] = "ok"
-    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class ConfigResponse(BaseModel):
@@ -81,4 +85,4 @@ class HealthResponse(BaseModel):
     status: str = "ok"
     service: str = "config"
     version: str = "0.1.0"
-    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())

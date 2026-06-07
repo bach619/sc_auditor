@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+from enum import StrEnum
+from typing import Any
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
-
 
 # ──────────────────────────────────────────────
 # Enums
 # ──────────────────────────────────────────────
 
-class PipelineState(str, Enum):
+class PipelineState(StrEnum):
     """All possible pipeline states — both active and failure."""
 
     # ── Workflow states ──
@@ -66,14 +65,14 @@ class PipelineState(str, Enum):
         return self.is_terminal and self not in (PipelineState.COMPLETED, PipelineState.COMPLETED_WITH_WARN)
 
 
-class AuditPriority(str, Enum):
+class AuditPriority(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
 
 
-class DaemonStatus(str, Enum):
+class DaemonStatus(StrEnum):
     STOPPED = "stopped"
     RUNNING = "running"
     PAUSED = "paused"
@@ -87,15 +86,15 @@ class DaemonStatus(str, Enum):
 class PipelineStep(BaseModel):
     name: str
     state: PipelineState
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    duration_seconds: Optional[float] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: float | None = None
     retry_count: int = 0
-    error: Optional[str] = None
-    result: Optional[Dict[str, Any]] = None
+    error: str | None = None
+    result: dict[str, Any] | None = None
 
     @property
-    def elapsed(self) -> Optional[float]:
+    def elapsed(self) -> float | None:
         if self.started_at and self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()
         return None
@@ -111,7 +110,7 @@ class AuditRequest(BaseModel):
     program: str = Field(default="", description="Immunefi program slug")
     priority: int = Field(default=5, ge=0, le=10, description="Priority 0-10")
     use_ai: bool = Field(default=True, description="Enable LLM-based AI analysis via 06-ai")
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class AuditRecord(BaseModel):
@@ -124,13 +123,13 @@ class AuditRecord(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     state: PipelineState = PipelineState.PENDING
-    steps: List[PipelineStep] = Field(default_factory=list)
-    error: Optional[str] = None
-    findings: Optional[Dict[str, Any]] = None
-    report_path: Optional[str] = None
-    duration_seconds: Optional[float] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    partial_results: Dict[str, str] = Field(
+    steps: list[PipelineStep] = Field(default_factory=list)
+    error: str | None = None
+    findings: dict[str, Any] | None = None
+    report_path: str | None = None
+    duration_seconds: float | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    partial_results: dict[str, str] = Field(
         default_factory=dict,
         description="Maps step name → success|skipped|degraded|failed",
     )
@@ -162,8 +161,8 @@ class QueueItem(BaseModel):
     program: str = ""
     priority_score: float = 0.0
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_audited_at: Optional[datetime] = None
-    skip_reason: Optional[str] = None
+    last_audited_at: datetime | None = None
+    skip_reason: str | None = None
 
 
 # ──────────────────────────────────────────────
@@ -172,13 +171,13 @@ class QueueItem(BaseModel):
 
 class DaemonState(BaseModel):
     status: DaemonStatus = DaemonStatus.STOPPED
-    started_at: Optional[datetime] = None
-    stopped_at: Optional[datetime] = None
-    last_run_at: Optional[datetime] = None
-    next_run_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    stopped_at: datetime | None = None
+    last_run_at: datetime | None = None
+    next_run_at: datetime | None = None
     total_contracts_audited: int = 0
     total_cycles_completed: int = 0
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
 
 # ──────────────────────────────────────────────
@@ -187,7 +186,7 @@ class DaemonState(BaseModel):
 
 class ApiResponse(BaseModel):
     data: Any = None
-    meta: Dict[str, Any] = Field(
+    meta: dict[str, Any] = Field(
         default_factory=lambda: {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
     )
 
@@ -202,9 +201,9 @@ class PipelineStats(BaseModel):
     failed: int = 0
     in_progress: int = 0
     success_rate: float = 0.0
-    avg_duration_seconds: Optional[float] = None
-    by_state: Dict[str, int] = Field(default_factory=dict)
-    by_program: Dict[str, int] = Field(default_factory=dict)
+    avg_duration_seconds: float | None = None
+    by_state: dict[str, int] = Field(default_factory=dict)
+    by_program: dict[str, int] = Field(default_factory=dict)
     timeouts: int = 0
     last_updated: datetime = Field(default_factory=datetime.utcnow)
 
@@ -214,8 +213,8 @@ class PipelineStats(BaseModel):
 # ──────────────────────────────────────────────
 
 class RerunRequest(BaseModel):
-    audit_ids: List[str] = Field(default_factory=list)
-    address: Optional[str] = None
-    chain: Optional[str] = None
-    pattern_type: Optional[str] = None  # e.g. "false_negative", "reentrancy"
+    audit_ids: list[str] = Field(default_factory=list)
+    address: str | None = None
+    chain: str | None = None
+    pattern_type: str | None = None  # e.g. "false_negative", "reentrancy"
     reason: str = "manual_rerun"

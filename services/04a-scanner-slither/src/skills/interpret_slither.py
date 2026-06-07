@@ -14,12 +14,12 @@ from typing import Any
 import structlog
 from shared.skills.base_skill import BaseSkill
 
-from src.intelligence.fp_patterns import FpPatternMatcher
-from src.intelligence.scorer import CompositeScorer
-from src.intelligence.fixer import FixGenerator
-from src.intelligence.path_predictor import ExploitPathPredictor
-from src.intelligence.nlp import NaturalLanguageQuery
 from src.intelligence.classifier import ContractType
+from src.intelligence.fixer import FixGenerator
+from src.intelligence.fp_patterns import FpPatternMatcher
+from src.intelligence.nlp import NaturalLanguageQuery
+from src.intelligence.path_predictor import ExploitPathPredictor
+from src.intelligence.scorer import CompositeScorer
 
 log = structlog.get_logger()
 
@@ -35,10 +35,10 @@ class InterpretSlitherSkill(BaseSkill):
         path_predictor: ExploitPathPredictor | None = None,
         nlp: NaturalLanguageQuery | None = None,
     ) -> None:
-        from src.intelligence.fp_patterns import create_fp_pattern_matcher
-        from src.intelligence.scorer import create_scorer
         from src.intelligence.fixer import create_fixer
+        from src.intelligence.fp_patterns import create_fp_pattern_matcher
         from src.intelligence.path_predictor import create_path_predictor
+        from src.intelligence.scorer import create_scorer
 
         self._fp_matcher = fp_matcher or create_fp_pattern_matcher()
         self._scorer = scorer or create_scorer()

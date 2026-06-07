@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import subprocess
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -91,7 +90,7 @@ class UpdateManager:
 
     def append_changelog(self, version: str, notes: str) -> None:
         """Append a version entry to the changelog."""
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         entry = f"## {version} — {timestamp}\n\n{notes.strip()}\n\n"
         with open(CHANGELOG_FILE, "a", encoding="utf-8") as f:
             f.write(entry)
@@ -386,7 +385,7 @@ async def _run_command(
     try:
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         return stdout.decode("utf-8", errors="replace").strip() if stdout else ""
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         raise RuntimeError(f"Command timed out after {timeout}s: {' '.join(cmd)}")
 
@@ -405,7 +404,7 @@ def _write_last_check(
         "current_version": current_version,
         "latest_version": latest_version,
         "update_available": update_available,
-        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "checked_at": datetime.now(UTC).isoformat(),
     }
     try:
         LAST_CHECK_FILE.write_text(

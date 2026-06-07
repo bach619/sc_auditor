@@ -54,9 +54,9 @@ class DelegatecallArbDetector(Plugin):
         try:
             stack = state.cpu.stack
             # Stack layout: gas, address, argsOffset, argsSize, retOffset, retSize
-            gas = stack[-1]
+            stack[-1]
             addr = stack[-2]
-            args_offset = stack[-3]
+            stack[-3]
             args_size = stack[-4]
 
             # Check if address is symbolic (user-controlled)
@@ -110,7 +110,7 @@ class DelegatecallArbDetector(Plugin):
                     },
                 )
 
-        except (AttributeError, IndexError) as e:
+        except (AttributeError, IndexError):
             pass
 
     def did_evm_execute_sstore(self, state: Any, key: int, value: int) -> None:

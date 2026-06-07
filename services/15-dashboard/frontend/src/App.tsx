@@ -1,23 +1,26 @@
+import { lazy, Suspense } from 'react'
 import { Navigate } from 'react-router-dom'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import Layout from './layout/Layout'
-import Dashboard from './pages/Dashboard'
-import Programs from './pages/Programs'
-import Reports from './pages/Reports'
-import Antonio from './pages/Antonio'
-import Settings from './pages/Settings'
-import ChatPage from './pages/Chat'
+import { LoadingState } from './components/LoadingState'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Programs = lazy(() => import('./pages/Programs'))
+const Reports = lazy(() => import('./pages/Reports'))
+const Antonio = lazy(() => import('./pages/Antonio'))
+const ChatPage = lazy(() => import('./pages/Chat'))
+const Settings = lazy(() => import('./pages/Settings'))
 
 const router = createBrowserRouter([
   {
     element: <Layout />,
     children: [
-      { path: '/', element: <Dashboard /> },
-      { path: '/programs', element: <Programs /> },
-      { path: '/reports', element: <Reports /> },
-      { path: '/agent', element: <Antonio /> },
-      { path: '/chat', element: <ChatPage /> },
-      { path: '/settings', element: <Settings /> },
+      { path: '/', element: <Suspense fallback={<LoadingState message="Loading page..." />}><Dashboard /></Suspense> },
+      { path: '/programs', element: <Suspense fallback={<LoadingState message="Loading page..." />}><Programs /></Suspense> },
+      { path: '/reports', element: <Suspense fallback={<LoadingState message="Loading page..." />}><Reports /></Suspense> },
+      { path: '/agent', element: <Suspense fallback={<LoadingState message="Loading page..." />}><Antonio /></Suspense> },
+      { path: '/chat', element: <Suspense fallback={<LoadingState message="Loading page..." />}><ChatPage /></Suspense> },
+      { path: '/settings', element: <Suspense fallback={<LoadingState message="Loading page..." />}><Settings /></Suspense> },
       { path: '/dashboard', element: <Navigate to="/" replace /> },
       // Aliases for deep-links that redirect to Antonio
       { path: '/ai', element: <Navigate to="/agent" replace /> },

@@ -16,12 +16,15 @@ Endpoints:
 
 from __future__ import annotations
 
+import os
 import sys
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
 import httpx
 from shared.observability import setup_observability
+from shared.storage.simple_store import SimpleSQLiteStore
+from shared.storage.service_schemas import AI_SCHEMA_SQL
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -44,6 +47,7 @@ from shared.agent_protocol.models import (
     DelegationRequest,
     NegotiationRequest,
 )
+from shared.api_errors import register_error_handlers
 
 
 # ── Constants ──────────────────────────────────────────────
@@ -73,6 +77,7 @@ class AppState:
         self.fixer: FixSuggester | None = None
         self.ai_agent: AIAgent | None = None
         self.http_client: httpx.AsyncClient | None = None
+        self.sqlite_store: SimpleSQLiteStore | None = None
         self._shutdown_requested: bool = False
 
     @property
@@ -210,6 +215,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global state
     state = AppState()
 
+    # ── Initialize SQLite cache store ────────────────────────
+    storage_engine = os.environ.get("STORAGE_ENGINE", "json")
+    if storage_engine in ("sqlite", "dual"):
+        try:
+            from pathlib import Path
+            db_path = "/data/ai/ai_cache.db"
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+            state.sqlite_store = SimpleSQLiteStore(
+                db_path=db_path,
+                schema_sql=AI_SCHEMA_SQL,
+                table_name="analysis_cache",
+            )
+            log.info("ai.sqlite_initialized", db_path=db_path, engine=storage_engine)
+        except Exception as exc:
+            log.warning("ai.sqlite_init_failed", error=str(exc))
+
     # Create shared HTTP client
     state.http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(10.0, connect=5.0),
@@ -289,6 +310,7 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+register_error_handlers(app)
 
 # CORS — permissive for local development / Docker compose
 app.add_middleware(

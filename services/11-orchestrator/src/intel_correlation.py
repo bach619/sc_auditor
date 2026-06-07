@@ -1,6 +1,6 @@
 """Cross-Service Intelligence Correlation — menghubungkan findings dari semua scanner.
 
-Modul ini menganalisis findings dari 5 scanner (Slither, Echidna, Forge, 
+Modul ini menganalisis findings dari 5 scanner (Slither, Echidna, Forge,
 Mythril, Halmos) dan mengidentifikasi pattern yang mengindikasikan
 11 bug severity tinggi/ekstrim.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 from src.detectors.base import BaseCairoDetector
 
@@ -14,8 +14,8 @@ class ReentrancyDetector(BaseCairoDetector):
     severity_focus = "high"
     category = "reentrancy"
 
-    def analyze(self, ir_contract: Dict[str, Any]) -> List[Dict[str, Any]]:
-        findings: List[Dict[str, Any]] = []
+    def analyze(self, ir_contract: dict[str, Any]) -> list[dict[str, Any]]:
+        findings: list[dict[str, Any]] = []
         raw_parse = ir_contract.get("_raw_parse", {})
         source = raw_parse.get("source", "")
         external_calls = ir_contract.get("external_calls", {})
@@ -47,7 +47,7 @@ class ReentrancyDetector(BaseCairoDetector):
                     depth -= 1
             body = source[body_start:body_end]
 
-            storage_writes = re.findall(r'(read|write)\s*\(\s*(\w+)', body)
+            re.findall(r'(read|write)\s*\(\s*(\w+)', body)
             has_state_after_call = False
             call_positions = [m.start() for m in re.finditer(r'call_contract', body)]
             for sw_match in re.finditer(r'(read|write)\s*\(\s*(\w+)', body):

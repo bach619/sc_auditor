@@ -12,9 +12,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return resp.json();
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data: T;
-  meta: { status: string; timestamp: string; total?: number; [key: string]: any };
+  meta: { status: string; timestamp: string; total?: number; [key: string]: unknown };
 }
 
 export interface Audit {
@@ -31,7 +31,7 @@ export interface Audit {
   low_count?: number;
   duration_seconds?: number;
   created_at?: string;
-  steps?: any[];
+  steps?: unknown[];
   error?: string;
 }
 
@@ -77,7 +77,7 @@ export interface MetricsSummary {
   precision: number;
   recall: number;
   f1_score: number;
-  per_tool?: Record<string, any>;
+  per_tool?: Record<string, unknown>;
 }
 
 export interface PipelineStats {
@@ -85,17 +85,17 @@ export interface PipelineStats {
   completed: number;
   failed: number;
   in_progress: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // ── API methods ──
 
 export const api = {
   // Config
-  getConfig: () => request<ApiResponse<Record<string, any>>>('/api/config'),
-  setConfigKey: (key: string, value: any) =>
+  getConfig: () => request<ApiResponse<Record<string, unknown>>>('/api/config'),
+  setConfigKey: (key: string, value: unknown) =>
     request<ApiResponse>(`/api/config/${key}`, { method: 'PUT', body: JSON.stringify({ value }) }),
-  setBulkConfig: (config: Record<string, any>) =>
+  setBulkConfig: (config: Record<string, unknown>) =>
     request<ApiResponse>('/api/config/bulk', { method: 'PUT', body: JSON.stringify({ config }) }),
 
   // Audits
@@ -145,7 +145,7 @@ export const api = {
   getMetrics: () => request<ApiResponse<MetricsSummary>>('/api/metrics'),
 
   // Feedback
-  getFeedback: () => request<ApiResponse<any[]>>('/api/feedback'),
+  getFeedback: () => request<ApiResponse<unknown[]>>('/api/feedback'),
   submitFeedback: (body: { finding_id: string; feedback: string; status: string }) =>
     request<ApiResponse>('/api/feedback', { method: 'POST', body: JSON.stringify(body) }),
 
@@ -198,7 +198,7 @@ export const api = {
   // Agent
   getAgentHealth: () => request<ApiResponse>('/api/agent/health'),
   getTeamStructure: () => request<ApiResponse>('/api/agent/team/structure'),
-  runTeamAudit: (body: { task_type?: string; input_data?: Record<string, any>; goal?: string; max_delegations?: number }) =>
+  runTeamAudit: (body: { task_type?: string; input_data?: Record<string, unknown>; goal?: string; max_delegations?: number }) =>
     request<ApiResponse>('/api/agent/team/run', { method: 'POST', body: JSON.stringify(body) }),
   getTeamSessions: (params?: { limit?: number; status?: string }) => {
     const qs = new URLSearchParams();
@@ -243,7 +243,7 @@ export const api = {
     finding_id: string; program_slug: string; bug_category: string;
     title: string; description: string; severity: string;
     poc_solidity?: string; tx_hash?: string; exploit_sequence?: string[];
-    category_evidence?: Record<string, any>;
+    category_evidence?: Record<string, unknown>;
   }) => request<ApiResponse>('/api/submission', { method: 'POST', body: JSON.stringify(body) }),
   generateSubmissionDraft: (findingId: string, body: { immunefi_message: string; bug_category?: string; tone?: string }) =>
     request<ApiResponse>(`/api/submission/${findingId}/draft`, { method: 'POST', body: JSON.stringify(body) }),

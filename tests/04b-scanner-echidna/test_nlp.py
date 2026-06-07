@@ -1,12 +1,32 @@
 """Tests for EchidnaNLP."""
+import sys
+from pathlib import Path
+
 import pytest
-from src.intelligence.nlp import EchidnaNLP, create_nlp
-from src.intelligence.classifier import create_classifier
-from src.intelligence.fixer import create_fixer
+
+SERVICE_DIR = Path(__file__).resolve().parents[2] / "services" / "04b-scanner-echidna"
+
+
+@pytest.fixture(autouse=True)
+def _echidna_env():
+    """Isolate echidna imports to prevent namespace pollution with other services' src/."""
+    sys.path.insert(0, str(SERVICE_DIR))
+    for k in [k for k in sys.modules if k == "src" or k.startswith("src.")]:
+        del sys.modules[k]
+    yield
+    # Cleanup after test
+    if str(SERVICE_DIR) in sys.path:
+        sys.path.remove(str(SERVICE_DIR))
+    for k in list(sys.modules):
+        if k == "src" or k.startswith("src."):
+            del sys.modules[k]
 
 
 class TestEchidnaNLP:
     def setup_method(self):
+        from src.intelligence.classifier import create_classifier
+        from src.intelligence.fixer import create_fixer
+        from src.intelligence.nlp import create_nlp
         classifier = create_classifier()
         fixer = create_fixer()
         self.nlp = create_nlp(classifier=classifier, fixer=fixer)

@@ -107,6 +107,7 @@ export function useChat() {
   // Clear suggested message from navigation state
   useEffect(() => {
     if (navState?.suggestAudit) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: sync suggested message from navigation state
       setSuggestedMessage(navState.suggestAudit)
       window.history.replaceState({}, document.title)
     }
@@ -132,8 +133,10 @@ export function useChat() {
   // Welcome message
   useEffect(() => {
     if (messages.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: initialize empty chat with welcome message on mount
       setMessages([WELCOME_MESSAGE])
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Auto-save when messages change (debounce)
@@ -173,8 +176,8 @@ export function useChat() {
         timestamp: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, assistantMsg])
-    } catch (err: any) {
-      const rawMessage: string = err?.message || 'Gagal terhubung ke Antonio'
+    } catch (err: unknown) {
+      const rawMessage: string = (err as { message?: string })?.message || 'Gagal terhubung ke Antonio'
 
       // Provide user-friendly suggestions based on error type
       let suggestion = ''
@@ -207,7 +210,7 @@ export function useChat() {
         timestamp: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, errorMsg])
-      setError(err?.message || 'Unknown error')
+      setError((err as { message?: string })?.message || 'Unknown error')
     } finally {
       setIsLoading(false)
     }

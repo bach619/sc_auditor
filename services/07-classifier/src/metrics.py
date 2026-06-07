@@ -11,13 +11,13 @@ the data model defined in the architecture specification §7.3.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import structlog
 
-from src.models import Classification, MetricsSnapshot, ToolMetrics
+from src.models import Classification
 
 log = structlog.get_logger()
 
@@ -36,7 +36,7 @@ OVERALL_COVERAGE_WEIGHT: float = 0.30
 
 def _today_str() -> str:
     """Return today's UTC date as ``YYYY-MM-DD``."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 def _load_metrics() -> dict[str, Any]:
@@ -294,7 +294,7 @@ class MetricsTracker:
         Returns:
             List of daily metric snapshots, sorted chronologically.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         cutoff_str = cutoff.strftime("%Y-%m-%d")
         daily = self._metrics.get("daily", {})
 

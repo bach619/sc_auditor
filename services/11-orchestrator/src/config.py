@@ -63,6 +63,9 @@ class OrchestratorConfig(BaseSettings):
     max_concurrent_scans: int = 2
     max_concurrent_ai: int = 1
 
+    # --- Stuck Audit Detection ---
+    stuck_audit_timeout_hours: float = 2.0  # Mark as TIMEOUT if stuck longer
+
     # --- Batch / Debounce ---
     debounce_hours: int = 24
     batch_default_size: int = 5

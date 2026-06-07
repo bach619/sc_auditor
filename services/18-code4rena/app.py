@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from shared.observability import setup_observability
+from shared.api_errors import register_error_handlers
 from src.client import Code4renaClient
 from src.models import ApiResponse, HealthData, Meta, SyncStatus
 from src.sync import SyncManager
@@ -34,6 +35,7 @@ app = FastAPI(
     description="Integrates with Code4rena audit contest platform via GraphQL API",
     version=SERVICE_VERSION,
 )
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,

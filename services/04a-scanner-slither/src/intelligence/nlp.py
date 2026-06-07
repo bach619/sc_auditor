@@ -23,7 +23,6 @@ Supported intents:
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -31,7 +30,7 @@ import structlog
 
 from src.intelligence.classifier import ContractClassifier
 from src.intelligence.fixer import FixGenerator
-from src.intelligence.scorer import CompositeScorer, RiskScore
+from src.intelligence.scorer import CompositeScorer
 
 log = structlog.get_logger()
 

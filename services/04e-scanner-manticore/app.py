@@ -25,6 +25,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from shared.api_errors import register_error_handlers
 from shared.observability import setup_observability
 from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
 
@@ -128,6 +129,7 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,

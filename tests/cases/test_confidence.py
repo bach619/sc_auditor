@@ -25,9 +25,10 @@ from src.storage import create_case
 def _patch_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     """Redirect SC_AUDITOR_DIR to a temp directory."""
     tmp = Path(tempfile.mkdtemp())
-    monkeypatch.setattr("src.storage.SC_AUDITOR_DIR", tmp)
-    monkeypatch.setattr("src.storage.CASES_DIR", tmp / "cases")
-    monkeypatch.setattr("src.storage.LEARNING_DIR", tmp / "learning")
+    import src.storage as _stor
+    _stor.SC_AUDITOR_DIR = tmp
+    _stor.CASES_DIR = tmp / "cases"
+    _stor.LEARNING_DIR = tmp / "learning"
     (tmp / "cases").mkdir(parents=True, exist_ok=True)
     (tmp / "learning").mkdir(parents=True, exist_ok=True)
 

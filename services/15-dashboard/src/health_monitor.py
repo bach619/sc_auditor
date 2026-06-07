@@ -19,7 +19,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -154,7 +154,7 @@ class HealthMonitor:
                 self.results[name] = HealthResult(
                     status="error",
                     error=str(result),
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                 )
 
         self._rebuild_graph()
@@ -167,7 +167,7 @@ class HealthMonitor:
                 return HealthResult(status="error", error="no client")
             resp = await self._client.get(f"{svc.url}/health")
             latency = (time.monotonic() - start) * 1000
-            ts = datetime.now(timezone.utc).isoformat()
+            ts = datetime.now(UTC).isoformat()
 
             if resp.status_code == 200:
                 return HealthResult(status="healthy", code=200,
@@ -179,13 +179,13 @@ class HealthMonitor:
                                 latency_ms=round(latency, 2), timestamp=ts)
         except httpx.TimeoutException:
             return HealthResult(status="down", error="timeout",
-                                timestamp=datetime.now(timezone.utc).isoformat())
+                                timestamp=datetime.now(UTC).isoformat())
         except httpx.ConnectionError:
             return HealthResult(status="down", error="connection refused",
-                                timestamp=datetime.now(timezone.utc).isoformat())
+                                timestamp=datetime.now(UTC).isoformat())
         except Exception as exc:
             return HealthResult(status="down", error=str(exc),
-                                timestamp=datetime.now(timezone.utc).isoformat())
+                                timestamp=datetime.now(UTC).isoformat())
 
     # ── Graph builder ────────────────────────────────────────────────────
 
@@ -267,5 +267,5 @@ class HealthMonitor:
             "avg_latency_ms": avg_latency,
             "p95_latency_ms": round(p95, 2),
             "error_rate": round(down / total * 100, 2) if total > 0 else 0.0,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }

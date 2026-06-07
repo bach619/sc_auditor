@@ -38,7 +38,7 @@ class GenerateSummarySkill(BaseSkill):
         low = sum(1 for f in findings if isinstance(f, dict) and f.get("severity") == "low")
 
         summary_parts = [
-            f"# Executive Summary\n",
+            "# Executive Summary\n",
             f"**Total Findings:** {total}\n",
             f"**Critical:** {critical} | **High:** {high} | **Medium:** {medium} | **Low:** {low}\n",
         ]

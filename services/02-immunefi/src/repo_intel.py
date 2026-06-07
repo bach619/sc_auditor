@@ -15,7 +15,7 @@ Data di-cache di EnhancedJSONStorage agar tidak rate-limit GitHub API.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -80,8 +80,8 @@ class RepoIntel:
             try:
                 cached_at = datetime.fromisoformat(cached["_cached_at"])
                 if cached_at.tzinfo is None:
-                    cached_at = cached_at.replace(tzinfo=timezone.utc)
-                age = datetime.now(timezone.utc) - cached_at
+                    cached_at = cached_at.replace(tzinfo=UTC)
+                age = datetime.now(UTC) - cached_at
                 if age.total_seconds() < 86400:  # 24h
                     return cached
             except (ValueError, TypeError):
@@ -94,7 +94,7 @@ class RepoIntel:
                 headers=self._headers(),
             )
             if resp.status_code == 404:
-                self._cache_repo_data(cache_key, {"_error": "not_found", "_cached_at": datetime.now(timezone.utc).isoformat()})  # noqa: E501
+                self._cache_repo_data(cache_key, {"_error": "not_found", "_cached_at": datetime.now(UTC).isoformat()})  # noqa: E501
                 return None
             if resp.status_code == 403:
                 log.warning("repo_intel.rate_limited", repo=f"{owner}/{repo}")
@@ -135,7 +135,7 @@ class RepoIntel:
             "pushed_at": data.get("pushed_at", ""),
             "size_kb": data.get("size", 0),
             "default_branch": data.get("default_branch", "main"),
-            "_cached_at": datetime.now(timezone.utc).isoformat(),
+            "_cached_at": datetime.now(UTC).isoformat(),
         }
 
     def _cache_repo_data(self, cache_key: str, data: dict) -> None:
@@ -219,7 +219,7 @@ class RepoIntel:
         if repo_data.get("pushed_at"):
             try:
                 pushed = datetime.fromisoformat(repo_data["pushed_at"].replace("Z", "+00:00"))
-                age_days = (datetime.now(timezone.utc) - pushed).days
+                age_days = (datetime.now(UTC) - pushed).days
                 if age_days < 30:
                     score += 15
                     flags.append("active_development")

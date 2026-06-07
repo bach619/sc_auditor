@@ -32,7 +32,7 @@ class TestCaseAPI:
         body = resp.json()
         assert body["meta"]["status"] == "ok"
         data = body.get("data", {})
-        assert "total_open" in data or "open" in data
+        assert "open_cases" in data
 
     @pytest.mark.asyncio
     async def test_get_case_missing(self, async_client: httpx.AsyncClient, dashboard_url: str) -> None:
@@ -52,12 +52,13 @@ class TestCaseAPI:
     async def test_create_case(self, async_client: httpx.AsyncClient, dashboard_url: str) -> None:
         """POST /api/cases creates a new case."""
         payload = {
+            "project": "integration-test",
             "title": "Integration test case",
             "description": "Created by automated test",
             "severity": "Low",
             "contract": "TestContract",
             "function": "testFunc",
-            "detector": "pytest",
+            "scanners": [{"name": "pytest", "detector": "pytest", "confidence": 0.5}],
             "recommendation": "Review and delete this test case.",
         }
         resp = await async_client.post(f"{dashboard_url}/api/cases", json=payload)

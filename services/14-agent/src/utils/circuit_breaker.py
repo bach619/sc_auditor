@@ -2,12 +2,12 @@
 
 Usage:
     from src.utils.circuit_breaker import circuit_breaker, CircuitBreaker
-    
+
     cb = circuit_breaker("scan_contract")
     if cb.state == "OPEN":
         # Don't call, return cached/fallback
         return fallback()
-    
+
     try:
         result = await call_service()
         cb.record_success()

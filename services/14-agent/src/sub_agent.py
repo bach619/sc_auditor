@@ -121,7 +121,7 @@ class SubAgent:
             )
 
             thought = decision.get("thought", "")
-            action_name = decision.get("action", "FINAL_ANSWER")
+            action_name = decision.get("action") or "FINAL_ANSWER"
             action_input = decision.get("action_input") or {}
             final_answer = decision.get("final_answer")
 

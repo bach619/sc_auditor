@@ -14,12 +14,11 @@ from shared.agent_protocol.models import (
     CapabilityDefinition,
     DelegationRequest,
 )
-from shared.skills.skill_registry import SkillRegistry
 
 from .backup import BackupManager
 from .metrics import MetricsAggregator
-from .update import UpdateManager
 from .skills import create_registry
+from .update import UpdateManager
 
 
 class UpkeepAgent(BaseAgent):

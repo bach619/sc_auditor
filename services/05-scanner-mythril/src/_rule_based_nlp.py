@@ -9,7 +9,6 @@ Enhanced version of the original MythrilNLP with:
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 
@@ -138,7 +137,7 @@ class _RuleBasedNLP:
             recs = []
             for f in findings:
                 severity = f.get("severity", "medium")
-                bug_type = f.get("bug_type", "")
+                f.get("bug_type", "")
                 title = f.get("title", "")
 
                 if severity == "critical":
@@ -156,7 +155,7 @@ class _RuleBasedNLP:
         """Answer natural language question about findings."""
         q = question.lower()
         findings = context.get("findings", [])
-        swc_registry = context.get("swc_registry", {})
+        context.get("swc_registry", {})
 
         # Summary intent
         if any(w in q for w in ["summary", "overview", "overall", "result"]):

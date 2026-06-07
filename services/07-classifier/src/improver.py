@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -57,7 +57,7 @@ PATTERN_PROVEN_MATCHES: int = 5
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _load_json(path: Path, default: Any = None) -> Any:
@@ -393,7 +393,7 @@ class PatternLearner:
         Returns:
             The created or updated Pattern, or None.
         """
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
 
         # Check if pattern already exists (by key in dict or by name)
         for pdata in self._patterns.values():

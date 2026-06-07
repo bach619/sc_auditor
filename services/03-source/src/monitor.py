@@ -7,14 +7,12 @@ contract creation transactions, lalu auto-fetch source jika terverifikasi.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any
 
 import httpx
 import structlog
 
-from src.storage import EnhancedJSONStorage
 from src.detector import SourceDetector
+from src.storage import EnhancedJSONStorage
 
 log = structlog.get_logger()
 

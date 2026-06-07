@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
+from shared.api_errors import register_error_handlers
 from shared.observability import setup_observability
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -137,6 +138,7 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+register_error_handlers(app)
 
 # CORS — permissive for local development / Docker compose
 app.add_middleware(
@@ -418,6 +420,44 @@ async def get_full_report(audit_id: str) -> ApiResponse:
             path=str(report_dir / "full.md"),
         )
     )
+
+
+@app.get("/reports")
+async def list_reports(limit: int = 50) -> ApiResponse:
+    """List all generated reports across all audits.
+
+    Scans the reports directory and returns metadata for each
+    generated report file.
+
+    Args:
+        limit: Maximum number of reports to return (newest first).
+
+    Returns:
+        Array of report metadata objects.
+    """
+    reports: list[dict[str, object]] = []
+    if REPORTS_DIR.exists():
+        for audit_dir in sorted(REPORTS_DIR.iterdir(), reverse=True):
+            if not audit_dir.is_dir():
+                continue
+            audit_id = audit_dir.name
+            for fmt_name, filename in [("immunefi", "immunefi.md"), ("full", "full.md")]:
+                filepath = audit_dir / filename
+                if filepath.exists() and filepath.stat().st_size > 0:
+                    mtime = datetime.fromtimestamp(filepath.stat().st_mtime, tz=timezone.utc)
+                    reports.append({
+                        "report_id": f"{audit_id}_{fmt_name}",
+                        "audit_id": audit_id,
+                        "format": fmt_name,
+                        "status": "generated",
+                        "created_at": mtime.isoformat(),
+                        "download_url": f"/api/reports/{audit_id}/download?format={fmt_name}",
+                        "size_bytes": filepath.stat().st_size,
+                    })
+            if len(reports) >= limit:
+                break
+
+    return ok(reports[:limit])
 
 
 # ── Agent Endpoints ────────────────────────────────────────

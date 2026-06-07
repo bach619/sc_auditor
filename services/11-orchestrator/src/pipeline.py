@@ -15,29 +15,34 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import time
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 import structlog
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from src.config import config
 from src.intel_correlation import correlate_findings
 from src.models import (
     AuditRecord,
     PipelineState,
-    PipelineStep,
     PipelineStats,
+    PipelineStep,
+)
+from src.pipeline_queries import (
+    _get_or_create as _query_get_or_create,
+    get_record as _query_get_record,
+    get_all_records as _query_get_all_records,
+    get_stats as _query_get_stats,
+    register_audit as _query_register_audit,
+    update_record as _query_update_record,
+)
+from src.pipeline_resilient import ResilientPipelineStep, StepStatus  # noqa: re-export
+from src.pipeline_saga import (
+    COMPENSATION_REGISTRY as _SAGA_COMPENSATION_REGISTRY,
+    compensate as _saga_compensate,
 )
 from src.resource_governor import ResourceGovernor, ToolType
 
@@ -56,7 +61,7 @@ class Pipeline:
     """
 
     # Ordered workflow: (state, handler_method_name, resource_tool?)
-    WORKFLOW: List[Tuple[PipelineState, str, Optional[ToolType]]] = [
+    WORKFLOW: list[tuple[PipelineState, str, ToolType | None]] = [
         (PipelineState.FETCHING_PROGRAM, "_fetch_program", ToolType.SOURCE),
         (PipelineState.FETCHING_SOURCE, "_fetch_source", ToolType.SOURCE),
         (PipelineState.SCANNING, "_run_scan", ToolType.SCANNER),
@@ -70,7 +75,7 @@ class Pipeline:
     ]
 
     # State → failure mapping
-    FAILURE_MAP: Dict[PipelineState, PipelineState] = {
+    FAILURE_MAP: dict[PipelineState, PipelineState] = {
         PipelineState.FETCHING_PROGRAM: PipelineState.FETCH_FAILED,
         PipelineState.FETCHING_SOURCE: PipelineState.FETCH_FAILED,
         PipelineState.SCANNING: PipelineState.SCAN_FAILED,
@@ -84,7 +89,7 @@ class Pipeline:
     }
 
     # Compensations: step -> (list of compensation handler names)
-    COMPENSATIONS: Dict[PipelineState, List[str]] = {
+    COMPENSATIONS: dict[PipelineState, list[str]] = {
         PipelineState.NOTIFYING: ["_compensate_notify"],
         PipelineState.REPORTING: ["_compensate_report"],
         PipelineState.RECLASSIFYING: ["_compensate_reclassify"],
@@ -99,9 +104,9 @@ class Pipeline:
 
     def __init__(self, resource_governor: ResourceGovernor) -> None:
         self._governor = resource_governor
-        self._client: Optional[httpx.AsyncClient] = None
-        self._audit_log: Dict[str, AuditRecord] = {}
-        self._running: Dict[str, asyncio.Task] = {}
+        self._client: httpx.AsyncClient | None = None
+        self._audit_log: dict[str, AuditRecord] = {}
+        self._running: dict[str, asyncio.Task] = {}
         self._lock = asyncio.Lock()
         self._load_audit_log()
 
@@ -161,7 +166,7 @@ class Pipeline:
             return await asyncio.wait_for(
                 task, timeout=config.pipeline_global_timeout_seconds
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             record.fail(PipelineState.TIMEOUT, "Pipeline global timeout exceeded")
             self._save_audit_log()
             await self._broadcast_stage(
@@ -173,6 +178,70 @@ class Pipeline:
             return record
         finally:
             self._running.pop(audit_id, None)
+
+    # ── Stuck audit recovery ───────────────────────────────────
+
+    async def resume_stuck_audits(self) -> dict[str, int]:
+        """Detect and handle audits stuck in non-terminal states.
+
+        Scans all audit records for audits that are NOT in `_running`
+        but have a non-terminal state (zombie audits).
+
+        - If stuck for > `stuck_audit_timeout_hours` → mark as TIMEOUT
+        - Otherwise → resume by re-launching pipeline.run()
+
+        Returns:
+            dict with keys: resumed, timed_out, total_stuck
+        """
+        now = datetime.utcnow()
+        timeout_delta = timedelta(hours=config.stuck_audit_timeout_hours)
+        resumed: list[str] = []
+        timed_out: list[str] = []
+
+        for audit_id, record in list(self._audit_log.items()):
+            # Skip terminal states and already-running audits
+            if record.state.is_terminal:
+                continue
+            if audit_id in self._running:
+                continue
+
+            updated = record.updated_at or record.created_at
+            stuck_duration = now - updated
+            logger.warning(
+                "Stuck audit detected",
+                audit_id=audit_id,
+                state=record.state.value,
+                stuck_hours=round(stuck_duration.total_seconds() / 3600, 1),
+            )
+
+            if stuck_duration > timeout_delta:
+                # Stuck too long — mark as TIMEOUT
+                record.fail(PipelineState.TIMEOUT, f"Stuck in {record.state.value} for {stuck_duration.total_seconds() / 3600:.1f}h — auto-timed-out")
+                self._save_audit_log()
+                await self._broadcast_stage(
+                    audit_id=audit_id,
+                    state=PipelineState.TIMEOUT,
+                    progress=0.0,
+                    message=f"Auto-timeout: stuck in {record.state.value}",
+                )
+                timed_out.append(audit_id)
+                logger.info("Audit %s timed out after %.1fh in state %s",
+                            audit_id, stuck_duration.total_seconds() / 3600, record.state.value)
+            else:
+                # Resume by launching pipeline run
+                task = asyncio.create_task(self._run_pipeline(record, time.monotonic()))
+                self._running[audit_id] = task
+                resumed.append(audit_id)
+                logger.info("Resumed stuck audit %s from state %s",
+                            audit_id, record.state.value)
+
+        result = {
+            "resumed": len(resumed),
+            "timed_out": len(timed_out),
+            "total_stuck": len(resumed) + len(timed_out),
+        }
+        logger.info("Stuck audit recovery complete — %s", result)
+        return result
 
     # ── Run pipeline ─────────────────────────────────────────
 
@@ -241,7 +310,7 @@ class Pipeline:
                     continue
 
             # Execute the step
-            step = PipelineStep(name=state.value, state=state, started_at=datetime.now(timezone.utc))
+            step = PipelineStep(name=state.value, state=state, started_at=datetime.now(UTC))
             record.add_step(step)
             self._save_audit_log()
 
@@ -261,10 +330,10 @@ class Pipeline:
                 else:
                     result = await self._execute_step(handler_name, record)
 
-                step.completed_at = datetime.now(timezone.utc)
+                step.completed_at = datetime.now(UTC)
                 step.duration_seconds = step.elapsed
                 step.result = result if isinstance(result, dict) else {"status": "ok"}
-                record.updated_at = datetime.now(timezone.utc)
+                record.updated_at = datetime.now(UTC)
                 self._save_audit_log()
 
                 # Broadcast step completion
@@ -278,7 +347,7 @@ class Pipeline:
             except Exception as exc:
                 logger.exception("Step %s failed for audit %s", state.value, record.audit_id)
                 step.error = str(exc)
-                step.completed_at = datetime.now(timezone.utc)
+                step.completed_at = datetime.now(UTC)
                 record.fail(failure_state, str(exc))
                 self._save_audit_log()
 
@@ -306,7 +375,7 @@ class Pipeline:
         if has_warnings:
             record.state = PipelineState.COMPLETED_WITH_WARN
             record.duration_seconds = duration
-            record.updated_at = datetime.now(timezone.utc)
+            record.updated_at = datetime.now(UTC)
             logger.info(
                 "Audit %s completed with warnings in %.1fs",
                 record.audit_id, duration,
@@ -356,7 +425,7 @@ class Pipeline:
 
     # ── Step handlers ───────────────────────────────────────────
 
-    async def _fetch_program(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _fetch_program(self, record: AuditRecord) -> dict[str, Any]:
         """Call the Immunefi service to get program details.
 
         If no program slug is provided, skip this step gracefully.
@@ -372,7 +441,7 @@ class Pipeline:
         record.metadata["program_data"] = data.get("data")
         return data
 
-    async def _fetch_source(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _fetch_source(self, record: AuditRecord) -> dict[str, Any]:
         """Call the Source service to fetch contract source code.
 
         If source data is already provided in metadata (e.g. via direct upload),
@@ -396,7 +465,7 @@ class Pipeline:
             record.metadata["compiler_version"] = source_data["compiler_version"]
         return data
 
-    async def _run_scan(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _run_scan(self, record: AuditRecord) -> dict[str, Any]:
         """Call ALL scanner services in parallel (fan-out).
 
         Dispatches to:
@@ -435,23 +504,24 @@ class Pipeline:
             slither=True, echidna=True, forge=True, mythril=True, halmos=True,
         )
 
-        # Fan-out to all 5 scanners in parallel
+        # Fan-out to all 6 scanners in parallel (including legacy)
         results = await asyncio.gather(
             self._call_scanner_slither(scan_payload),
             self._call_scanner_echidna(scan_payload),
             self._call_scanner_forge(build_payload),
             self._call_scanner_mythril(scan_payload),
             self._call_scanner_halmos(scan_payload),
+            self._call_scanner_legacy(scan_payload),
             return_exceptions=True,
         )
 
         # Aggregate results
-        all_findings: List[Dict] = []
-        tool_results: List[Dict] = []
+        all_findings: list[dict] = []
+        tool_results: list[dict] = []
         forge_result = None
-        errors: List[str] = []
+        errors: list[str] = []
 
-        slither_data, echidna_data, forge_data, mythril_data, halmos_data = results
+        slither_data, echidna_data, forge_data, mythril_data, halmos_data, legacy_scanner_data = results
 
         for name, data in [
             ("slither", slither_data),
@@ -488,20 +558,15 @@ class Pipeline:
             if payload.get("forge"):
                 forge_result = payload["forge"]
 
-        # Also try the legacy 04-scanner for backward compatibility
-        # (if it's still running), but don't block on it
-        try:
-            async with httpx.AsyncClient(timeout=30) as legacy_client:
-                resp = await legacy_client.post(f"{config.scanner_url}/scan", json=scan_payload)
-                if resp.status_code == 200:
-                    legacy_data = resp.json().get("data") or {}
-                    # Only add findings not already captured
-                    existing_tools = {str(t.get("tool")) for t in tool_results if t.get("tool") is None or isinstance(t.get("tool"), (str, bytes, int, float, bool))}
-                    for tool_result in legacy_data.get("tools", []):
-                        if tool_result.get("tool") not in existing_tools:
-                            tool_results.append(tool_result)
-                            all_findings.extend(tool_result.get("findings", []))
-        except Exception:
+        # Process legacy scanner result (now gathered in parallel)
+        if isinstance(legacy_scanner_data, dict):
+            legacy_payload = legacy_scanner_data.get("data") or {}
+            existing_tools = {str(t.get("tool")) for t in tool_results if t.get("tool") is None or isinstance(t.get("tool"), (str, bytes, int, float, bool))}
+            for tool_result in legacy_payload.get("tools", []):
+                if tool_result.get("tool") not in existing_tools:
+                    tool_results.append(tool_result)
+                    all_findings.extend(tool_result.get("findings", []))
+        elif isinstance(legacy_scanner_data, Exception):
             pass  # Legacy scanner may not exist; that's fine
 
         # Aggregate forge result if multiple
@@ -545,7 +610,7 @@ class Pipeline:
             "errors": errors,
         }
 
-    async def _call_scanner_slither(self, payload: Dict) -> Any:
+    async def _call_scanner_slither(self, payload: dict) -> Any:
         """Call scanner-slither service (Slither static analysis)."""
         try:
             resp = await self.client.post(f"{config.scanner_slither_url}/scan", json=payload)
@@ -555,7 +620,7 @@ class Pipeline:
             logger.warning("scan.slither_unreachable", error=str(exc))
             raise
 
-    async def _call_scanner_echidna(self, payload: Dict) -> Any:
+    async def _call_scanner_echidna(self, payload: dict) -> Any:
         """Call scanner-echidna service (Echidna fuzzing)."""
         try:
             # Add echidna-specific defaults
@@ -567,7 +632,7 @@ class Pipeline:
             logger.warning("scan.echidna_unreachable", error=str(exc))
             raise
 
-    async def _call_scanner_forge(self, payload: Dict) -> Any:
+    async def _call_scanner_forge(self, payload: dict) -> Any:
         """Call scanner-forge service (Forge build verification)."""
         try:
             resp = await self.client.post(f"{config.scanner_forge_url}/build", json=payload)
@@ -577,7 +642,7 @@ class Pipeline:
             logger.warning("scan.forge_unreachable", error=str(exc))
             raise
 
-    async def _call_scanner_mythril(self, payload: Dict) -> Any:
+    async def _call_scanner_mythril(self, payload: dict) -> Any:
         """Call scanner-mythril service (Mythril symbolic execution).
 
         Mythril uses /analyze endpoint instead of /scan.
@@ -595,7 +660,7 @@ class Pipeline:
             logger.warning("scan.mythril_unreachable", error=str(exc))
             raise
 
-    async def _call_scanner_halmos(self, payload: Dict) -> Any:
+    async def _call_scanner_halmos(self, payload: dict) -> Any:
         """Call scanner-halmos service (Halmos symbolic testing).
 
         Halmos uses /scan endpoint with Foundry test sources.
@@ -618,7 +683,21 @@ class Pipeline:
             # Non-blocking — Halmos is optional
             return {"ok": True, "data": {"findings": [], "errors": [f"Halmos unreachable: {str(exc)[:200]}"]}}
 
-    async def _run_intel_correlation(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _call_scanner_legacy(self, payload: dict) -> Any:
+        """Call legacy 04-scanner for backward compatibility.
+
+        Returns the response dict or None if unreachable.
+        """
+        try:
+            resp = await self.client.post(f"{config.scanner_url}/scan", json=payload)
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+        except Exception as exc:
+            logger.warning("scan.legacy_unreachable", error=str(exc))
+            return None
+
+    async def _run_intel_correlation(self, record: AuditRecord) -> dict[str, Any]:
         """Run cross-service intelligence correlation.
 
         Menganalisis findings dari semua scanner terhadap 11 bug database,
@@ -660,7 +739,7 @@ class Pipeline:
             logger.exception("intel_correlation.failed", audit_id=record.audit_id, error=str(exc))
             raise
 
-    async def _run_ai_analysis(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _run_ai_analysis(self, record: AuditRecord) -> dict[str, Any]:
         """Call the AI Service (06-ai) to analyse scan findings.
 
         Graceful behaviour:
@@ -746,7 +825,7 @@ class Pipeline:
         merged_count = 0
         if ai_findings_result:
             # Build lookup: finding title → AI result
-            ai_lookup: Dict[str, Dict] = {}
+            ai_lookup: dict[str, dict] = {}
             for af in ai_findings_result:
                 key = af.get("title", af.get("id", "")).lower()
                 ai_lookup[key] = af
@@ -782,7 +861,7 @@ class Pipeline:
             "summary": ai_summary,
         }
 
-    async def _classify_findings(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _classify_findings(self, record: AuditRecord) -> dict[str, Any]:
         """Call the Classifier service to classify findings."""
         url = f"{config.classifier_url}/classify"
         ai_results = record.metadata.get("ai_results") or []
@@ -799,7 +878,7 @@ class Pipeline:
         record.findings = classified.get("classified_findings", classified)
         return data
 
-    async def _generate_exploit(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _generate_exploit(self, record: AuditRecord) -> dict[str, Any]:
         """Call the Exploit service to generate PoC for the most severe finding."""
         url = f"{config.exploit_url}/exploit"
         source_data = record.metadata.get("source_data") or {}
@@ -926,7 +1005,7 @@ class Pipeline:
             exploit_successful=exploit_successful,
         )
 
-    async def _reclassify_findings(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _reclassify_findings(self, record: AuditRecord) -> dict[str, Any]:
         """Run reclassification after exploit feedback.
 
         This step triggers the Classifier to re-evaluate all findings
@@ -955,7 +1034,7 @@ class Pipeline:
 
         return data
 
-    async def _generate_report(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _generate_report(self, record: AuditRecord) -> dict[str, Any]:
         """Call the Reporter service to generate audit report."""
         url = f"{config.reporter_url}/report"
         source_data = record.metadata.get("source_data") or {}
@@ -1002,7 +1081,7 @@ class Pipeline:
         record.metadata["report_data"] = report_data
         return data
 
-    async def _notify(self, record: AuditRecord) -> Dict[str, Any]:
+    async def _notify(self, record: AuditRecord) -> dict[str, Any]:
         """Call the Notifier service to send notifications."""
         url = f"{config.notifier_url}/notify"
 
@@ -1076,232 +1155,60 @@ class Pipeline:
     # ── Saga compensation ───────────────────────────────────────
 
     async def _compensate(self, record: AuditRecord, failed_step_idx: int) -> None:
-        """Rollback completed steps in reverse order (Saga pattern)."""
-        logger.info("Starting Saga compensation for audit %s", record.audit_id)
-        for idx in range(failed_step_idx - 1, -1, -1):
-            state, _, _ = self.WORKFLOW[idx]
-            compensators = self.COMPENSATIONS.get(state, [])
-            for comp_name in compensators:
-                try:
-                    comp_fn = getattr(self, comp_name, None)
-                    if comp_fn:
-                        await comp_fn(record)
-                        logger.info("Compensation %s succeeded for step %s", comp_name, state.value)
-                except Exception as exc:
-                    logger.warning(
-                        "Compensation %s failed for step %s: %s",
-                        comp_name, state.value, exc,
-                    )
+        await _saga_compensate(self, record, failed_step_idx)
 
     async def _compensate_fetch(self, record: AuditRecord) -> None:
-        """Remove cached source data."""
-        record.metadata.pop("source_data", None)
-        record.metadata.pop("program_data", None)
+        await _SAGA_COMPENSATION_REGISTRY["_compensate_fetch"](record)
 
     async def _compensate_scan(self, record: AuditRecord) -> None:
-        """Remove scan results."""
-        record.metadata.pop("scan_results", None)
+        await _SAGA_COMPENSATION_REGISTRY["_compensate_scan"](record)
 
     async def _compensate_ai(self, record: AuditRecord) -> None:
-        """Remove AI analysis results."""
-        record.metadata.pop("ai_results", None)
+        await _SAGA_COMPENSATION_REGISTRY["_compensate_ai"](record)
 
     async def _compensate_classify(self, record: AuditRecord) -> None:
-        """Remove classified findings."""
-        record.metadata.pop("classified_findings", None)
-        record.findings = None
+        await _SAGA_COMPENSATION_REGISTRY["_compensate_classify"](record)
 
     async def _compensate_exploit(self, record: AuditRecord) -> None:
-        """Remove exploit data."""
-        record.metadata.pop("exploit_data", None)
+        await _SAGA_COMPENSATION_REGISTRY["_compensate_exploit"](record)
 
     async def _compensate_reclassify(self, record: AuditRecord) -> None:
-        """Remove reclassification data (rollback to Stage 1)."""
-        record.metadata.pop("reclassification_data", None)
+        await _SAGA_COMPENSATION_REGISTRY["_compensate_reclassify"](record)
 
     async def _compensate_report(self, record: AuditRecord) -> None:
-        """Remove report path."""
-        record.report_path = None
-        record.metadata.pop("report_data", None)
+        await _SAGA_COMPENSATION_REGISTRY["_compensate_report"](record)
 
     async def _compensate_notify(self, record: AuditRecord) -> None:
-        """No compensation needed for notifications."""
-        pass
+        await _SAGA_COMPENSATION_REGISTRY["_compensate_notify"](record)
 
     # ── Status queries ─────────────────────────────────────────
 
-    def get_record(self, audit_id: str) -> Optional[AuditRecord]:
-        return self._audit_log.get(audit_id)
+    def get_record(self, audit_id: str) -> AuditRecord | None:
+        return _query_get_record(self, audit_id)
 
     def get_all_records(
         self,
-        state: Optional[PipelineState] = None,
-        program: Optional[str] = None,
-        chain: Optional[str] = None,
+        state: PipelineState | None = None,
+        program: str | None = None,
+        chain: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Tuple[List[AuditRecord], int]:
-        """List audit records with optional filtering and pagination."""
-        records = list(self._audit_log.values())
-
-        if state:
-            records = [r for r in records if r.state == state]
-        if program:
-            records = [r for r in records if r.program == program]
-        if chain:
-            records = [r for r in records if r.chain == chain]
-
-        total = len(records)
-        # Sort by created_at descending
-        records.sort(key=lambda r: r.created_at, reverse=True)
-        return records[offset: offset + limit], total
+    ) -> tuple[list[AuditRecord], int]:
+        return _query_get_all_records(self, state, program, chain, limit, offset)
 
     def get_stats(self) -> PipelineStats:
-        """Compute aggregate pipeline statistics."""
-        records = list(self._audit_log.values())
-        total = len(records)
-        completed = sum(
-            1 for r in records
-            if r.state in (PipelineState.COMPLETED, PipelineState.COMPLETED_WITH_WARN)
-        )
-        failed = sum(1 for r in records if r.state.is_failure)
-        in_progress = sum(1 for r in records if not r.state.is_terminal)
-        timeouts = sum(1 for r in records if r.state == PipelineState.TIMEOUT)
-
-        durations = [r.duration_seconds for r in records if r.duration_seconds is not None]
-        avg_dur = sum(durations) / len(durations) if durations else None
-
-        by_state: Dict[str, int] = {}
-        for r in records:
-            by_state[r.state.value] = by_state.get(r.state.value, 0) + 1
-
-        by_program: Dict[str, int] = {}
-        for r in records:
-            prog = r.program or "unknown"
-            by_program[prog] = by_program.get(prog, 0) + 1
-
-        return PipelineStats(
-            total_audits=total,
-            completed=completed,
-            failed=failed,
-            in_progress=in_progress,
-            success_rate=(completed / total * 100) if total > 0 else 0.0,
-            avg_duration_seconds=avg_dur,
-            by_state=by_state,
-            by_program=by_program,
-            timeouts=timeouts,
-            last_updated=datetime.now(timezone.utc),
-        )
+        return _query_get_stats(self)
 
     # ── Internal helpers ────────────────────────────────────────
 
     def _get_or_create(self, audit_id: str) -> AuditRecord:
-        if audit_id not in self._audit_log:
-            record = AuditRecord(audit_id=audit_id, chain="", address="")
-            self._audit_log[audit_id] = record
-        return self._audit_log[audit_id]
+        return _query_get_or_create(self, audit_id)
 
     def register_audit(self, chain: str, address: str, program: str, priority: int, use_ai: bool = True) -> str:
-        """Create a new audit record and return its ID."""
-        import uuid
-        audit_id = str(uuid.uuid4())
-        record = AuditRecord(
-            audit_id=audit_id,
-            chain=chain,
-            address=address,
-            program=program,
-            priority=priority,
-            use_ai=use_ai,
-        )
-        self._audit_log[audit_id] = record
-        self._save_audit_log()
-        return audit_id
+        return _query_register_audit(self, chain, address, program, priority, use_ai)
 
     def update_record(self, record: AuditRecord) -> None:
-        self._audit_log[record.audit_id] = record
-        self._save_audit_log()
+        _query_update_record(self, record)
 
 
-__all__ = ["Pipeline"]
-
-# ── Resilient Pipeline Step ─────────────────────────────────────
-
-_rlogger = structlog.get_logger("vyper.orchestrator.pipeline.resilient")
-
-
-class ResilientPipelineStep:
-    """A pipeline step with retry, fallback, and criticality.
-
-    Usage:
-        step = ResilientPipelineStep("scan", max_retries=3, critical=True)
-        result = await step.execute(context, actual_handler)
-    """
-
-    def __init__(
-        self,
-        name: str,
-        max_retries: int = 3,
-        fallback_fn=None,
-        critical: bool = True,
-    ) -> None:
-        self.name = name
-        self.max_retries = max_retries
-        self.fallback_fn = fallback_fn
-        self.critical = critical
-
-    async def execute(self, context: dict, handler) -> dict:
-        """Execute step with retry + fallback logic.
-
-        Args:
-            context: Pipeline context dict
-            handler: Async callable that does the actual work
-
-        Returns:
-            dict with keys: status ("success"|"degraded"|"skipped"), data, error
-        """
-        last_error: Exception | None = None
-
-        for attempt in range(1, self.max_retries + 2):
-            try:
-                result = await handler(context)
-                return {"status": "success", "data": result}
-            except Exception as e:
-                last_error = e
-                if attempt <= self.max_retries:
-                    wait = 2 ** attempt  # Exponential backoff
-                    logger.warning(
-                        "Step %s retry %d/%d in %ds: %s",
-                        self.name, attempt, self.max_retries, wait, e,
-                    )
-                    await asyncio.sleep(wait)
-
-        # All retries exhausted
-        if self.fallback_fn is not None:
-            logger.info("Step %s using fallback", self.name)
-            try:
-                fallback = await self.fallback_fn(context)
-                return {
-                    "status": "degraded",
-                    "data": fallback,
-                    "error": str(last_error),
-                }
-            except Exception as fb_err:
-                last_error = fb_err
-
-        if self.critical:
-            raise RuntimeError(
-                f"Critical step '{self.name}' failed after "
-                f"{self.max_retries + 1} attempts: {last_error}"
-            )
-
-        logger.warning("Step %s skipped (non-critical): %s", self.name, last_error)
-        return {"status": "skipped", "error": str(last_error)}
-
-
-# ── Result status constants ─────────────────────────────────────
-
-class StepStatus:
-    SUCCESS = "success"
-    DEGRADED = "degraded"
-    SKIPPED = "skipped"
-    FAILED = "failed"
+__all__ = ["Pipeline", "ResilientPipelineStep", "StepStatus"]

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 import structlog
 
@@ -126,7 +126,6 @@ class GraphMemory:
         """BFS to find connection paths between node types."""
         start_ids = [nid for nid, nd in self.nodes.items()
                      if from_type is None or nd.get("type") == from_type]
-        target_types = {to_type} if to_type else None
 
         paths: list[list[str]] = []
         for start_id in start_ids:

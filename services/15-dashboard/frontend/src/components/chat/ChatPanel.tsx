@@ -1,4 +1,4 @@
-import { Bot, Trash2, Loader2 } from 'lucide-react'
+import { Bot, Trash2 } from 'lucide-react'
 import { useChat } from './useChat'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'

@@ -16,7 +16,6 @@ import asyncio
 import json
 import os
 import shutil
-import subprocess
 import tempfile
 import time
 import uuid
@@ -310,7 +309,7 @@ class GuidedAnalyzer:
 
         except FileNotFoundError:
             log.warning("mythril_cli_not_found")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             log.warning("mythril_timeout")
         except Exception as e:
             log.warning("mythril_execution_error", error=str(e))

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 
@@ -45,7 +45,7 @@ class SyncManager:
           4. Track new vs updated contests
         """
         sync_id = uuid.uuid4().hex[:12]
-        started = datetime.now(timezone.utc)
+        started = datetime.now(UTC)
         errors: list[str] = []
         contests_new = 0
         contests_updated = 0
@@ -118,21 +118,21 @@ class SyncManager:
             # Step 5: Save contest list
             save_contests(all_contests)
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             status.status = "completed"
             status.completed_at = now.isoformat()
             status.errors = errors
 
         except Exception as e:
             log.error("sync.failed", error=str(e))
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             status.status = "failed"
             status.completed_at = now.isoformat()
             status.errors.append(str(e))
         finally:
             await client.close()
 
-        elapsed = (datetime.now(timezone.utc) - started).total_seconds()
+        elapsed = (datetime.now(UTC) - started).total_seconds()
         status.duration_seconds = round(elapsed, 2)
 
         self._latest_sync = status

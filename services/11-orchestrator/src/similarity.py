@@ -7,10 +7,8 @@ import json
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.config import config
-
 
 # ── Feature extraction helpers ──────────────────────────────────
 
@@ -24,9 +22,9 @@ _USING_RE = re.compile(r"import|from\s+['\"]|pragma\s+solidity")
 _INTERFACE_RE = re.compile(r"interface\s+(\w+)")
 
 
-def _extract_function_signatures(source: str) -> Set[Tuple[str, str]]:
+def _extract_function_signatures(source: str) -> set[tuple[str, str]]:
     """Return set of (name, param_types_string)."""
-    sigs: Set[Tuple[str, str]] = set()
+    sigs: set[tuple[str, str]] = set()
     for m in _SIG_RE.finditer(source):
         name = m.group(1)
         params = m.group(2).strip()
@@ -34,29 +32,29 @@ def _extract_function_signatures(source: str) -> Set[Tuple[str, str]]:
     return sigs
 
 
-def _extract_events(source: str) -> Set[Tuple[str, str]]:
-    events: Set[Tuple[str, str]] = set()
+def _extract_events(source: str) -> set[tuple[str, str]]:
+    events: set[tuple[str, str]] = set()
     for m in _EVENT_RE.finditer(source):
         events.add((m.group(1), m.group(2).strip()))
     return events
 
 
-def _extract_modifiers(source: str) -> Set[str]:
-    mods: Set[str] = set()
+def _extract_modifiers(source: str) -> set[str]:
+    mods: set[str] = set()
     for m in _MODIFIER_RE.finditer(source):
         mods.add(m.group(1))
     return mods
 
 
-def _extract_state_variables(source: str) -> Set[str]:
-    vars_: Set[str] = set()
+def _extract_state_variables(source: str) -> set[str]:
+    vars_: set[str] = set()
     for m in _STATE_VAR_RE.finditer(source):
         vars_.add(m.group(3))  # variable name
     return vars_
 
 
-def _extract_interfaces(source: str) -> Set[str]:
-    ifaces: Set[str] = set()
+def _extract_interfaces(source: str) -> set[str]:
+    ifaces: set[str] = set()
     for m in _INTERFACE_RE.finditer(source):
         ifaces.add(m.group(1))
     return ifaces
@@ -73,16 +71,16 @@ class ContractFingerprint:
 
     def __init__(self, source: str) -> None:
         self.source_hash: str = _source_hash(source)
-        self.function_sigs: Set[Tuple[str, str]] = _extract_function_signatures(source)
-        self.events: Set[Tuple[str, str]] = _extract_events(source)
-        self.modifiers: Set[str] = _extract_modifiers(source)
-        self.state_vars: Set[str] = _extract_state_variables(source)
-        self.interfaces: Set[str] = _extract_interfaces(source)
+        self.function_sigs: set[tuple[str, str]] = _extract_function_signatures(source)
+        self.events: set[tuple[str, str]] = _extract_events(source)
+        self.modifiers: set[str] = _extract_modifiers(source)
+        self.state_vars: set[str] = _extract_state_variables(source)
+        self.interfaces: set[str] = _extract_interfaces(source)
         self.n_functions: int = len(self.function_sigs)
         self.n_state_vars: int = len(self.state_vars)
         self.source_lines: int = source.count("\n") + 1
 
-    def jaccard_similarity(self, other: "ContractFingerprint") -> float:
+    def jaccard_similarity(self, other: ContractFingerprint) -> float:
         """Jaccard index over the union of feature sets."""
         sets_self = [
             self.function_sigs,
@@ -109,7 +107,7 @@ class ContractFingerprint:
             return 0.0
         return total_intersection / total_union
 
-    def structure_similarity(self, other: "ContractFingerprint") -> float:
+    def structure_similarity(self, other: ContractFingerprint) -> float:
         """Penalize large differences in function count and source size."""
         fn_diff = abs(self.n_functions - other.n_functions)
         max_fn = max(self.n_functions, other.n_functions) or 1
@@ -119,7 +117,7 @@ class ContractFingerprint:
         line_factor = 1.0 - (line_diff / max_lines)
         return 0.6 * fn_factor + 0.4 * line_factor
 
-    def combined_similarity(self, other: "ContractFingerprint") -> float:
+    def combined_similarity(self, other: ContractFingerprint) -> float:
         """Weighted combination of Jaccard and structure similarity."""
         j = self.jaccard_similarity(other)
         s = self.structure_similarity(other)
@@ -131,10 +129,10 @@ class ContractFingerprint:
 class ContractSimilarity:
     """Manages contract fingerprints, similarity queries, and clustering."""
 
-    def __init__(self, data_path: Optional[Path] = None) -> None:
+    def __init__(self, data_path: Path | None = None) -> None:
         self._data_path = data_path or config.similarity_file
-        self._fingerprints: Dict[str, ContractFingerprint] = {}  # contract_id -> fingerprint
-        self._clusters: Dict[str, List[str]] = defaultdict(list)  # cluster_id -> contract_ids
+        self._fingerprints: dict[str, ContractFingerprint] = {}  # contract_id -> fingerprint
+        self._clusters: dict[str, list[str]] = defaultdict(list)  # cluster_id -> contract_ids
         self._load()
 
     # ── Persistence ────────────────────────────────────────────
@@ -178,14 +176,14 @@ class ContractSimilarity:
         return fp_a.combined_similarity(fp_b)
 
     def find_similar(
-        self, contract_id: str, threshold: Optional[float] = None
-    ) -> List[Tuple[str, float]]:
+        self, contract_id: str, threshold: float | None = None
+    ) -> list[tuple[str, float]]:
         """Find all known contracts similar above *threshold* (default config)."""
         threshold = threshold if threshold is not None else config.similarity_threshold
         fp = self._fingerprints.get(contract_id)
         if fp is None:
             return []
-        results: List[Tuple[str, float]] = []
+        results: list[tuple[str, float]] = []
         for cid, other_fp in self._fingerprints.items():
             if cid == contract_id:
                 continue
@@ -195,14 +193,14 @@ class ContractSimilarity:
         results.sort(key=lambda x: x[1], reverse=True)
         return results
 
-    def get_fingerprint(self, contract_id: str) -> Optional[ContractFingerprint]:
+    def get_fingerprint(self, contract_id: str) -> ContractFingerprint | None:
         return self._fingerprints.get(contract_id)
 
     # ── Clustering ──────────────────────────────────────────────
 
     def _update_clusters(self, contract_id: str, fp: ContractFingerprint) -> None:
         """Add contract to the best-matching cluster, or create a new one."""
-        best_cluster: Optional[str] = None
+        best_cluster: str | None = None
         best_score = 0.0
         for cluster_id, member_ids in self._clusters.items():
             if not member_ids:
@@ -222,10 +220,10 @@ class ContractSimilarity:
             new_cluster = f"cluster_{len(self._clusters)}"
             self._clusters[new_cluster].append(contract_id)
 
-    def get_clusters(self) -> Dict[str, List[str]]:
+    def get_clusters(self) -> dict[str, list[str]]:
         return dict(self._clusters)
 
-    def get_cluster_for(self, contract_id: str) -> Optional[str]:
+    def get_cluster_for(self, contract_id: str) -> str | None:
         for cid, members in self._clusters.items():
             if contract_id in members:
                 return cid

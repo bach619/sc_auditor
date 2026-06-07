@@ -11,14 +11,16 @@ import os
 import time
 from datetime import datetime, timezone
 from shared.observability import setup_observability
+from shared.api_errors import register_error_handlers
 from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from src.models import (
     ApiResponse,
@@ -69,6 +71,7 @@ app = FastAPI(
     description="API Gateway + Web UI for Vyper Smart Contract Bug Hunter",
     version="1.0.0",
 )
+register_error_handlers(app)
 
 ALLOWED_ORIGINS = [
     "http://localhost:8000",
@@ -89,9 +92,22 @@ logger = setup_observability(app, "15-dashboard", "1.0.0")
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 app.state.limiter = limiter
-app.add_exception_handler(429, _rate_limit_exceeded_handler)
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={
+            "data": None,
+            "meta": {
+                "status": "error",
+                "error": "Rate limit exceeded. Try again later.",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        },
+    )
 
 STATIC_DIR = BASE_DIR / "static"
 
@@ -272,7 +288,9 @@ async def api_daemon_status() -> JSONResponse:
 # ── Audits ──────────────────────────────────────────────────────
 
 @app.get("/api/audits")
+@limiter.limit("100/minute")
 async def api_list_audits(
+    request: Request,
     state: Optional[str] = Query(None),
     program: Optional[str] = Query(None),
     chain: Optional[str] = Query(None),
@@ -377,7 +395,8 @@ async def api_add_to_queue(body: dict) -> JSONResponse:
 # ── Config ──────────────────────────────────────────────────────
 
 @app.get("/api/config")
-async def api_get_config() -> JSONResponse:
+@limiter.limit("100/minute")
+async def api_get_config(request: Request) -> JSONResponse:
     """Get all config (proxies to Config Service)."""
     try:
         result = await proxy.get_all_config()
@@ -388,7 +407,8 @@ async def api_get_config() -> JSONResponse:
 
 
 @app.get("/api/config/{key}")
-async def api_get_config_key(key: str) -> JSONResponse:
+@limiter.limit("100/minute")
+async def api_get_config_key(request: Request, key: str) -> JSONResponse:
     """Get a single config key (proxies to Config Service)."""
     try:
         result = await proxy.get_config(key)
@@ -398,14 +418,24 @@ async def api_get_config_key(key: str) -> JSONResponse:
 
 
 @app.put("/api/config/bulk")
-async def api_set_bulk_config(body: dict) -> JSONResponse:
+@limiter.limit("100/minute")
+async def api_set_bulk_config(request: Request, body: dict) -> JSONResponse:
     """Set multiple config values at once (proxies to Config Service).
 
     WARNING: This route MUST be registered BEFORE `/api/config/{key}`
     to prevent FastAPI from matching ``bulk`` as a ``{key}`` parameter.
+
+    After saving, automatically tells Antonio to reload provider configs
+    so the new API key takes effect immediately.
     """
     try:
         result = await proxy.set_bulk_config(body.get("config", {}))
+        # Auto-reload agent providers so new API keys work immediately
+        try:
+            reload_result = await proxy.reload_agent_providers()
+            logger.info("agent_providers_reloaded", configured=reload_result.get("data", {}).get("configured", 0))
+        except Exception as reload_err:
+            logger.warning("agent_provider_reload_failed", error=str(reload_err))
         return _ok(data=result.get("data"))
     except Exception as e:
         logger.error("Bulk config failed", error=str(e))
@@ -413,7 +443,8 @@ async def api_set_bulk_config(body: dict) -> JSONResponse:
 
 
 @app.put("/api/config/{key}")
-async def api_set_config(key: str, body: dict) -> JSONResponse:
+@limiter.limit("100/minute")
+async def api_set_config(request: Request, key: str, body: dict) -> JSONResponse:
     """Set a config value (proxies to Config Service)."""
     try:
         result = await proxy.set_config(key, body.get("value"))
@@ -835,13 +866,75 @@ async def api_source_code(audit_id: str) -> JSONResponse:
 
 @app.get("/api/reports")
 async def api_list_reports(limit: int = Query(50, ge=1, le=500)) -> JSONResponse:
-    """List generated reports (proxies to Reporter)."""
+    """List generated reports enriched with all bug findings (cases) and severity.
+
+    Returns report files from the Reporter service plus ALL open cases
+    as findings with severity, confidence, status, and contract info.
+    """
     try:
+        # Get report files from Reporter service
         result = await proxy.list_reports(limit=limit)
-        return _ok(data=result.get("data"))
+        reports = result.get("data") or []
+
+        # Enrich every report with ALL open cases as findings
+        from src.storage import list_cases
+        all_cases = list_cases()
+        open_cases = [c for c in all_cases if c.status.value == "OPEN"]
+        closed_cases = [c for c in all_cases if c.status.value == "CLOSED"]
+
+        for report in reports:
+            # Attach all findings to each report so frontend can display them
+            report["findings"] = [
+                {
+                    "case_id": c.case_id,
+                    "title": c.title,
+                    "severity": c.severity,
+                    "status": c.status.value,
+                    "confidence": c.confidence_label,
+                    "contract": c.contract,
+                    "function": c.function,
+                    "created_at": c.created_at,
+                }
+                for c in all_cases
+            ]
+
+            # Severity breakdown across all cases
+            sev_counts: dict[str, int] = {}
+            for c in all_cases:
+                sev = c.severity
+                sev_counts[sev] = sev_counts.get(sev, 0) + 1
+            report["severity_summary"] = sev_counts
+            report["total_findings"] = len(all_cases)
+            report["open_findings"] = len(open_cases)
+            report["closed_findings"] = len(closed_cases)
+
+        return _ok(data=reports)
     except Exception as e:
         logger.error("List reports failed", error=str(e))
         return _err(f"List reports failed: {e}", status_code=502)
+
+
+@app.get("/api/reports/{audit_id}/download")
+async def api_download_report(audit_id: str, format: str = "immunefi") -> JSONResponse:
+    """Download a generated report (proxies to Reporter).
+
+    Serves the report content as a downloadable Markdown file.
+    """
+    try:
+        if format == "immunefi":
+            result = await proxy.get_immunefi_report(audit_id)
+        else:
+            result = await proxy.get_full_report(audit_id)
+        content = result.get("data", {}).get("content", "")
+        filename = f"{audit_id}_{format}.md"
+        return Response(
+            content=content,
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        logger.error("Download report failed", audit_id=audit_id, format=format, error=str(e))
+        return _err(f"Download failed: {e}", status_code=502)
 
 
 @app.get("/api/upkeep/status")

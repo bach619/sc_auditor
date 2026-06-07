@@ -742,8 +742,8 @@ class AgentReasoningClient:
                 pass
             if status == 429:
                 raise RuntimeError(
-                    f"Rate limited by Anthropic (HTTP 429). "
-                    f"Retry will happen automatically with backoff."
+                    "Rate limited by Anthropic (HTTP 429). "
+                    "Retry will happen automatically with backoff."
                 )
             if status in (401, 403):
                 raise RuntimeError(

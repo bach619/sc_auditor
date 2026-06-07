@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import Enum, StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 # ── Agent Task & Session ───────────────────────────────────
 
 
-class AgentRole(str, Enum):
+class AgentRole(StrEnum):
     """Roles in the Vyper Audit Team organization."""
 
     LEAD_AUDITOR = "lead_auditor"
@@ -24,7 +23,7 @@ class AgentRole(str, Enum):
     REPORT_MANAGER = "report_manager"
 
 
-class TaskType(str, Enum):
+class TaskType(StrEnum):
     """Jenis task yang bisa dikerjakan agent."""
 
     CHAT = "chat"                    # Natural language chat — general ReAct
@@ -36,7 +35,7 @@ class TaskType(str, Enum):
     PROGRAM_SYNC = "program_sync"
 
 
-class AgentState(str, Enum):
+class AgentState(StrEnum):
     """State dalam ReAct loop."""
 
     PENDING = "pending"
@@ -60,10 +59,10 @@ class AgentSession(BaseModel):
     steps: list[AgentStep] = Field(default_factory=list)
     error: str | None = None
     created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     updated_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -92,10 +91,10 @@ class TeamSession(BaseModel):
     output_data: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
     created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     updated_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -151,7 +150,7 @@ class MemoryEntry(BaseModel):
     content: Any
     type: Literal["episodic", "semantic", "working"] = "working"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -187,7 +186,7 @@ class ChatMessage(BaseModel):
     role: Literal["user", "assistant"] = "user"
     content: str
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
 
 
@@ -214,7 +213,7 @@ class ChatResponse(BaseModel):
 class Meta(BaseModel):
     status: Literal["ok", "error"] = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     error: str | None = None
 

@@ -89,9 +89,11 @@ img{max-width:100%}
 [data-theme="dark"] .badge-purple{background:#1c1638;color:#a29bfe}
 
 /* Service table */
-.svc-table{font-size:.82em}
-.svc-table th,.svc-table td{padding:.4em .6em}
-.svc-table .port{font-family:var(--mono);font-size:.85em;color:var(--accent)}
+.svc-table{font-size:.82em;min-width:100%}
+.svc-table th,.svc-table td{padding:.4em .6em;vertical-align:top}
+.svc-table td:first-child,.svc-table th:first-child{white-space:nowrap}
+.svc-table .port{font-family:var(--mono);font-size:.85em;color:var(--accent);white-space:nowrap}
+.svc-table .role{font-size:.9em;color:var(--text2);max-width:340px}
 
 /* Pipeline diagram */
 .pipeline{font-family:var(--mono);font-size:.8em;line-height:1.5;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.5em;overflow-x:auto;white-space:pre}
@@ -165,6 +167,7 @@ img{max-width:100%}
     <a href="#storage">Storage Architecture</a>
     <div class="nav-section">Deep Dives</div>
     <a href="#scanner-group">Scanner Group (7)</a>
+    <a href="#severity-levels">Severity Levels</a>
     <a href="#classification">Bug Classification</a>
     <a href="#antonio">Antonio AI Agent</a>
     <a href="#exploit-engine">Exploit Engine</a>
@@ -214,7 +217,7 @@ img{max-width:100%}
   <tr><td>Language</td><td>Python 3.11+ (27) + TypeScript (Dashboard)</td></tr>
   <tr><td>Framework</td><td>FastAPI + React 18 + Tailwind v4 + Vite</td></tr>
   <tr><td>Communication</td><td>HTTP/REST (httpx async)</td></tr>
-  <tr><td>Storage</td><td>JSON + Markdown files (Docker volumes)</td></tr>
+  <tr><td>Storage</td><td>SQLite (28 .db files) — WAL mode, 20MB cache</td></tr>
   <tr><td>Deployment</td><td><code>docker compose up --build -d</code></td></tr>
   <tr><td>Dashboard</td><td><a href="http://localhost:8000" target="_blank">http://localhost:8000</a></td></tr>
 </table>
@@ -345,37 +348,39 @@ docker compose up --scale 04-scanner=3 -d</code></pre>
 <section id="service-catalog">
 <h2>📋 Service Catalog — 28 Services</h2>
 
+<div style="overflow-x:auto;margin:1em 0">
 <table class="svc-table">
-  <tr><th>#</th><th>Service</th><th>Host Port</th><th>Internal Port</th><th>Category</th><th>Depends On</th></tr>
-  <tr><td>01</td><td><strong>config</strong></td><td class="port">8011</td><td class="port">8000</td><td><span class="badge badge-purple">Infra</span></td><td>—</td></tr>
-  <tr><td>02</td><td><strong>immunefi</strong></td><td class="port">8001</td><td class="port">8000</td><td><span class="badge badge-blue">Data</span></td><td>01-config</td></tr>
-  <tr><td>03</td><td><strong>source</strong></td><td class="port">8002</td><td class="port">8000</td><td><span class="badge badge-blue">Data</span></td><td>01-config</td></tr>
-  <tr><td>04</td><td><strong>scanner</strong> (router)</td><td class="port">8003</td><td class="port">8000</td><td><span class="badge badge-purple">Scanner</span></td><td>01, 04a-e, 05</td></tr>
-  <tr><td>04a</td><td><strong>scanner-slither</strong></td><td class="port">8014</td><td class="port">8014</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
-  <tr><td>04b</td><td><strong>scanner-echidna</strong></td><td class="port">8015</td><td class="port">8015</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
-  <tr><td>04c</td><td><strong>scanner-forge</strong></td><td class="port">8016</td><td class="port">8016</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
-  <tr><td>04d</td><td><strong>scanner-halmos</strong></td><td class="port">8017</td><td class="port">8017</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
-  <tr><td>04e</td><td><strong>scanner-manticore</strong></td><td class="port">8020</td><td class="port">8018</td><td><span class="badge badge-purple">Scanner</span></td><td>04a-slither</td></tr>
-  <tr><td>05</td><td><strong>scanner-mythril</strong></td><td class="port">8013</td><td class="port">8013</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
-  <tr><td>06</td><td><strong>ai</strong></td><td class="port">8004</td><td class="port">8000</td><td><span class="badge badge-green">Analysis</span></td><td>01-config</td></tr>
-  <tr><td>07</td><td><strong>classifier</strong></td><td class="port">8005</td><td class="port">8000</td><td><span class="badge badge-green">Analysis</span></td><td>01-config</td></tr>
-  <tr><td>08</td><td><strong>exploit</strong></td><td class="port">8006</td><td class="port">8006</td><td><span class="badge badge-red">Analysis</span></td><td>01-config</td></tr>
-  <tr><td>09</td><td><strong>reporter</strong></td><td class="port">8007</td><td class="port">8007</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
-  <tr><td>10</td><td><strong>notifier</strong></td><td class="port">8008</td><td class="port">8000</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
-  <tr><td>11</td><td><strong>orchestrator</strong></td><td class="port">8009</td><td class="port">8000</td><td><span class="badge badge-purple">Orch</span></td><td>01–10</td></tr>
-  <tr><td>12</td><td><strong>webhook</strong></td><td class="port">8010</td><td class="port">8000</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
-  <tr><td>13</td><td><strong>upkeep</strong></td><td class="port">8012</td><td class="port">8000</td><td><span class="badge badge-purple">Infra</span></td><td>01-config</td></tr>
-  <tr><td>14</td><td><strong>agent (ANTONIO)</strong></td><td class="port">8021</td><td class="port">8000</td><td><span class="badge badge-red">AI Agent</span></td><td>01,02,03,04,06–10</td></tr>
-  <tr><td>15</td><td><strong>dashboard</strong></td><td class="port">8000</td><td class="port">8000</td><td><span class="badge badge-blue">Frontend</span></td><td>11,01,14</td></tr>
-  <tr><td>16</td><td><strong>submission</strong></td><td class="port">8018</td><td class="port">8000</td><td><span class="badge badge-green">Platform</span></td><td>01,02,03,06,08,11</td></tr>
-  <tr><td>17</td><td><strong>experience</strong></td><td class="port">8019</td><td class="port">8019</td><td><span class="badge badge-green">Learning</span></td><td>01-config</td></tr>
-  <tr><td>18</td><td><strong>code4rena</strong></td><td class="port">8022</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
-  <tr><td>19</td><td><strong>sherlock</strong></td><td class="port">8023</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
-  <tr><td>20</td><td><strong>cantina</strong></td><td class="port">8024</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
-  <tr><td>21</td><td><strong>hats</strong></td><td class="port">8025</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
-  <tr><td>22</td><td><strong>source-starknet</strong></td><td class="port">8026</td><td class="port">8000</td><td><span class="badge badge-purple">Multi-Chain</span></td><td>01-config</td></tr>
-  <tr><td>23</td><td><strong>scanner-cairo</strong></td><td class="port">8028</td><td class="port">8000</td><td><span class="badge badge-purple">Multi-Chain</span></td><td>01,22</td></tr>
+  <tr><th>#</th><th>Service</th><th>Role / Function</th><th>Host Port</th><th>Internal Port</th><th>Category</th><th>Depends On</th></tr>
+  <tr><td>01</td><td><strong>config</strong></td><td>Central configuration store — single source of truth for all service settings read via HTTP at startup</td><td class="port">8011</td><td class="port">8000</td><td><span class="badge badge-purple">Infra</span></td><td>—</td></tr>
+  <tr><td>02</td><td><strong>immunefi</strong></td><td>Immunefi bounty program syncer — fetches, caches, and monitors 234+ programs &amp; their scopes</td><td class="port">8001</td><td class="port">8000</td><td><span class="badge badge-blue">Data</span></td><td>01-config</td></tr>
+  <tr><td>03</td><td><strong>source</strong></td><td>Smart contract source code fetcher — pulls verified source from Etherscan, Sourcify, GitHub, Blockscout</td><td class="port">8002</td><td class="port">8000</td><td><span class="badge badge-blue">Data</span></td><td>01-config</td></tr>
+  <tr><td>04</td><td><strong>scanner</strong> (router)</td><td>Scan dispatch router — receives scan requests and routes to the appropriate tool-specific scanner service</td><td class="port">8003</td><td class="port">8000</td><td><span class="badge badge-purple">Scanner</span></td><td>01, 04a-e, 05</td></tr>
+  <tr><td>04a</td><td><strong>scanner-slither</strong></td><td>Static analysis via Slither — detects reentrancy, unchecked calls, inheritance issues, control flow bugs</td><td class="port">8014</td><td class="port">8014</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>04b</td><td><strong>scanner-echidna</strong></td><td>Fuzzing via Echidna — property-based invariant testing; finds edge-case state violations</td><td class="port">8015</td><td class="port">8015</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>04c</td><td><strong>scanner-forge</strong></td><td>Build verification via Foundry Forge — compiles contracts, runs unit tests, validates deployed bytecode</td><td class="port">8016</td><td class="port">8016</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>04d</td><td><strong>scanner-halmos</strong></td><td>Symbolic execution via Halmos — formal verification through path exploration and SMT solving</td><td class="port">8017</td><td class="port">8017</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>04e</td><td><strong>scanner-manticore</strong></td><td>Symbolic execution via Manticore — targets HIGH/CRITICAL severity bugs with deep state space exploration</td><td class="port">8020</td><td class="port">8018</td><td><span class="badge badge-purple">Scanner</span></td><td>04a-slither</td></tr>
+  <tr><td>05</td><td><strong>scanner-mythril</strong></td><td>Symbolic execution via Mythril — deep path exploration with taint analysis and constraint solving</td><td class="port">8013</td><td class="port">8013</td><td><span class="badge badge-purple">Scanner</span></td><td>01-config</td></tr>
+  <tr><td>06</td><td><strong>ai</strong></td><td>LLM analysis layer — provides AI verdict on findings (stripped to pure delegation; controlled by Antonio)</td><td class="port">8004</td><td class="port">8000</td><td><span class="badge badge-green">Analysis</span></td><td>01-config</td></tr>
+  <tr><td>07</td><td><strong>classifier</strong></td><td>Bug classification engine — labels each finding as True Positive, False Positive, True Negative, or False Negative</td><td class="port">8005</td><td class="port">8000</td><td><span class="badge badge-green">Analysis</span></td><td>01-config</td></tr>
+  <tr><td>08</td><td><strong>exploit</strong></td><td>Exploit PoC engine — spawns ephemeral Anvil fork containers to prove vulnerabilities via on-chain execution</td><td class="port">8006</td><td class="port">8006</td><td><span class="badge badge-red">Analysis</span></td><td>01-config</td></tr>
+  <tr><td>09</td><td><strong>reporter</strong></td><td>Report generator — produces immunefi.md (submission-ready) and full.md (internal audit) reports</td><td class="port">8007</td><td class="port">8007</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
+  <tr><td>10</td><td><strong>notifier</strong></td><td>Alert dispatcher — sends notifications via Discord webhook, Telegram bot, and email on audit events</td><td class="port">8008</td><td class="port">8000</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
+  <tr><td>11</td><td><strong>orchestrator</strong></td><td>Pipeline hub — priority queue + 8-stage state machine; coordinates all audit stages with retry &amp; saga rollback</td><td class="port">8009</td><td class="port">8000</td><td><span class="badge badge-purple">Orch</span></td><td>01–10</td></tr>
+  <tr><td>12</td><td><strong>webhook</strong></td><td>External trigger receiver — accepts webhooks from GitHub, CI/CD, and custom integrations</td><td class="port">8010</td><td class="port">8000</td><td><span class="badge badge-blue">Output</span></td><td>01-config</td></tr>
+  <tr><td>13</td><td><strong>upkeep</strong></td><td>Maintenance daemon — prunes old artifacts, cleans stale data, performs periodic health checks</td><td class="port">8012</td><td class="port">8000</td><td><span class="badge badge-purple">Infra</span></td><td>01-config</td></tr>
+  <tr><td>14</td><td><strong>agent (ANTONIO)</strong></td><td><strong>Absolute AI controller</strong> — ReAct loop, vector memory, delegated control over all services; the single brain of VYPER</td><td class="port">8021</td><td class="port">8000</td><td><span class="badge badge-red">AI Agent</span></td><td>01,02,03,04,06–10</td></tr>
+  <tr><td>15</td><td><strong>dashboard</strong></td><td>React SPA frontend + API gateway — user interface proxying all backend services via ServiceProxy</td><td class="port">8000</td><td class="port">8000</td><td><span class="badge badge-blue">Frontend</span></td><td>11,01,14</td></tr>
+  <tr><td>16</td><td><strong>submission</strong></td><td>Semi-automated Immunefi submission handler — formats, validates, and submits bug reports to bounty platforms</td><td class="port">8018</td><td class="port">8000</td><td><span class="badge badge-green">Platform</span></td><td>01,02,03,06,08,11</td></tr>
+  <tr><td>17</td><td><strong>experience</strong></td><td>Learning feedback engine — stores structured learning data (SQLite), user feedback, and pattern evolution</td><td class="port">8019</td><td class="port">8019</td><td><span class="badge badge-green">Learning</span></td><td>01-config</td></tr>
+  <tr><td>18</td><td><strong>code4rena</strong></td><td>Code4rena platform integration — syncs and monitors C4 audit contests, fetches repos &amp; findings</td><td class="port">8022</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
+  <tr><td>19</td><td><strong>sherlock</strong></td><td>Sherlock platform integration — syncs and monitors Sherlock audit contests for DeFi protocols</td><td class="port">8023</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
+  <tr><td>20</td><td><strong>cantina</strong></td><td>Cantina platform integration — syncs and monitors Cantina bounty programs and contests</td><td class="port">8024</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
+  <tr><td>21</td><td><strong>hats</strong></td><td>Hats Finance platform integration — syncs and monitors on-chain bounty vaults and governance</td><td class="port">8025</td><td class="port">8000</td><td><span class="badge badge-blue">Platform</span></td><td>01-config</td></tr>
+  <tr><td>22</td><td><strong>source-starknet</strong></td><td>StarkNet source code fetcher — pulls Cairo contract source from Voyager, StarkScan, and GitHub</td><td class="port">8026</td><td class="port">8000</td><td><span class="badge badge-purple">Multi-Chain</span></td><td>01-config</td></tr>
+  <tr><td>23</td><td><strong>scanner-cairo</strong></td><td>StarkNet/Cairo scanner — static analysis and symbolic execution for Cairo 1.0+ smart contracts</td><td class="port">8028</td><td class="port">8000</td><td><span class="badge badge-purple">Multi-Chain</span></td><td>01,22</td></tr>
 </table>
+</div>
 
 <blockquote>
 <strong>⚠️ Port Convention:</strong> Services expose <strong>Host Port</strong> (what you access from browser) and <strong>Internal Port</strong> (what other containers use inside the Docker network). When services call each other, they use the <strong>internal port</strong> (usually 8000) + the Docker service name (e.g., <code>http://06-ai:8000</code>).
@@ -407,6 +412,55 @@ docker compose up --scale 04-scanner=3 -d</code></pre>
   <li><strong>Resource limits:</strong> Mythril (heavy) gets 2 CPU/4GB RAM, Forge (light) gets 0.5 CPU/512MB</li>
   <li><strong>Independent updates:</strong> Upgrade Manticore without touching other scanners</li>
 </ul>
+</section>
+
+<hr>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SEVERITY LEVELS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<section id="severity-levels">
+<h2>📊 Severity Levels — Full Spectrum</h2>
+
+<p>VYPER handles <strong>all 5 severity levels</strong>, not just HIGH/CRITICAL. Every finding from every scanner passes through the full pipeline — AI analysis, classification, reporting — regardless of severity.</p>
+
+<h3>The 5-Tier Spectrum</h3>
+<table>
+  <tr><th>Level</th><th>Classifier Value</th><th>Description</th><th>Auto-TP?</th></tr>
+  <tr><td>🔴 <strong>Critical</strong></td><td><code>critical</code></td><td>Direct loss of funds, no user interaction needed</td><td>✅ Yes (confidence ≥ 0.9)</td></tr>
+  <tr><td>🟠 <strong>High</strong></td><td><code>high</code></td><td>Loss of funds possible with some conditions</td><td>✅ Yes (confidence ≥ 0.9)</td></tr>
+  <tr><td>🟡 <strong>Medium</strong></td><td><code>medium</code></td><td>Indirect risk, requires specific state/inputs</td><td>❌ Manual only</td></tr>
+  <tr><td>🟢 <strong>Low</strong></td><td><code>low</code></td><td>Best-practice deviation, no direct exploit path</td><td>❌ Manual only</td></tr>
+  <tr><td>🔵 <strong>Info</strong></td><td><code>info</code></td><td>Informational note, gas optimization, code quality</td><td>❌ Manual only</td></tr>
+</table>
+
+<h3>Scanner Severity Filtering</h3>
+<table>
+  <tr><th>Scanner</th><th>Spectrum</th><th>Filters?</th><th>Reason</th></tr>
+  <tr><td><strong>Slither</strong> (04a)</td><td>Critical → Info</td><td>❌ No</td><td>Static analysis is fast — report everything</td></tr>
+  <tr><td><strong>Echidna</strong> (04b)</td><td>All levels</td><td>❌ No</td><td>Fuzzing finds edge cases at any severity</td></tr>
+  <tr><td><strong>Forge</strong> (04c)</td><td>N/A</td><td>N/A</td><td>Build verification only — no security findings</td></tr>
+  <tr><td><strong>Halmos</strong> (04d)</td><td>All levels</td><td>❌ No</td><td>Symbolic execution reports all counterexamples</td></tr>
+  <tr><td><strong>Manticore</strong> (04e)</td><td><strong>HIGH/CRITICAL ONLY</strong></td><td>✅ Yes</td><td>Symbolic exec is expensive — focus on material impact</td></tr>
+  <tr><td><strong>Mythril</strong> (05)</td><td><strong>HIGH/CRITICAL ONLY</strong></td><td>✅ Yes</td><td>Same resource trade-off as Manticore</td></tr>
+  <tr><td><strong>Cairo</strong> (23)</td><td>Critical → Low</td><td>❌ No</td><td>Full spectrum for StarkNet contracts</td></tr>
+</table>
+
+<h3>Pipeline Behavior by Severity</h3>
+<table>
+  <tr><th>Pipeline Stage</th><th>Critical/High</th><th>Medium/Low/Info</th></tr>
+  <tr><td><strong>AI Analysis</strong> (06)</td><td>✅ Always analyzed</td><td>✅ Always analyzed</td></tr>
+  <tr><td><strong>Classification</strong> (07)</td><td>✅ Auto-TP (confidence ≥ 0.9)</td><td>✅ Manual classify (pattern match + AI verdict)</td></tr>
+  <tr><td><strong>Exploit PoC</strong> (08)</td><td>✅ Generated if ≥ 1 Critical/High</td><td>⚠️ Skipped if no Critical/High present</td></tr>
+  <tr><td><strong>immunefi.md</strong> (09)</td><td>✅ Included if TP</td><td>✅ Included if TP</td></tr>
+  <tr><td><strong>full.md</strong> (09)</td><td>✅ Always included</td><td>✅ Always included</td></tr>
+  <tr><td><strong>Submission</strong> (16)</td><td>✅ Can submit</td><td>✅ Can submit (default severity: medium)</td></tr>
+  <tr><td><strong>Notification</strong> (10)</td><td>✅ Counted in summary</td><td>⚠️ Not prioritized in alert text</td></tr>
+</table>
+
+<blockquote>
+<strong>💡 Design Rationale:</strong> Manticore and Mythril are the only scanners that filter output to HIGH/CRITICAL — symbolic execution is computationally expensive (~5–30 min per contract), so resources are focused on material-impact bugs. Slither, Echidna, and Halmos are fast enough to report every finding. The Orchestrator (11) will skip exploit PoC generation if no Critical/High exist, but Medium/Low/Info findings still flow through classification, reporting, and submission.
+</blockquote>
 </section>
 
 <hr>
@@ -536,36 +590,64 @@ docker compose up --scale 04-scanner=3 -d</code></pre>
 <section id="storage">
 <h2>💾 Storage Architecture</h2>
 
-<h3>JSON File-Based Storage</h3>
-<p><strong>No database engines.</strong> All data stored as JSON files in Docker volumes. The only exception is <strong>17-experience</strong> which uses SQLite for structured learning data.</p>
+<h3>SQLite-First (28 .db files)</h3>
+<p><strong>All 28 services use SQLite</strong> as their primary storage engine, controlled by <code>STORAGE_ENGINE=sqlite</code>. Each service owns its own <code>.db</code> file — <strong>no shared database, no external DB server</strong>. One service = one SQLite file. WAL mode for concurrent reads/writes, 20MB page cache.</p>
 
-<pre><code>~/.vyper/
-├── config/config.json              # Global config
-├── immunefi/programs/{slug}.json   # Per program (234+)
-├── source/contracts/{chain}/{addr}/# Source cache
-├── scanner/results/{audit_id}/     # Scan results per tool
-├── ai/cache/{hash}.json            # LLM response cache
-├── classifier/metrics.json         # TP/FP/TN/FN metrics
-├── exploit/results/{id}/           # PoC scripts + results
-├── reporter/reports/{audit_id}/    # immunefi.md + full.md
-├── learning/feedback.json          # User feedback
-└── experience/*.db                 # SQLite (17-experience only)</code></pre>
+<pre><code>/data/
+├── config/config.db                # 01 — Global configuration
+├── immunefi/immunefi.db            # 02 — Programs, contracts, history
+├── source/source.db                # 03 — Contract source code cache
+├── scanner/store.db                # 04 — Scan router jobs &amp; results
+├── scanner-slither/store.db        # 04a — Slither findings
+├── scanner-echidna/store.db        # 04b — Echidna fuzzing results
+├── scanner-forge/store.db          # 04c — Build verification
+├── scanner-halmos/store.db         # 04d — Symbolic exec results
+├── scanner-manticore/store.db      # 04e — CRITICAL/HIGH findings
+├── scanner-mythril/store.db        # 05 — Mythril analysis
+├── ai/ai_cache.db                  # 06 — LLM response cache
+├── classifier/classifier.db        # 07 — TP/FP/TN/FN classifications
+├── exploit/exploit.db              # 08 — PoC exploit results
+├── reporter/store.db               # 09 — Report metadata
+├── notifier/store.db               # 10 — Delivery logs
+├── orchestrator/orchestrator.db    # 11 — Audit pipeline state
+├── webhook/store.db                # 12 — Webhook delivery logs
+├── upkeep/store.db                 # 13 — Platform metrics
+├── agent/memory.db                 # 14 — Agent memory (episodic+semantic)
+├── dashboard/store.db              # 15 — Case management + health
+├── submission/store.db             # 16 — Submission tracker
+├── experience/global.db            # 17 — Cross-agent learning (native sqlite3)
+├── code4rena/store.db              # 18 — C4 contest listings
+├── sherlock/store.db               # 19 — Sherlock contests
+├── cantina/store.db                # 20 — Cantina programs
+├── hats/store.db                   # 21 — Hats vaults
+├── source-starknet/store.db        # 22 — Cairo source cache
+└── scanner-cairo/store.db          # 23 — Cairo scan findings</code></pre>
 
-<h3>Why JSON, Not SQL?</h3>
+<h3>Why SQLite?</h3>
 <table>
-  <tr><th>Factor</th><th>Database</th><th>JSON Files</th></tr>
-  <tr><td>Setup</td><td>Install, config, migrations</td><td><code>mkdir -p ~/.vyper/</code></td></tr>
-  <tr><td>Backup</td><td>Tool-specific</td><td><code>cp -r ~/.vyper/ backup/</code></td></tr>
-  <tr><td>Portability</td><td>Bound to version</td><td>Git, rsync, zip</td></tr>
-  <tr><td>Debugging</td><td>Need query tools</td><td><code>vim</code>, <code>grep</code>, <code>jq</code></td></tr>
+  <tr><th>Factor</th><th>SQLite</th><th>JSON Files (legacy)</th></tr>
+  <tr><td>Query</td><td><strong>SQL</strong> — filter, sort, join, aggregate</td><td><code>grep</code>, <code>jq</code>, scan all files</td></tr>
+  <tr><td>Concurrency</td><td><strong>WAL mode</strong> — concurrent reads + 1 writer</td><td>Read full file, write full file</td></tr>
+  <tr><td>Atomicity</td><td><strong>ACID</strong> — BEGIN IMMEDIATE, rollback</td><td>Write to .tmp → rename (manual)</td></tr>
+  <tr><td>Performance</td><td><strong>Indexed</strong> — B-tree lookups, 20MB cache</td><td>Linear scan all files</td></tr>
+  <tr><td>Integrity</td><td><strong>PRAGMA integrity_check</strong>, auto-backup</td><td>Corrupt JSON = data loss</td></tr>
+  <tr><td>Migration</td><td>Schema versioned, <code>CREATE IF NOT EXISTS</code></td><td>Manual migration per file</td></tr>
+</table>
+
+<h3>Storage Engine Modes</h3>
+<table>
+  <tr><th>Mode</th><th><code>STORAGE_ENGINE</code></th><th>Behavior</th></tr>
+  <tr><td><strong>SQLite (default)</strong></td><td><code>sqlite</code></td><td>Read/write only to SQLite .db files</td></tr>
+  <tr><td><strong>Dual</strong></td><td><code>dual</code></td><td>Write to both SQLite + JSON (safe migration)</td></tr>
+  <tr><td><strong>JSON (legacy)</strong></td><td><code>json</code></td><td>JSON files only (rollback option)</td></tr>
 </table>
 
 <h3>Data Ownership Rules</h3>
 <ul>
-  <li>Each service has its own Docker volume</li>
-  <li>Services never read another service's files directly</li>
-  <li>Config read-only for all services (accessed via HTTP)</li>
-  <li>Shared volumes: <code>vyper_learning</code> (classifier + orchestrator), <code>vyper_kb</code> (classifier + exploit)</li>
+  <li>Each service owns exactly <strong>one SQLite .db file</strong> — no cross-service DB access</li>
+  <li>Services communicate via <strong>HTTP/REST</strong>, never via shared database</li>
+  <li>Config (01) is the only service read by others — accessed via HTTP API</li>
+  <li><code>STORAGE_ENGINE</code> env var controls per-service storage mode</li>
 </ul>
 </section>
 

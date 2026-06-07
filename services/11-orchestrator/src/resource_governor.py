@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from enum import Enum
-from typing import Dict, Optional
+from enum import StrEnum
 
 
-class ToolType(str, Enum):
+class ToolType(StrEnum):
     SCANNER = "scanner"
     AI = "ai"
     CLASSIFIER = "classifier"
@@ -30,7 +29,7 @@ class ResourceGovernor:
         max_concurrent_scans: int = 2,
         max_concurrent_ai: int = 1,
     ) -> None:
-        self._semaphores: Dict[ToolType, asyncio.Semaphore] = {
+        self._semaphores: dict[ToolType, asyncio.Semaphore] = {
             ToolType.SCANNER: asyncio.Semaphore(max_concurrent_scans),
             ToolType.AI: asyncio.Semaphore(max_concurrent_ai),
             ToolType.CLASSIFIER: asyncio.Semaphore(2),
@@ -38,7 +37,7 @@ class ResourceGovernor:
             ToolType.SOURCE: asyncio.Semaphore(3),
             ToolType.REPORTER: asyncio.Semaphore(2),
         }
-        self._max_counts: Dict[ToolType, int] = {
+        self._max_counts: dict[ToolType, int] = {
             ToolType.SCANNER: max_concurrent_scans,
             ToolType.AI: max_concurrent_ai,
             ToolType.CLASSIFIER: 2,
@@ -63,7 +62,7 @@ class ResourceGovernor:
 
     # ── Context-manager based acquire / release ─────────────────
 
-    async def acquire(self, tool_type: ToolType) -> "ResourceGuard":
+    async def acquire(self, tool_type: ToolType) -> ResourceGuard:
         """Acquire a slot; blocks until one is free. Returns an async context manager."""
         await self._semaphores[tool_type].acquire()
         return ResourceGuard(governor=self, tool_type=tool_type)
@@ -72,7 +71,7 @@ class ResourceGovernor:
         """Release a slot. Called by ResourceGuard on context exit."""
         self._semaphores[tool_type].release()
 
-    async def __aenter__(self) -> "ResourceGovernor":
+    async def __aenter__(self) -> ResourceGovernor:
         return self
 
     async def __aexit__(self, *args: object) -> None:

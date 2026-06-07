@@ -11,11 +11,10 @@ This test validates the cross-pollination feedback loop:
 
 from __future__ import annotations
 
-import json
 import sys
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Generator
 
 import pytest
 
@@ -24,7 +23,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "services"))
 from shared.knowledge_base import (
     ConfirmedFinding,
     KnowledgeRepository,
-    KnowledgeStats,
 )
 
 

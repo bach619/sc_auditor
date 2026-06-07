@@ -18,18 +18,15 @@ Types of auto-generated invariants:
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from datetime import UTC, datetime
+from enum import StrEnum
 
 logger = logging.getLogger("vyper.ai_invariants")
 
 
-class InvariantType(str, Enum):
+class InvariantType(StrEnum):
     TOKEN = "token"              # totalSupply == sum(balances)
     MATH = "math"                # No overflow/underflow
     ACCESS = "access"            # Only authorized callers
@@ -53,7 +50,7 @@ class Invariant:
     confidence: float = 0.5
     generated_by: str = "AI"
     iteration: int = 0
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class AIInvariantGenerator:
@@ -137,7 +134,7 @@ class AIInvariantGenerator:
         lines = [
             "// SPDX-License-Identifier: MIT",
             "// Auto-generated invariants by AIInvariantGenerator",
-            "// Generated at: " + datetime.now(timezone.utc).isoformat(),
+            "// Generated at: " + datetime.now(UTC).isoformat(),
             "",
             "pragma solidity ^0.8.0;",
             "",
@@ -150,7 +147,7 @@ class AIInvariantGenerator:
             lines.append(f"    // {inv.name}: {inv.description}")
             lines.append(f"    function {inv.invariant_id}() public {{")
             lines.append(f"        {inv.solidity_code}")
-            lines.append(f"    }}")
+            lines.append("    }")
             lines.append("")
 
         lines.append("}")

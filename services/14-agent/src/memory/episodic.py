@@ -6,16 +6,16 @@ Every episode = one audit cycle:
 Used for:
   - Agent mengingat "waktu terakhir audit contract ini, begini hasilnya"
   - Learning dari kegagalan: "waktu itu PoC gagal, coba approach berbeda"
-  
+
 Storage: ~/.sc_auditor/learning/episodic.json
 """
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 import structlog
 
@@ -58,7 +58,7 @@ class EpisodicMemory(BaseMemory):
 
     async def store_episode(self, episode: dict[str, Any]) -> str:
         """Store a full audit episode with metadata."""
-        episode.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+        episode.setdefault("timestamp", datetime.now(UTC).isoformat())
         entry = MemoryEntry(
             content=episode.get("summary", json.dumps(episode, default=str)),
             metadata={

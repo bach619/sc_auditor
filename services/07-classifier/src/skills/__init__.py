@@ -1,13 +1,15 @@
 """07-classifier — Bug Classification Skills."""
 from shared.skills.op_skills import (
     AlgorithmAnalyzerSkill,
-    MathVerifierSkill,
     ComplexityAnalyzerSkill,
     DataStructureOptimizerSkill,
+    MathVerifierSkill,
 )
-from .classify_finding import ClassifyFindingSkill
+
 from .analyze_patterns import AnalyzePatternsSkill
+from .classify_finding import ClassifyFindingSkill
 from .compute_metrics import ComputeMetricsSkill
+
 
 def create_registry():
     from shared.skills.skill_registry import SkillRegistry

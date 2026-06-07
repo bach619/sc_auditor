@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
+from src.detectors import DETECTOR_REGISTRY, run_detector
 from vyper_lib.models.chain_adapter import (
     Chain,
     ChainAdapter,
@@ -13,7 +14,6 @@ from vyper_lib.models.chain_adapter import (
     ContractSource,
     Language,
 )
-from src.detectors import DETECTOR_REGISTRY, run_detector
 
 log = structlog.get_logger()
 
@@ -160,7 +160,7 @@ class CairoAdapter(ChainAdapter):
             metadata={"simulated": True, "reason": "Compilation not performed in scanner"},
         )
 
-    async def to_ir(self, parsed_or_compiled: Any, source: ContractSource) -> Dict[str, Any]:
+    async def to_ir(self, parsed_or_compiled: Any, source: ContractSource) -> dict[str, Any]:
         parsed = parsed_or_compiled
 
         storage_layout: dict[int, dict[str, Any]] = {}
@@ -225,10 +225,10 @@ class CairoAdapter(ChainAdapter):
 
         return ir
 
-    async def get_detectors(self) -> List[str]:
+    async def get_detectors(self) -> list[str]:
         return sorted(DETECTOR_REGISTRY.keys())
 
-    async def analyze(self, ir_contract: Dict[str, Any], detectors: List[str]) -> Dict[str, Any]:
+    async def analyze(self, ir_contract: dict[str, Any], detectors: list[str]) -> dict[str, Any]:
         findings: list[dict[str, Any]] = []
         detector_results: dict[str, list[dict[str, Any]]] = {}
 

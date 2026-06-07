@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   build:
     name: Build Docker Images
@@ -19,6 +23,12 @@ jobs:
           - 02-immunefi
           - 03-source
           - 04-scanner
+          - 04a-scanner-slither
+          - 04b-scanner-echidna
+          - 04c-scanner-forge
+          - 04d-scanner-halmos
+          - 04e-scanner-manticore
+          - 05-scanner-mythril
           - 06-ai
           - 07-classifier
           - 08-exploit
@@ -30,12 +40,43 @@ jobs:
           - 14-agent
           - 15-dashboard
           - 16-submission
+          - 17-experience
+          - 18-code4rena
+          - 19-sherlock
+          - 20-cantina
+          - 21-hats
+          - 22-source-starknet
+          - 23-scanner-cairo
+
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=,format=short
 
       - name: Cache Docker layers
         uses: actions/cache@v4
@@ -45,25 +86,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-${{ matrix.service }}
 
-      - name: Build ${{ matrix.service }}
+      - name: Build and push ${{ matrix.service }}
         uses: docker/build-push-action@v6
         with:
           context: services/${{ matrix.service }}
           file: services/${{ matrix.service }}/Dockerfile
-          load: true
-          tags: vyper/${{ matrix.service }}:latest
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-      # Scanner services with root-level context
-      - name: Build scanner services
+      - name: Build scanner services (root context)
         if: startsWith(matrix.service, '04') || matrix.service == '05-scanner-mythril'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: services/${{ matrix.service }}/Dockerfile
-          load: true
-          tags: vyper/${{ matrix.service }}:latest
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Move cache
         run: |

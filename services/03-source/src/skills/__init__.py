@@ -1,13 +1,14 @@
 """03-Source Agent Skills — Source code intelligence and analysis."""
 from shared.skills.op_skills import (
     AlgorithmAnalyzerSkill,
-    MathVerifierSkill,
     ComplexityAnalyzerSkill,
     DataStructureOptimizerSkill,
+    MathVerifierSkill,
 )
-from .fetch_source import FetchSourceSkill
+
 from .analyze_dependencies import AnalyzeDependenciesSkill
 from .detect_upgrades import DetectUpgradesSkill
+from .fetch_source import FetchSourceSkill
 
 
 def create_registry():

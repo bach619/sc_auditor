@@ -13,15 +13,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 
 from src.batch import BatchProcessor
 from src.config import config
-from src.models import DaemonState, DaemonStatus, PipelineState, QueueItem
+from src.models import DaemonState, DaemonStatus, QueueItem
 from src.pipeline import Pipeline
 from src.priority import PriorityScorer
 
@@ -48,8 +47,8 @@ class Daemon:
         self._batch = batch_processor
         self._scorer = priority_scorer
         self._state = DaemonState()
-        self._task: Optional[asyncio.Task] = None
-        self._client: Optional[httpx.AsyncClient] = None
+        self._task: asyncio.Task | None = None
+        self._client: httpx.AsyncClient | None = None
         self._load_state()
 
     @property
@@ -87,7 +86,7 @@ class Daemon:
             return self._state
 
         self._state.status = DaemonStatus.RUNNING
-        self._state.started_at = datetime.now(timezone.utc)
+        self._state.started_at = datetime.now(UTC)
         self._state.last_error = None
         self._save_state()
 
@@ -107,7 +106,7 @@ class Daemon:
             self._task = None
 
         self._state.status = DaemonStatus.STOPPED
-        self._state.stopped_at = datetime.now(timezone.utc)
+        self._state.stopped_at = datetime.now(UTC)
         self._save_state()
         logger.info("Daemon stopped")
         return self._state
@@ -121,7 +120,7 @@ class Daemon:
         """Continuously run scan cycles until cancelled."""
         try:
             while True:
-                cycle_start = datetime.now(timezone.utc)
+                cycle_start = datetime.now(UTC)
                 logger.info("Daemon cycle starting")
 
                 try:
@@ -156,7 +155,15 @@ class Daemon:
             raise
 
     async def _run_cycle(self) -> None:
-        """Single daemon cycle: sync → score → queue → process."""
+        """Single daemon cycle: cleanup → sync → score → queue → process."""
+
+        # 0. Recover stuck audits before processing new items
+        try:
+            result = await self._pipeline.resume_stuck_audits()
+            if result["total_stuck"] > 0:
+                logger.info("Stuck audit recovery: %s", result)
+        except Exception as exc:
+            logger.exception("Stuck audit recovery failed: %s", exc)
 
         # 1. Sync Immunefi programs
         programs = await self._sync_immunefi_programs()
@@ -170,7 +177,7 @@ class Daemon:
                     program=program,
                     chain=contract.get("chain", "ethereum"),
                     program_slug=program.get("slug", ""),
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                 )
                 contract_id = f"{contract.get('chain', 'ethereum')}:{contract.get('address', '')}"
                 queue_item = QueueItem(
@@ -217,7 +224,7 @@ class Daemon:
             return []
 
     @staticmethod
-    def _extract_contracts(program: Dict[str, Any]) -> list:
+    def _extract_contracts(program: dict[str, Any]) -> list:
         """Extract contract addresses from an Immunefi program object."""
         contracts = []
         # Try various shapes of Immunefi API response

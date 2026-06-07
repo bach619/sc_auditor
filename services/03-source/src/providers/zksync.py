@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 
 import httpx
 import structlog
 
 from src.models import SourceResult
-from src.providers import SourceProvider
 
 log = structlog.get_logger()
 
@@ -45,7 +43,7 @@ class ZkSyncProvider:
                 if resp.status_code == 404:
                     return None
                 resp.raise_for_status()
-                info = resp.json()
+                resp.json()
             except (httpx.RequestError, httpx.HTTPStatusError, json.JSONDecodeError) as exc:
                 log.warning("zksync.request_failed", address=address, error=str(exc))
                 return None

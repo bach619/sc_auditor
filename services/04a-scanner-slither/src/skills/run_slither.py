@@ -5,14 +5,13 @@ FP Pattern Match → Noise Filter → AI Verify → Score → Rank → Enrich.
 """
 
 from pathlib import Path
-from typing import Any
 
 import structlog
 from shared.skills.base_skill import BaseSkill
 
-from src.slither import SlitherRunner
 from src.intelligence.classifier import ContractClassifier, ContractType
 from src.intelligence.pipeline import QualityPipeline
+from src.slither import SlitherRunner
 
 log = structlog.get_logger()
 

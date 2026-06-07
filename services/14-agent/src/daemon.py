@@ -20,7 +20,7 @@ import httpx
 import structlog
 
 from src.agent import AgentLoop
-from src.models import AgentState, TaskType
+from src.models import AgentState
 
 log = structlog.get_logger()
 

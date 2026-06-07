@@ -19,17 +19,18 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "services/15-dashboard"))
 
-from src.models import CaseCreate, CaseStatus, ClosedReason, ScannerFinding
-from src.storage import close_case, create_case, get_case
+from src.models import CaseCreate, ClosedReason, ScannerFinding
+from src.storage import close_case, create_case
 
 
 @pytest.fixture(autouse=True)
 def _patch_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     """Redirect SC_AUDITOR_DIR to a temp directory."""
     tmp = Path(tempfile.mkdtemp())
-    monkeypatch.setattr("src.storage.SC_AUDITOR_DIR", tmp)
-    monkeypatch.setattr("src.storage.CASES_DIR", tmp / "cases")
-    monkeypatch.setattr("src.storage.LEARNING_DIR", tmp / "learning")
+    import src.storage as _stor
+    _stor.SC_AUDITOR_DIR = tmp
+    _stor.CASES_DIR = tmp / "cases"
+    _stor.LEARNING_DIR = tmp / "learning"
     (tmp / "cases").mkdir(parents=True, exist_ok=True)
     (tmp / "learning").mkdir(parents=True, exist_ok=True)
 

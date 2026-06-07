@@ -13,9 +13,9 @@ import structlog
 from src.models import ContractMetadata, SourceResult
 from src.providers import SourceProvider
 from src.providers.blockscout import BlockscoutProvider
+from src.providers.eth_call import EthCallProvider
 from src.providers.etherscan import EtherscanProvider
 from src.providers.etherscan_chain import EtherscanChainProvider
-from src.providers.eth_call import EthCallProvider
 from src.providers.fork_aware import ForkAwareGitHubProvider
 from src.providers.github import GitHubProvider
 from src.providers.routescan import RoutescanProvider

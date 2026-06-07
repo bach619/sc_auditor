@@ -34,6 +34,7 @@ from src.models import (
 from src.storage import SubmissionStorage
 from shared.observability import setup_observability
 from shared.agent_protocol.models import DelegationRequest, NegotiationRequest
+from shared.api_errors import register_error_handlers
 from src.webhook_handler import handle_classify_intent_request, handle_immunefi_webhook
 
 SERVICE_NAME = "submission"
@@ -94,6 +95,8 @@ app = FastAPI(
     version=SERVICE_VERSION,
     lifespan=lifespan,
 )
+
+register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
