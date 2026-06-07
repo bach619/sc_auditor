@@ -2,6 +2,7 @@
 
 ## 2026-06-07
 
+### `2026-06-07 07:02 | [DOCS] | File: docs.html | Agent: lore-master | [sqlite-migration] Update Storage Architecture section: SQLite-first (28 .db files), WAL mode, storage engine mode table, hapus narasi JSON-only legacy`
 ### `2026-06-07 07:01 | [CONFIG] | File: docker-compose.yml | Agent: lore-master | [sqlite-migration] Ubah STORAGE_ENGINE=dual menjadi STORAGE_ENGINE=sqlite untuk semua 28 service — menjadikan SQLite primary storage engine`
 ### `2026-06-07 07:01 | [CONFIG] | File: services/06-ai/app.py | Agent: lore-master | [sqlite-migration] Wire 06-ai cache ke SQLite — tambah SimpleSQLiteStore + AI_SCHEMA_SQL di AppState + lifespan; schema: analysis_cache`
 ### `2026-06-07 07:01 | [CONFIG] | File: services/03-source/app.py | Agent: lore-master | [sqlite-migration] Wire 03-source ke SQLite — tambah SimpleSQLiteStore + SOURCE_SCHEMA_SQL di lifespan; schema: contracts, fetch_history`
