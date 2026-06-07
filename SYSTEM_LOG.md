@@ -2,6 +2,7 @@
 
 ## 2026-06-07
 
+### `2026-06-07 20:28 | [FIX] | File: services/11-orchestrator/app.py | Agent: lore-master | Rerun 21 timed-out sparklend audits via /rerun endpoint — now actively processing (in_progress: 22)`
 ### `2026-06-07 20:26 | [FIX] | File: services/11-orchestrator/src/pipeline.py | Agent: lore-master | Cleanup: 18 zombie sparklend audits timed out (stuck 53h+ in SCANNING/CLASSIFYING/RECLASSIFYING/INTELLIGENCE_CORRELATION states)`
 ### `2026-06-07 20:26 | [CREATE] | File: services/11-orchestrator/app.py | Agent: lore-master | Add POST /admin/cleanup-stuck endpoint — manual trigger for stuck audit cleanup with configurable max_stuck_hours parameter`
 ### `2026-06-07 20:26 | [MODIFY] | File: services/11-orchestrator/src/daemon.py | Agent: lore-master | Integrate stuck audit recovery at start of each daemon cycle — calls pipeline.resume_stuck_audits() before processing new queue items`
