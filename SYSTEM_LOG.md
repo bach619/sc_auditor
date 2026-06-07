@@ -2,6 +2,7 @@
 
 ## 2026-06-07
 
+### `2026-06-07 07:01 | [CONFIG] | File: services/02-immunefi/* | Agent: lore-master | [sqlite-migration] Wire 02-immunefi ke SQLite — tambah init_sqlite(), SimpleSQLiteStore, IMMUNEFI_SCHEMA_SQL di state.py + lifespan app.py + health route; schema: programs, program_chains, program_history`
 ### `2026-06-07 06:28 | [DOCS] | File: docs.html | Agent: lore-master | Tambah kolom Role/Function ke Service Catalog table — menjelaskan fungsi dan peran masing-masing 28 service (config, immunefi, source, scanners, ai, classifier, exploit, reporter, notifier, orchestrator, webhook, upkeep, agent/ANTONIO, dashboard, submission, experience, code4rena, sherlock, cantina, hats, source-starknet, scanner-cairo)`
 
 ## 2026-06-06
